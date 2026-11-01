@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">llama.droid</string>
+    <string name="hello">llama.droid — T3 minimal APK</string>
+</resources>
