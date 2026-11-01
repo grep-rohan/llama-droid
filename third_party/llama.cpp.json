@@ -1,0 +1,238 @@
+{
+  "release": "b12020",
+  "source_commit": "0ec4027a2a0183de87c007069adddc6e665f7de",
+  "archive_url": "https://github.com/ggml-org/llama.cpp/releases/download/b12020/llama-b12020-bin-android-arm64.tar.gz",
+  "archive_size": 78982432,
+  "archive_sha256": "64717fce80d758c220345864a0e69788aa1488ffe4f4b85e322155fdd1beaeec",
+  "platform": {
+    "os": "Android",
+    "arch": "arm64",
+    "abi": "arm64-v8a",
+    "interpreter": "/system/bin/linker64",
+    "elf_type": "ET_DYN (shared object)",
+    "pt_load_alignment": "0x4000 (16 KiB)"
+  },
+  "payloads": [
+    {
+      "member": "llama-b12020/llama-server",
+      "apk_name": "libllama-server.so",
+      "description": "Server launcher (ET_DYN, 7192 bytes)",
+      "sha256": "db82377125f69e87c06b402bba1af072e2a4c4cc9945946e4d6378cc213a84d7",
+      "dt_needed": [
+        "libllama-server-impl.so",
+        "libllama-common.so",
+        "libmtmd.so",
+        "libllama.so",
+        "libggml.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libllama-server-impl.so",
+      "apk_name": "libllama-server-impl.so",
+      "description": "Server implementation with embedded WebUI assets",
+      "sha256": "419049ba6587c6a5f737619c10d642d3727c2c2603fa357ea845ce15cb1af94b",
+      "dt_needed": [
+        "libllama-common.so",
+        "libmtmd.so",
+        "libllama.so",
+        "libggml.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libllama-common.so",
+      "apk_name": "libllama-common.so",
+      "description": "Common library",
+      "sha256": "6c8778809ed09eb5e84009881b1d993f05a41634350109ddb6781ea9bccde82d",
+      "dt_needed": [
+        "libllama.so",
+        "libggml.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libmtmd.so",
+      "apk_name": "libmtmd.so",
+      "description": "Multi-modal text detection library",
+      "sha256": "b725d56ac048d7629087954e9cbfe6105c7d24712d1689ad3f2cbba19b7782f6",
+      "dt_needed": [
+        "libllama.so",
+        "libggml.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libllama.so",
+      "apk_name": "libllama.so",
+      "description": "Core llama library",
+      "sha256": "1d19c0d1e210368a383d4214d954f6de04dd1e132f8350a95d86bec34e7ffb21",
+      "dt_needed": [
+        "libggml.so",
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml.so",
+      "apk_name": "libggml.so",
+      "description": "GGML tensor library",
+      "sha256": "7afc34347098112e4feb1a4bc753597a107de47eb72c2190a30ed1d681df00a3",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-base.so",
+      "apk_name": "libggml-base.so",
+      "description": "GGML base library (leaf dependency)",
+      "sha256": "e3bce1d54e1227a5890f02fbaa123f40ee27c004278cca981a225808605ce6e1",
+      "dt_needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv8.0_1.so",
+      "apk_name": "libggml-cpu-android_armv8.0_1.so",
+      "description": "CPU backend for ARMv8.0",
+      "sha256": "b40796f5c25297dc0c5c45ebb0493551a7339d5f0d94a3c3283266922edc5efe",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv8.2_1.so",
+      "apk_name": "libggml-cpu-android_armv8.2_1.so",
+      "description": "CPU backend for ARMv8.2",
+      "sha256": "d75114220b6e98e69e393bd83ad0deedc5f683d6e0a5d558d14fee852d879db8",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv8.2_2.so",
+      "apk_name": "libggml-cpu-android_armv8.2_2.so",
+      "description": "CPU backend for ARMv8.2 (variant 2)",
+      "sha256": "92e86f5f2094e329043cba6e584aeb292b75a8005d023d948e82968872f7431e",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv8.6_1.so",
+      "apk_name": "libggml-cpu-android_armv8.6_1.so",
+      "description": "CPU backend for ARMv8.6",
+      "sha256": "d590576aa30bc9f2aad62173db8176a361e510e095bade9fbff6f8ffe057e3d2",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv9.0_1.so",
+      "apk_name": "libggml-cpu-android_armv9.0_1.so",
+      "description": "CPU backend for ARMv9.0",
+      "sha256": "ca5b0f2d6aa03c0afe8a24102028bb90185d4675e6735ce995fa36946cc60a76",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv9.2_1.so",
+      "apk_name": "libggml-cpu-android_armv9.2_1.so",
+      "description": "CPU backend for ARMv9.2",
+      "sha256": "5a9c63641ce54a7f530ad0c7f67ed762362bbd19a68f61eb6e0e80d1f9a9d1b6",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "member": "llama-b12020/libggml-cpu-android_armv9.2_2.so",
+      "apk_name": "libggml-cpu-android_armv9.2_2.so",
+      "description": "CPU backend for ARMv9.2 (variant 2)",
+      "sha256": "d61441c3efbfcc3586bf15f1084209c4aed593fdc6d683b48241893537cc785c",
+      "dt_needed": [
+        "libggml-base.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    }
+  ],
+  "excluded": [
+    "libggml-rpc.so",
+    "ggml-rpc-server",
+    "llama",
+    "llama-batched-bench",
+    "llama-bench",
+    "llama-cli",
+    "llama-completion",
+    "llama-fit-params",
+    "llama-gemma3-cli",
+    "llama-gguf-split",
+    "llama-imatrix",
+    "llama-llava-cli",
+    "llama-minicpmv-cli",
+    "llama-mtmd-cli",
+    "llama-mtmd-debug",
+    "llama-perplexity",
+    "llama-quantize",
+    "llama-qwen2vl-cli",
+    "llama-results",
+    "llama-tokenize",
+    "llama-tts",
+    "libllama-batched-bench-impl.so",
+    "libllama-bench-impl.so",
+    "libllama-cli-impl.so",
+    "libllama-completion-impl.so",
+    "libllama-fit-params-impl.so",
+    "libllama-perplexity-impl.so",
+    "libllama-quantize-impl.so"
+  ],
+  "notes": {
+    "rpc_backend": "libggml-rpc.so and ggml-rpc-server are RPC infrastructure, excluded from APK.",
+    "cli_tools": "llama-* CLI executables are excluded; only the server binary is packaged.",
+    "impl_libraries": "libllama-*-impl.so libraries are build artifacts not required at runtime.",
+    "embedded_ui": "libllama-server-impl.so contains embedded WebUI assets (index.html references, asset data sections, gzip support). No separate WebUI asset files in this archive.",
+    "no_rpath": "No RPATH or RUNPATH found in any library; runtime linker resolution is used.",
+    "no_libcxx": "No separate libc++_shared.so dependency observed; Android platform C++ runtime is used.",
+    "cpu_backend_discovery": "CPU backend libraries are dynamically discovered by the backend loader; GGML_BACKEND_PATH should not be set to the native library directory.",
+    "alignment_warning": "All sampled ELFs have 0x4000 (16 KiB) PT_LOAD alignment. Verify against actual device page size (adb shell getconf PAGE_SIZE) during physical testing."
+  }
+}

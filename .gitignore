@@ -1,0 +1,27 @@
+# Cache and downloaded artifacts
+.cache/
+
+# Native stage (generated from archive)
+app/src/main/jniLibs/
+
+# Build outputs
+app/build/
+build/
+.gradle/
+
+# Local SDK paths (host-specific)
+!docs/BUILDING.md
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Third-party license text is committed; do not ignore it
+# third_party/llama.cpp-LICENSE  ← committed
