@@ -1,6 +1,73 @@
 # Native Build Verification (T8)
 
-## Current isolated-branch update — blocker 3 host packaging verified
+## Current isolated-branch update — blocker 4 auditor verified
+
+User authorized the standalone auditor after `a69a90e`. Added
+`scripts/verify_apk.py` and adversarial tests; the opt-in packaging suite
+also invokes the shipped CLI against real APKs built in disposable copies.
+No Android source, Gradle policy, native payload or original checkout changed.
+
+```bash
+python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
+python scripts/tests/check_native_packaging.py -v
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug --rerun-tasks
+```
+
+Results on the same documented Windows/Python/JDK/SDK host:
+
+- Red: focused auditor tests failed to import the not-yet-implemented
+  module; this was an error, not a zero-test success.
+- Green: **94 host tests pass: 50 importer + 44 auditor**, no skips.
+  Fixtures exercise exact pinned inventory/hashes, ABI/ELF sanity, source
+  attribution, unsafe/duplicate/case/NUL paths, links/special entries,
+  directories, utility/staging leaks, renamed ELF/GGUF, CRC/size errors,
+  encryption/compression policy, ZIP64/multi-disk/resource preflight and
+  read-only/CLI contracts. Native fixtures are structural bytes, never run.
+  A Windows fixture was corrected to put actual backslashes in ZIP headers
+  rather than testing the writer's already-normalized safe name.
+- **12 Gradle/APK integration tests pass in 91.001s**; positive checks now
+  invoke the new auditor CLI inside disposable project/stage copies.
+- Forced JVM/lint regression: **BUILD SUCCESSFUL in 17s, 35 executed
+  tasks**; JUnit XML confirms **19 pass, no failures/errors/skips**.
+  Lint: 0 errors, the same 4 existing warnings. No new APK assembly in this
+  step; the previously built real APK was not modified.
+
+Real CLI result: **ZIP/payload audit passed**, 79,208,764 bytes,
+SHA-256 `19c39bfbb8315d8deb0de5efab9b7f1ffe2b9c68f5306907e6c6b2086afba2b1`
+(unchanged). Thirty ZIP entries, 269,605,833 bytes declared uncompressed;
+all fourteen native files match provenance; attribution matches source.
+No extraction, download, ELF execution or binary-XML decoding was attempted.
+The CLI explicitly says SDK manifest/signing/device checks are **not
+verified by this tool**. It never switches to size-only monolithic mode.
+
+Separate SDK `apkanalyzer manifest print` was rerun against that same APK
+(hash checked before/after): exit 0; correct package, SDK 26/35,
+extraction=true, debug=true, one unexported Activity, no permissions,
+aliases, services, receivers, providers or native-library declarations.
+This separate result does not make the auditor a binary-manifest decoder
+or prove installed extraction/executable permissions/linker behavior.
+
+Resource/format policy: standard non-prefixed, single-disk, non-ZIP64 ZIP;
+<=512 MiB APK, <=8 MiB central directory, <=10,000 entries, <=256 MiB/member,
+<=1 GiB total uncompressed, <=1 MiB per attribution source, <=100 findings.
+Metadata preflight precedes ZIP object construction; member reads/hash/CRC
+are streamed. Limits fit the actual artifact, not an arbitrary APK promise.
+Name/magic checks cover listed ZIP members, not nested archives, arbitrary
+obfuscation, signing-block contents or general malware analysis.
+
+Local outputs: `.cache/blocker4-{red,green,audit,packaging,regression}.log`,
+`.cache/blocker4-sdk-manifest.xml`, `.cache/blocker4-sdk-stderr.log`;
+per-case/CLI integration logs under `.cache/blocker3/`. These are ignored
+evidence outputs, not required source inputs.
+
+**Still pending:** Checkpoint B review of current packaging/launcher,
+bounded instrumentation, full clean-Git-checkout reproduction and physical
+S25 proof. T5 installed extraction stays unchecked; T8 is not complete
+merely because the current APK audit passes. No native startup/inference/
+WebUI success or device compatibility is claimed.
+
+## Isolated branch snapshot — blocker 3 host packaging verified
 
 The user authorized fail-closed Gradle packaging on `fix/native-runtime`
 after `32de970`. Source changes: `app/build.gradle.kts`, plus the opt-in

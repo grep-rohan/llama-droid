@@ -1,12 +1,12 @@
 # Build Instructions
 
-> **Isolated branch: blockers 1–3 host work verified.**
-> On `fix/native-runtime`, 50 importer tests, 19 JVM tests and 12 opt-in
-> Gradle/APK integration checks pass. A clean native debug APK build/lint
+> **Isolated branch: blockers 1–4 host work verified.**
+> On `fix/native-runtime`, 94 host tests (50 importer + 44 APK auditor),
+> 19 JVM tests and 12 opt-in Gradle/APK integration checks pass. A clean native debug APK build/lint
 > passes; packaged payload hashes, attribution and SDK manifest were checked.
 > Installed extraction/permissions/linking and S25 execution remain unproven.
-> The original dirty checkout and stage remain untouched. Standalone auditor,
-> instrumentation and clean-checkout/device evidence remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
+> The original dirty checkout and stage remain untouched. Instrumentation
+> and clean-checkout/device evidence remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No native execution
 > or WebUI success is claimed.
 
@@ -257,29 +257,62 @@ Gradle (see the task plan). Compilation alone does not execute these tests.
 
 ## APK audit (T8)
 
-The intended ZIP audit checks payload integrity, ABI, attribution and
-absence of GGUF weights. **The reviewed auditor is not implemented on this
-branch yet.** The original dirty auditor crashed on binary-manifest UTF-8
-decoding and used size-only monolithic acceptance; do not copy those
-assumptions. Inspect the packaged manifest separately with SDK `apkanalyzer`
-as described in [the build checklist](verification/native-build.md).
+The standalone `scripts/verify_apk.py` is implemented and the real native
+APK passes. It is read-only: no extraction, mutation, download, native
+execution or binary-XML text decoding. The CLI uses committed provenance
+and attribution sources, with no alternate/size-only monolithic mode.
+Always inspect the binary manifest separately with SDK `apkanalyzer` as
+shown in [the build evidence](verification/native-build.md); that separate
+check was repeated against the same audited APK/hash.
 
 ```powershell
 python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Host tests for the auditor:
+Exit 0 means **ZIP/payload scope passed**, not Android compatibility. The
+CLI prints the audited size/SHA-256 and explicitly says SDK manifest,
+signing and device checks are not verified by this tool. Exit 1 reports
+bounded diagnostics; invalid CLI usage exits 2.
+
+Checks:
+- Exact allowlisted ARM64 native names, pinned hashes, ELF header sanity and
+  legacy DEFLATE compression; no missing/extra backend or ABI. A single
+  oversized launcher never enables a merge mode.
+- Attribution assets byte-identical to nonempty `third_party/` sources;
+  nonempty `AndroidManifest.xml` present, but its contents are not decoded.
+- Duplicate/case-aliased/NUL/unsafe paths, links/special records, staging
+  controls, excluded utility names and native files outside the allowlist.
+- GGUF suffixes and renamed-member GGUF/ELF magic, regular-file CRCs and
+  declared sizes, encryption/unsupported compression and directory records.
+- Standard, non-prefixed single-disk ZIP only; ZIP64 is rejected. Preflight
+  bounds metadata before ZIP parsing: APK <=512 MiB, directory <=8 MiB,
+  <=10,000 entries; streaming limits are 256 MiB/member and 1 GiB total
+  uncompressed. Attribution sources <=1 MiB; at most 100 findings reported.
+
+These limits fit the inspected pinned APK (30 entries, 269,605,833 bytes
+uncompressed). They are not broad APK compatibility or malware guarantees.
+Content checks inspect directory-listed member names/signatures, not nested
+archives, arbitrary obfuscation or APK signing-block contents. Do not modify
+the APK during audit; tie separate SDK/device evidence to its printed hash.
+
+Fast auditor tests (44); full host discovery now runs 94 tests:
 
 ```powershell
 python -m unittest discover -s scripts/tests -p 'test_verify_apk.py' -v
+python -m unittest discover -s scripts/tests -p 'test_*.py' -v
 ```
+
+The twelve opt-in packaging tests also invoke the shipped auditor CLI on
+real APKs built inside disposable projects. No SDK/device execution is
+inferred from synthetic ZIP fixtures or from the auditor's success.
 
 ## Unresolved prerequisites
 
 The minimal Views/direct-process launcher source set is now isolated and
 host-verified. Safe staging and fail-closed packaging are verified against
-fixtures and the pinned archive/native APK. A standalone native APK auditor,
-instrumentation and complete clean-checkout reproduction are still
+fixtures and the pinned archive/native APK, and the standalone auditor
+passes with separate SDK manifest evidence. Current packaging/launcher
+review, instrumentation and complete clean-checkout reproduction are still
 required before device testing. The physical S25 must be
 connected and authorized. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

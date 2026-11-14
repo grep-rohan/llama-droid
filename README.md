@@ -29,17 +29,17 @@ included here and not evidence of server or WebUI compatibility.
 |---|---|---|
 | T1 | Artifact provenance boundary | Archive/ELF rechecked; source commit transcription corrected |
 | T2 | Pinned Gradle wrapper & toolchain | Historical completion retained |
-| T3 | Minimal Views APK | Clean build/lint pass; no native payload |
+| T3 | Minimal Views APK | Platform Views scaffold compiled; no native launch UI |
 | T4 | Verified native payload staging | 50 tests + real fourteen-file stage verification pass |
 | T5 | Package exact native payload | Host packaging verified; installed extraction pending T9 |
 | T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
 | T7 | Bounded app-context smoke harness | Pending reviewed implementation |
-| T8 | Clean-build APK audit | Current APK inspected; standalone auditor/clean-checkout proof pending |
+| T8 | Clean-build APK audit | Standalone audit + SDK checks pass; harness/clean-checkout proof pending |
 | T9 | Physical S25 verification | Blocked: host prerequisites and no attached device |
 
-**Evidence on the isolated branch (blockers 1–3 host work):**
-- **Host-tested:** 19 launcher JVM tests, 50 importer tests and 12 opt-in
-  real Gradle/APK integration checks pass.
+**Evidence on the isolated branch (blockers 1–4 host work):**
+- **Host-tested:** 94 Python tests (50 importer + 44 auditor), 19 launcher
+  JVM tests and 12 opt-in real Gradle/APK integration checks pass.
   Staging tests cover real duplicate tar entries, ELF/receipt validation,
   copy/publication/rollback failures, concurrency and hard process exit.
 - **Stage-inspected:** real pinned archive stages exactly fourteen unchanged
@@ -47,15 +47,20 @@ included here and not evidence of server or WebUI compatibility.
   dependency/ELF evidence; full source commit was checked against upstream.
 - **Compiled:** clean debug APK build and lint pass; lint has four warnings,
   zero errors. Platform Views Activity has no production dependencies/listener.
-- **APK-inspected:** fourteen ARM64 native ZIP entries match pinned hashes;
-  attribution matches source bytes, no extra natives/RPC/GGUF/receipt.
+- **APK-inspected:** the standalone ZIP/payload auditor passes for the real
+  APK: fourteen pinned ARM64 native files, source-identical attribution,
+  no detected extra natives/RPC/GGUF/staging content or duplicate ZIP names.
   SDK `apkanalyzer` confirms SDK 26/35, extraction=true, no permissions or
   exported Activity/services/receivers/providers. Compression/extraction
   configuration is not proof of installed permissions/linking/execution.
 - **Device-tested:** none. Physical S25 proof remains blocked.
-- **Pending:** standalone auditor (next decision), instrumentation,
-  clean-checkout/device evidence. T5's installed extraction clause remains
-  unchecked until T9; host packaging success does not complete the module.
+- **Pending:** current packaging/launcher review, bounded instrumentation,
+  clean-checkout/device evidence (next decision). T5's installed extraction
+  clause remains unchecked until T9; host success does not complete the module.
+
+The auditor never decodes binary XML or verifies APK signing/device behavior.
+Its success message explicitly scopes these out; resource/format limits and
+content-detection limitations are documented in [BUILDING](docs/BUILDING.md#apk-audit-t8).
 
 The earlier 34-Python-test count, disabled stage gate, binary-manifest audit
 crash and merge proposal describe the **original dirty checkout**, not this

@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -85,6 +86,16 @@ class NativePackagingTests(unittest.TestCase):
                                         ("NOTICE.md", "THIRD_PARTY_NOTICES.txt")):
                 self.assertEqual((self.project / "third_party" / source).read_bytes(),
                                  apk.read("assets/" + destination))
+
+        # Exercise the shipped CLI against the real APK in the disposable project,
+        # in addition to the independent ZIP assertions above. No SDK claims here.
+        audit = subprocess.run([sys.executable, str(self.project / "scripts/verify_apk.py"), str(self.apk)],
+                               cwd=self.project, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=60)
+        (self.logs / "standalone-audit.log").write_text(audit.stdout + audit.stderr, encoding="utf-8")
+        self.assertEqual(0, audit.returncode, audit.stdout + audit.stderr)
+        self.assertIn("ZIP/payload audit passed", audit.stdout)
+        self.assertIn("not verified", audit.stdout)
 
     def test_exact_native_bytes_attribution_and_no_unrelated_payload(self):
         self.build("exact-payload")
