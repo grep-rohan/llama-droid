@@ -12,6 +12,7 @@ build/
 __pycache__/
 
 # Local SDK paths (host-specific)
+local.properties
 !docs/BUILDING.md
 
 # IDE

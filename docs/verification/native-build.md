@@ -1,6 +1,55 @@
 # Native Build Verification (T8)
 
-## Isolated branch evidence — blocker 1 resolved
+## Current isolated-branch update — blocker 2 resolved
+
+User selected option A: retain the fourteen byte-preserved prebuilt payloads
+and repair staging. No merge/relink/stripping/toolchain change was made.
+
+Commands run from `D:/workspace/projects/llama-droid-native-runtime`:
+
+```bash
+python -m unittest discover -s scripts/tests -p 'test_import_llama_release.py' -v
+python scripts/import_llama_release.py ../llama-droid/.cache/llama-b12020-bin-android-arm64.tar.gz
+python scripts/import_llama_release.py --verify-only
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug --rerun-tasks
+```
+
+- Red: 43 new host tests against the old importer failed with 32 failures
+  and 56 errors/subtest errors. Failures included unasserted duplicate paths,
+  wrong flat layout, missing receipt/ELF checks and unsafe publication.
+- Green: **50 host tests pass**, including selected/unselected unsafe tar
+  entries, matching-hash wrong-ELF fixtures, strict receipt/provenance,
+  actual partial output, rename/rollback/marker failures, concurrent writer
+  rejection and child-process hard exit after old-stage rename with retry.
+  Tests used structural ELF fixtures, not executable fake native binaries.
+  Staged link/junction flags are injected for portable fail-closed branch
+  tests; tar link rejection uses real archive metadata. Windows host tested;
+  Unix locking implementation and physical power-loss durability untested.
+- Regression: `:app:testDebugUnitTest :app:lintDebug --rerun-tasks` passed
+  in 21s, all 32 tasks executed; **19 JVM tests, zero failures/errors/skips**
+  reconfirmed. Lint: zero errors, the same four existing warnings.
+- Test host Python: **3.14.7**; importer uses only the standard library.
+- Real archive import: exact **14 payloads + receipt**, all original digests
+  unchanged. Verification succeeds without mutation or network access.
+- Independent NDK 27.2.12479018 / LLVM 18.0.3 inspection on every staged ELF
+  matches architecture/type/alignment/dependencies, with no RPATH/RUNPATH.
+  Interpreter only on launcher; embedded UI symbols reconfirmed. See
+  [artifact evidence](native-artifact.md) for provenance/API details.
+- Full source commit transcription corrected against upstream tag/release;
+  URL, release, archive hash and all payload hashes unchanged.
+- Native outputs, receipt and transaction controls are ignored. The source
+  archive was read from the other checkout; its stage/source remained intact.
+
+Local logs: `.cache/blocker2-{red,green,regression,readelf,ui-symbols}.log`.
+They are not committed build inputs. Failed imports persist an intent marker
+and fail verification until successful retry; see [safe recovery](../BUILDING.md#failedinterrupted-staging-and-safe-retry).
+
+**Not a native build result:** no `assembleDebug` was run in blocker 2, so
+the existing APK remains blocker 1's no-native scaffold/hash below. T5 must
+wire the read-only verifier into Gradle and prove packaging/attribution;
+instrumentation, native APK audit and physical S25 launch remain pending.
+
+## Isolated branch snapshot — blocker 1 resolved
 
 User selected option A: isolated branch/worktree `fix/native-runtime` at
 `D:/workspace/projects/llama-droid-native-runtime`, based on `4641a20`.
@@ -32,7 +81,8 @@ python -m unittest discover -s scripts/tests -p 'test_*.py' -v
 - Final clean build: **BUILD SUCCESSFUL in 29s**, 50 executed tasks.
 - Lint: **0 errors, 4 warnings**: `RedundantLabel`, two `GradleDependency`
   suggestions, `ChromeOsAbiSupport`. No version/ABI changes to silence them.
-- Existing importer suite: **22 pass**; acceptance gaps remain (blocker 2).
+- At blocker 1: **22 importer tests passed with gaps**; superseded by the
+  50-test suite in the current blocker-2 results above.
 - Checked merged manifest: minSdk 26/targetSdk 35, no permissions, exported
   activities, services, receivers or providers. No new launch/test endpoint.
 - Launcher payload-name set matches all fourteen provenance entries.

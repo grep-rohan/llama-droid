@@ -6,7 +6,7 @@ This project includes binary artifacts from **llama.cpp**, developed by the **gg
 
 - **Project:** [llama.cpp](https://github.com/ggml-org/llama.cpp)
 - **Release:** b12020
-- **Source commit:** `0ec4027a2a0183de87c007069adddc6e665f7de`
+- **Source commit:** `0ec4027a2a0183de87c007069adddc06e665f7de`
 - **Archive:** [llama-b12020-bin-android-arm64.tar.gz](https://github.com/ggml-org/llama.cpp/releases/download/b12020/llama-b12020-bin-android-arm64.tar.gz)
 
 ## License

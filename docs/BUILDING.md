@@ -1,9 +1,10 @@
 # Build Instructions
 
-> **Isolated branch: blocker 1 verified, native workflow still pending.**
-> On `fix/native-runtime`, 19 launcher JVM tests and a clean no-native APK
-> build/lint pass. The original dirty checkout and stage remain untouched.
-> Staging safety fixes, native packaging, instrumentation/auditor and S25
+> **Isolated branch: blockers 1–2 verified; native packaging is next.**
+> On `fix/native-runtime`, 19 launcher JVM tests and 50 importer host tests
+> pass. The fourteen-file native stage passes digest/ELF/receipt checks;
+> native extraction/launch is not proven. The original dirty checkout and
+> stage remain untouched. Gradle packaging, instrumentation/auditor and S25
 > execution remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No native execution
 > or WebUI success is claimed.
@@ -58,7 +59,8 @@ The wrapper validates the distribution SHA-256 automatically via `distributionSh
 
 ## Staging native payloads (T4 → T5)
 
-Before building, stage the verified native payloads from the upstream archive:
+Obtain the pinned archive using the [plan's acquisition commands](../tasks/plan.md#exact-artifact-and-verification-commands),
+then stage it (the archive may be outside the worktree; it is read-only input):
 
 ```powershell
 $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
@@ -66,11 +68,44 @@ python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar
 python scripts/import_llama_release.py --verify-only
 ```
 
-The approved stage is fourteen byte-preserved files in
-`app/src/main/jniLibs/arm64-v8a/` plus `.payload_receipt.json`. This branch
-retains the committed no-merge importer; receipt/ELF validation and safety
-tests still need repair (blocker 2). No payload is staged here yet. Preserve
-the original checkout's genuine stage during investigation.
+The verified stage is fourteen byte-preserved files in
+`app/src/main/jniLibs/arm64-v8a/` plus `.payload_receipt.json`. The importer
+never downloads, merges, strips or relinks. It checks the archive size/hash
+before copying, scans all tar entries for duplicates/unsafe paths/links/
+special files, copies only the explicit flat APK names, checks each digest
+and ELF64 little-endian AArch64 ET_DYN header, then writes a versioned
+receipt containing archive identity, release/commit and payload mapping.
+The isolated stage was successfully produced and reverified with the real
+pinned archive; all fourteen digests remain unchanged.
+
+### Failed/interrupted staging and safe retry
+
+The importer prepares a complete temporary sibling candidate and receipt
+before renaming directories. An OS lock excludes concurrent imports;
+the persistent `.arm64-v8a.lock` file is normal and must not be deleted
+while a process might hold it. A `.arm64-v8a.importing` intent marker or
+`.arm64-v8a.previous` backup makes verification fail closed, even if the
+old payload bytes are intact. The marker is cleared only after complete
+successful publication. Copy/receipt/publish failures preserve or restore
+old bytes where possible; failure to roll back is reported with the backup
+path. Missing archives and Ctrl+C also leave the stage unaccepted.
+
+**Recovery:** fix the reported cause, then rerun the full import with the
+pinned archive and `--verify-only`. Do not remove a marker or forge a receipt
+to bypass the failure. A successful retry recovers an interrupted backup
+rename and replaces the stage. Abandoned `.arm64-v8a.candidate-*` siblings
+from a hard exit are never accepted as the stage; remove only those known
+generated folders after confirming no import is active, if disk cleanup is
+needed. Never clean the original checkout or unrelated user files.
+
+`--verify-only` checks transaction state both before and after its read,
+requires exactly the allowlisted regular files and strict receipt, rejects
+links/junctions/unexpected directories, and recomputes hashes/ELF headers.
+It does not create, extract, download, repair or acquire a writer lock.
+Exit codes: 0 success, 1 verification/import failure, 2 invalid CLI usage,
+130 interrupted CLI. Use `--staging-dir DIR`, not a positional directory
+with `--verify-only`. Ordinary process interruption was tested; physical
+power-loss durability and Android native execution were not.
 
 The intended Gradle `verifyNativeStage` gate must reject absent, tampered,
 or unexpected payloads before native packaging. **It is not yet implemented
@@ -81,8 +116,10 @@ when implementing it here, use the explicit directory option:
 python scripts/import_llama_release.py --verify-only --staging-dir app/src/main/jniLibs/arm64-v8a
 ```
 
-Passing this manual digest check is not proof of build-gate enforcement,
-receipt validation, APK integrity, extraction, or native execution.
+Passing this manual stage check includes receipt/ELF validation, but is
+not proof of build-gate enforcement, APK integrity, extraction or native
+execution. The current APK is still the earlier no-native scaffold; no
+native APK was rebuilt as part of blocker 2.
 
 ## Building
 
@@ -193,8 +230,9 @@ python -m unittest discover -s scripts/tests -p 'test_verify_apk.py' -v
 ## Unresolved prerequisites
 
 The minimal Views/direct-process launcher source set is now isolated and
-host-verified. Safe staging, fail-closed native packaging, a trustworthy
-native APK audit and complete clean-checkout reproduction are still
+host-verified, and safe staging is verified against fixtures and the pinned
+archive. Fail-closed native packaging, a trustworthy native APK audit and
+complete clean-checkout reproduction are still
 required before device testing. The physical S25 must be
 connected and authorized. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).
