@@ -1,11 +1,12 @@
 # Build Instructions
 
-> **Isolated branch: blockers 1–2 verified; native packaging is next.**
-> On `fix/native-runtime`, 19 launcher JVM tests and 50 importer host tests
-> pass. The fourteen-file native stage passes digest/ELF/receipt checks;
-> native extraction/launch is not proven. The original dirty checkout and
-> stage remain untouched. Gradle packaging, instrumentation/auditor and S25
-> execution remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
+> **Isolated branch: blockers 1–3 host work verified.**
+> On `fix/native-runtime`, 50 importer tests, 19 JVM tests and 12 opt-in
+> Gradle/APK integration checks pass. A clean native debug APK build/lint
+> passes; packaged payload hashes, attribution and SDK manifest were checked.
+> Installed extraction/permissions/linking and S25 execution remain unproven.
+> The original dirty checkout and stage remain untouched. Standalone auditor,
+> instrumentation and clean-checkout/device evidence remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No native execution
 > or WebUI success is claimed.
 
@@ -107,19 +108,65 @@ Exit codes: 0 success, 1 verification/import failure, 2 invalid CLI usage,
 with `--verify-only`. Ordinary process interruption was tested; physical
 power-loss durability and Android native execution were not.
 
-The intended Gradle `verifyNativeStage` gate must reject absent, tampered,
-or unexpected payloads before native packaging. **It is not yet implemented
-on this isolated baseline** (blocker 3). The original dirty gate was disabled;
-when implementing it here, use the explicit directory option:
+### Fail-closed Gradle packaging
+
+`verifyNativeStage` now runs the read-only verifier on every Android build,
+including unchanged builds and direct `:app:packageDebug` invocations. It
+also rejects missing/empty attribution sources. Python defaults to `python`;
+select an installed interpreter with `-PnativeVerifier.python=<executable>`.
+Missing Python or a rejected stage fails the build with a diagnostic, never
+a fallback/no-op. The explicit verification interface is:
 
 ```powershell
 python scripts/import_llama_release.py --verify-only --staging-dir app/src/main/jniLibs/arm64-v8a
 ```
 
-Passing this manual stage check includes receipt/ELF validation, but is
-not proof of build-gate enforcement, APK integrity, extraction or native
-execution. The current APK is still the earlier no-native scaffold; no
-native APK was rebuilt as part of blocker 2.
+After verification, `stageVerifiedNative` syncs only the fourteen `.so`
+files to `app/build/generated/verifiedNative/arm64-v8a/`, which is the
+exclusive JNI packaging input. Receipts, backups, transaction candidates
+and sibling ABIs are not packaging inputs. Generated output tampering is
+detected by Gradle and repaired from the verified source; a bad original
+stage fails even if an older APK already exists.
+
+`generateAttributionAssets` syncs `third_party/llama.cpp-LICENSE` and
+`third_party/NOTICE.md` to `app/build/generated/attributionAssets/` as
+`THIRD_PARTY_LICENSE.txt` / `THIRD_PARTY_NOTICES.txt`. Nothing is copied into
+source assets manually. Task-provider source directories plus `preBuild`
+dependencies wire verification/sync before native and asset consumers.
+
+`useLegacyPackaging = true` compresses native ZIP members and AGP generates
+`extractNativeLibs=true`; `keepDebugSymbols` preserves payload bytes. Do not
+set the extraction flag redundantly in the source manifest (AGP warns).
+All fourteen native ZIP-member digests and both attribution asset bytes
+were compared with their pinned/source inputs. The real packaged manifest
+was inspected with SDK `apkanalyzer`, not UTF-8 decoding of binary XML.
+These are packaging/configuration checks, **not installed extraction,
+executable permission or Android linker/process proof** (T9 remains blocked).
+
+### Opt-in real packaging integration checks
+
+After configuring JDK/SDK environment variables and staging the genuine
+archive, run:
+
+```powershell
+$env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
+$env:ANDROID_HOME = 'D:\softwares\android-sdk'
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+python scripts/tests/check_native_packaging.py -v
+```
+
+This twelve-test suite copies a disposable project/stage under `.cache/`,
+never mutates the genuine stage, and runs actual Gradle builds. It checks
+missing/tampered/extra stage content, missing receipt, incomplete import,
+missing Python/notice, direct package-task bypass, unchanged-build checking,
+exact APK hashes/attribution and repair/exclusion of generated/sibling data.
+A red baseline build succeeded without the stage; all twelve checks pass
+after implementation. Logs: `.cache/blocker3/*.log`. It is separate from
+fast `test_*.py` discovery (50 tests); do not call either zero-test success
+or a static Gradle-text match packaging verification. Linux execution is
+not established; these integration checks ran on the documented Windows host.
+Do not import/modify the stage concurrently with a build; this suite does
+not claim a lock spanning verification, copying and Android packaging.
 
 ## Building
 
@@ -136,8 +183,8 @@ $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 ./gradlew --no-daemon clean :app:assembleDebug
 ```
 
-After the blockers are resolved, verify that
-`app/build/outputs/apk/debug/app-debug.apk` contains the approved payload:
+The blocker-3 clean build produced
+`app/build/outputs/apk/debug/app-debug.apk`; inspection confirms:
 
 - 14 native `.so` files (launcher + 6 libraries + 7 CPU backends) in `lib/arm64-v8a/`
 - `assets/THIRD_PARTY_LICENSE.txt` and `assets/THIRD_PARTY_NOTICES.txt`
@@ -230,9 +277,9 @@ python -m unittest discover -s scripts/tests -p 'test_verify_apk.py' -v
 ## Unresolved prerequisites
 
 The minimal Views/direct-process launcher source set is now isolated and
-host-verified, and safe staging is verified against fixtures and the pinned
-archive. Fail-closed native packaging, a trustworthy native APK audit and
-complete clean-checkout reproduction are still
+host-verified. Safe staging and fail-closed packaging are verified against
+fixtures and the pinned archive/native APK. A standalone native APK auditor,
+instrumentation and complete clean-checkout reproduction are still
 required before device testing. The physical S25 must be
 connected and authorized. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

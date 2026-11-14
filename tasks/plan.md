@@ -4,7 +4,7 @@ Module: `native-runtime`
 Spec: [SPEC-native-runtime.md](../SPEC-native-runtime.md), approved by the user.  
 Plan status: **Approved baseline; original implementation hold is historical.** Implementation files now exist, with deviations requiring review. This document preserves the approved design, not current execution evidence or approval of those deviations.
 
-Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The user subsequently selected isolated worktree option A for blocker 1: minimal Activity, direct-process launcher and JVM tests. That scoped implementation is verified on `fix/native-runtime`. The user then selected option A for blocker 2: retain the fourteen byte-preserved payloads and repair staging. T4 now passes 50 host tests plus genuine-archive verification; later blockers remain interactive decisions.
+Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The user subsequently selected isolated worktree option A for blocker 1: minimal Activity, direct-process launcher and JVM tests. That scoped implementation is verified on `fix/native-runtime`. The user then selected option A for blocker 2: retain the fourteen byte-preserved payloads and repair staging. T4 now passes 50 host tests plus genuine-archive verification. The user then authorized blocker 3 packaging: 12 Gradle/APK checks, clean native build/lint, hash/attribution and SDK manifest inspection pass; installed extraction/linking still requires T9. Later blockers remain interactive decisions.
 
 ## Overview
 
@@ -205,4 +205,4 @@ T1 artifact review and T2 wrapper setup can run in parallel; T3 depends on T2. T
 
 ## Next Gate
 
-The original implementation hold was later superseded for the user's chosen blocker-1 scope (isolated worktree option A). That host boundary is implemented/tested. The user subsequently retained the approved fourteen-file format and authorized blocker 2 staging repairs, now verified with 50 host tests and the genuine archive. Pause for the next interactive decision: fail-closed Gradle packaging, extraction/byte preservation and attribution (T5). No later task is silently authorized by this status update.
+The original implementation hold was later superseded for the user's chosen blocker-1 scope (isolated worktree option A). That host boundary is implemented/tested. The user subsequently retained the approved fourteen-file format and authorized blocker 2 staging repairs, now verified with 50 host tests and the genuine archive. The user also authorized blocker 3's fail-closed Gradle packaging, now host-verified with native bytes/attribution/SDK manifest inspection and 12 integration checks. T5's installed-extraction requirement still awaits T9. Pause for the next interactive decision: standalone APK auditor (blocker 4); no later task is silently authorized.

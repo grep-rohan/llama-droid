@@ -1,6 +1,86 @@
 # Native Build Verification (T8)
 
-## Current isolated-branch update — blocker 2 resolved
+## Current isolated-branch update — blocker 3 host packaging verified
+
+The user authorized fail-closed Gradle packaging on `fix/native-runtime`
+after `32de970`. Source changes: `app/build.gradle.kts`, plus the opt-in
+`scripts/tests/check_native_packaging.py` integration suite. The source
+manifest needs no extraction override: AGP generates it from the DSL.
+No original-checkout implementation was copied, no new dependencies,
+release/toolchain changes, model loading or native transformation.
+
+### Commands and results
+
+On the documented Windows/JDK 17/SDK host (Git Bash; environment variables
+from the blocker-1 setup below, Windows-form `JAVA_HOME` for `.bat` calls):
+
+```bash
+python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+python scripts/tests/check_native_packaging.py -v
+./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+```
+
+- Red: one real Gradle check removed only a disposable fixture's stage;
+  baseline Gradle still **succeeded** and emitted a no-native APK. Test
+  failed as intended. Initial implementation then rejected bad input, but
+  two integration cases exposed hidden attribution/Python error causes;
+  diagnostics were fixed and the entire suite rerun.
+- Green: **12 actual Gradle/APK integration tests pass** in 96.841s, no
+  skips/failures. They cover missing/tampered/extra stage/receipt, incomplete
+  import, missing Python/notice, direct `packageDebug`, unchanged build
+  verification, exact native bytes/assets, generated-output tampering repair
+  and exclusion of sibling ABI/orphan candidate data. Only disposable
+  project/stage copies under `.cache/` were mutated, never genuine inputs.
+- Host discovery: **50 tests pass**. Final clean build: **BUILD SUCCESSFUL
+  in 21s, 55 executed tasks**. JUnit XML: **19 pass, zero errors/failures/
+  skips**. Lint: 0 errors, 4 unchanged warnings (`RedundantLabel`, two
+  `GradleDependency`, `ChromeOsAbiSupport`). No manifest-source warning in
+  final build; redundant `extractNativeLibs` override was removed.
+- Always-running `verifyNativeStage` invokes `--verify-only --staging-dir`
+  and fails clearly on errors. Verified native/attribution inputs are
+  synced to separate generated roots with task dependencies; no receipt or
+  transaction directories are inputs to JNI packaging. This is not a lock
+  spanning stage verification/copy/packaging: do not import concurrently.
+
+### Native debug APK and SDK manifest inspection
+
+APK: `app/build/outputs/apk/debug/app-debug.apk`, **79,208,764 bytes**.
+SHA-256: `19c39bfbb8315d8deb0de5efab9b7f1ffe2b9c68f5306907e6c6b2086afba2b1`.
+
+Independent ZIP/member inspection found exactly fourteen native entries,
+all under `lib/arm64-v8a/`, all DEFLATE-compressed and each SHA-256 identical
+to `third_party/llama.cpp.json`. Native entries are preserved despite the
+AGP task name `stripDebugDebugSymbols`; the digest comparison, not the task
+name, is the evidence. No duplicate ZIP names, other native payloads, RPC,
+GGUF, receipt or transaction controls. Both attribution assets equal their
+`third_party/` source bytes.
+
+SDK tool invoked against the actual binary-manifest APK:
+
+```powershell
+& "D:\softwares\android-sdk\cmdline-tools\latest\bin\apkanalyzer.bat" manifest print app/build/outputs/apk/debug/app-debug.apk
+```
+
+Exit 0. Parsed SDK-decoded output confirms package `io.github.greprohan.llamadroid`,
+minSdk **26**, targetSdk **35**, `extractNativeLibs=true`, debug=true;
+one Activity with exported=false; no permissions, services, receivers,
+providers or native-library declarations. No binary XML was decoded as
+UTF-8. `useLegacyPackaging=true` controls compression/extraction intent;
+`keepDebugSymbols` preserves bytes.
+
+Local evidence outputs: `.cache/blocker3-{red,green,host,build}.log`,
+`.cache/blocker3-manifest.xml`, `.cache/blocker3-apkanalyzer-stderr.log`,
+`.cache/blocker3-apk-payloads.log`; per-case Gradle logs in
+`.cache/blocker3/*.log`. Reports remain under `app/build/reports/` and
+`app/build/test-results/`. Outputs are ignored, not committed build inputs.
+
+**Still unverified:** installed package-manager extraction and permissions,
+linking/CPU execution under app UID, instrumentation compilation/run,
+standalone auditor and complete clean-checkout reproduction. T5's actual
+installed extraction clause is explicitly unchecked pending T9. No S25
+result, inference/WebUI claim or module-completion waiver.
+
+## Isolated branch snapshot — blocker 2 resolved
 
 User selected option A: retain the fourteen byte-preserved prebuilt payloads
 and repair staging. No merge/relink/stripping/toolchain change was made.
@@ -231,8 +311,9 @@ Verify:
 - Permissions and `<uses-native-library>` declarations (if any)
 - ABI contents: `arm64-v8a` only (inspect ZIP members separately)
 
-Native APK/SDK checks are pending. The blocker-1 check above inspected
-only the merged manifest of a no-native APK, not extraction behavior.
+These SDK fields have now been inspected for the current native debug APK
+(see blocker-3 evidence above), not for an instrumentation APK or installed
+package. Keep the same checks in the future full clean-checkout reproduction.
 The original Python ZIP auditor was not a working binary-manifest decoder;
 its replacement must not substitute text-fixture checks for SDK inspection.
 

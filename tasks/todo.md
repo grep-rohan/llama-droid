@@ -2,13 +2,23 @@
 
 Spec: `SPEC-native-runtime.md` (approved). Plan: `tasks/plan.md` (approved). Task list: approved by the user.
 
-**Status: incomplete; blockers 1–2 resolved on the isolated `fix/native-runtime` branch.** The user selected option A for both isolation and byte-preserved fourteen-file staging. Work in `D:/workspace/projects/llama-droid-native-runtime` preserves the original dirty checkout unchanged. T1 provenance was corrected/rechecked; T3 is compiled; T4 staging is host-tested against fixtures and the pinned archive. T6's host contract still awaits T5 packaging integration. Next interactive decision: blocker 3 (Gradle packaging); later work is not silently authorized.
+**Status: incomplete; blockers 1–3 host work resolved on `fix/native-runtime`.** The user selected option A for isolation, byte-preserved staging and fail-closed Gradle packaging. Work in `D:/workspace/projects/llama-droid-native-runtime` preserves the original dirty checkout unchanged. Native debug APK, hashes, attribution and SDK manifest are host-verified; installed extraction/permissions/linking remain T9 device requirements, not waived T5 acceptance. T6's internal launch contract is implemented/compiled/APK-integrated and JVM-tested, not device-tested. Next interactive decision: blocker 4 (standalone APK auditor); later work is not silently authorized.
 
 Standing completion bar: applicable tests pass with meaningful nonzero discovery, no regressions or unrelated scope, diagnostics and failure cleanup verified, relevant docs updated, and no unsupported runtime claims. Missing device evidence blocks completion; marking a task blocked does not complete the module.
 
 ## Current evidence and actionable blockers
 
-### Isolated branch — blocker 2 (current)
+### Isolated branch — blocker 3 host packaging (current)
+
+- `verifyNativeStage` always runs read-only Python verification before `preBuild`/packaging, including unchanged builds and direct `packageDebug`. Missing Python and attribution sources fail with visible diagnostics; no silent bypass or downloads.
+- Verified `.so` files and source-derived attribution are synced to separate `app/build/generated/` roots, with task dependencies and no source-assets duplication. Only the verified ABI snapshot is a JNI input; orphan candidates, receipts/backups and sibling ABIs are not copied. Do not concurrently import/mutate the stage while building; no cross-pipeline lock is claimed.
+- Red: the original baseline **successfully built an empty-native APK after its fixture stage was removed**, so the rejection test failed as intended. Green: **12 real Gradle/APK integration tests pass** using disposable project/stage copies, including missing/tampered/extra stage, missing receipt, incomplete import, missing interpreter/notice, direct-task bypass, unchanged-build verification, generated-output repair and exact ZIP hashes/assets. Source stage unchanged.
+- Clean `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug`: **BUILD SUCCESSFUL in 21s, 55 executed tasks**. Fast host discovery: **50 pass**; JVM XML: **19 pass, no failures/errors/skips**. Lint: 0 errors, same 4 existing warnings.
+- APK **79,208,764 bytes**, SHA-256 `19c39bfbb8315d8deb0de5efab9b7f1ffe2b9c68f5306907e6c6b2086afba2b1`. All fourteen native entries are compressed, hash-identical to provenance and ARM64-only; both attribution assets match source bytes. No RPC/extra natives, GGUF, receipt or transaction controls in the APK.
+- SDK `apkanalyzer manifest print` confirms minSdk 26, targetSdk 35, `extractNativeLibs=true`, debug=true, no permissions, exported Activity or service/receiver/provider/native-library declarations. AGP derives extraction from `useLegacyPackaging=true`; no redundant source-manifest extraction flag. `keepDebugSymbols` preserves bytes.
+- **Not verified:** actual package-manager extraction, executable permissions, linking or process launch. T5's device extraction clause stays unchecked and is traced to T9. Standalone auditor, instrumentation and full clean-checkout reproduction are still pending; this is a clean-output build and copied-fixture integration test, not T8 completion. See [build evidence](../docs/verification/native-build.md).
+
+### Isolated branch — blocker 2 snapshot
 
 - User retained fourteen byte-preserved payloads; no native transformation or new toolchain.
 - **50 importer host tests pass** after a red run of 43 tests (32 failures + 56 subtest/errors against old code). Coverage now includes actual duplicate tar entries, selected/unselected unsafe members, matching-digest wrong ELF headers, strict receipts, real partial-output failure, publication/rollback/marker failures, concurrent import rejection, and subprocess hard exit after backup rename with successful retry.
@@ -42,8 +52,8 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 1. **Resolved: agreed native-runtime scope and launch boundary (T3/T6).** User chose isolated worktree option A. The platform Activity, internal launcher/layout and 19 meaningful JVM tests now compile/pass without JNI/Ktor/inference code or production dependencies. Original user work remains untouched. This resolves only the host boundary; native payload integration and instrumentation are later blockers.
 2. **Resolved: byte-preserved artifact/staging contract (T4).** User chose option A; repaired and verified the fourteen-file importer, strict receipt/ELF checks and failure/rollback contract. Fifty meaningful host tests and the genuine archive pass; provenance and every staged digest were rechecked. No merge was copied/attempted; native linking still needs device evidence. See current evidence above.
-3. **Implement fail-closed Gradle packaging (T5) — next decision.** The isolated baseline has no stage gate yet. In the original checkout, `verifyNativeStage` was disabled with `onlyIf { false }` and passed its directory positionally instead of via `--staging-dir`. Re-enable verification for the agreed stage, reject missing/tampered/extra payloads, and prove extraction/byte preservation and attribution in the APK. Exit: deliberate fixture corruption fails the build; genuine stage passes.
-4. **Implement a trustworthy real APK audit (T8).** The original untracked auditor was not copied into this branch. Stop decoding binary `AndroidManifest.xml` as UTF-8; inspect it with SDK tooling separately or implement supported decoding. Replace size-only monolithic acceptance with approved provenance/digest checks (or reject that format). Exit: real APK audit completes with meaningful payload integrity checks; malformed/tampered fixtures fail; `apkanalyzer` records SDK, extraction, exports and permissions.
+3. **Host work resolved: fail-closed Gradle packaging (T5).** User chose option A. Gate, verified JNI snapshot, extraction settings/byte preservation and generated attribution are implemented; 12 actual Gradle/APK checks and the real clean-output build pass. Source/installed execution remains separate: actual extraction/permissions/linking is still unchecked under T5/T9. No device requirement is waived.
+4. **Implement a trustworthy standalone APK auditor (T8) — next decision.** The original untracked auditor was not copied into this branch. Stop decoding binary `AndroidManifest.xml` as UTF-8; inspect it with SDK tooling separately or implement supported decoding. Replace size-only monolithic acceptance with approved provenance/digest checks (or reject that format). Exit: real APK audit completes with meaningful payload integrity checks; malformed/tampered fixtures fail; `apkanalyzer` records SDK, extraction, exports and permissions.
 5. **Reproduce the complete native host build from reviewable source (T7/T8).** Launcher/JVM sources are now present on this branch, but the required harness/auditor still need reviewed implementation. Select the intended source set without committing generated binaries. From a disposable clean checkout/worktree with only documented prerequisites, run host tests, JVM tests, lint, debug APK and instrumentation APK builds; record nonzero counts, versions, logs, both APK hashes/sizes and audit results. Exit: no untracked implementation or stale build output is needed.
 6. **Authorize the physical S25 and prove installed-app launch (T9).** Device authorization can be arranged in parallel, but install/test only the audited build from steps 1–5. Select only the S25 for ADB and Gradle; record properties without serials, app UID, installed native paths/permissions, pinned version output, exit 0 within 30 seconds, and child cleanup. Capture exact linker errors if it fails; no Android 17/`LD_LIBRARY_PATH` restriction is established by the evidence currently recorded. Exit: full instrumentation suite passes with hash-linked evidence in `docs/verification/native-s25.md`.
 7. **Review completion evidence (Checkpoint C).** Trace all seven spec criteria, update README/capability status, and obtain human review before downstream work. If any prerequisite remains blocked, the module remains incomplete.
@@ -132,14 +142,14 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## T5: Package the exact native payload
 
-- [ ] Complete T5 — **pending: stage gate/packaging integration not yet implemented on the isolated baseline.**
+- [ ] Complete T5 — **host packaging implemented/compiled/APK-inspected; installed extraction remains blocked under T9.**
 
 **Description:** Integrate verification-only staging into Gradle and configure extraction/preservation for the installed native-library directory, retaining license text in the APK.
 
 **Acceptance:**
-- [ ] Gradle fails clearly for absent/tampered/extra native stage instead of producing a stale or empty native APK.
-- [ ] ARM64 payloads are extracted by the intended packaging settings and preserved byte-for-byte; no source path is used as a runtime executable location.
-- [ ] APK contains the allowlisted native files and required attribution, but no RPC backend, utility executables, GGUFs, or unrelated native backend.
+- [x] Gradle fails clearly for absent/tampered/extra native stage instead of producing a stale or empty native APK.
+- [ ] ARM64 payloads are extracted by the intended packaging settings and preserved byte-for-byte; no source path is used as a runtime executable location. **Host evidence:** fourteen exact ZIP hashes, compression and `extractNativeLibs=true` confirmed; source launcher resolves installed `nativeLibraryDir` only. **Still blocked:** actual installed extraction/permissions must be proven in T9; this clause is not marked complete from manifest inspection alone.
+- [x] APK contains the allowlisted native files and required attribution, but no RPC backend, utility executables, GGUFs, or unrelated native backend.
 
 **Verify:** Stage with the documented importer, then `./gradlew --no-daemon :app:assembleDebug`; compare ZIP-member SHA-256 against the manifest. Demonstrate build rejection using temporary staged fixtures and restore/re-verify the genuine stage. Inspect merged manifest extraction settings.
 
@@ -151,7 +161,7 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## T6: Implement the internal direct-process launcher
 
-- [ ] Complete T6 — **implemented/compiled; 19 host JVM tests pass. T5 native packaging integration remains pending.**
+- [x] Complete T6 — **implemented/compiled/APK-integrated; 19 JVM tests pass. No device native-startup claim.**
 
 **Description:** Resolve trusted installed native paths, construct an explicit process command and controlled lookup environment, and return the child process without adding service orchestration.
 
@@ -170,9 +180,9 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## Checkpoint B: Payload and launch boundary
 
-- [ ] T4–T6 host/JVM tests pass with meaningful test discovery; intentional stage tampering is rejected.
-- [ ] Packaged native payloads match the allowlist/digests and exclude RPC; no unsupported loader assumptions have been treated as proof.
-- [x] Human review of packaging and launcher contract before device harness integration — historical approval; current deviations require review.
+- [x] T4–T6 host/JVM tests pass with meaningful test discovery; intentional stage tampering is rejected.
+- [x] Packaged native payloads match the allowlist/digests and exclude RPC; no unsupported loader assumptions have been treated as proof.
+- [ ] Human review of current packaging/launcher implementation before device harness integration; historical approval is not a new code-review result.
 
 ## T7: Add the bounded app-context smoke harness
 
@@ -202,9 +212,9 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 **Acceptance:**
 - [ ] Audit tests reject missing/extra/modified native payloads, wrong ABI, missing attribution, and embedded GGUFs; the real APK passes a meaningful integrity audit. The original checkout's twelve synthetic audit tests passed, but its monolithic acceptance was size-only and its real APK manifest crashed decoding; the reviewed branch auditor is still pending.
 - [ ] Host tests, JVM tests, lint, debug APK, and instrumentation APK build/run as applicable from a clean worktree; no untracked local implementation file is required for verification.
-- [ ] Actual tool versions, commands/results, both APK hashes/sizes, and packaged manifest extraction/SDK/export/permission checks are recorded. `apkanalyzer` evidence is still pending.
+- [ ] Actual tool versions, commands/results, both APK hashes/sizes, and packaged manifest extraction/SDK/export/permission checks are recorded. Current debug APK hash/size and SDK manifest checks are recorded above; instrumentation APK and full clean-checkout evidence are still pending.
 
-**Verify:** On this branch, host discovery currently runs **50 importer tests**, not the original checkout's 34. `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` passes for the no-native scaffold. Full native build + instrumentation + reviewed `scripts/verify_apk.py` audit remain **pending**. The original checkout's auditor crashed on binary-manifest UTF-8 decoding.
+**Verify:** On this branch, host discovery currently runs **50 importer tests**, not the original checkout's 34. `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` passes for the native debug APK. Twelve opt-in Gradle/APK checks also pass. Instrumentation, full clean-checkout reproduction and reviewed `scripts/verify_apk.py` audit remain **pending**. The original checkout's auditor crashed on binary-manifest UTF-8 decoding.
 
 **Dependencies:** T5, T6, T7.
 
@@ -243,4 +253,4 @@ The original dirty checkout's importer attempts `ld.lld -shared --whole-archive`
 - [ ] All seven approved spec success criteria traced to evidence; no unchecked requirement is relabeled complete.
 - [ ] Human review before moving to the `model-import` specification. No model import, model loading, service, or chat implementation has been added here.
 
-**Current status:** On `fix/native-runtime`, blockers 1–2 are resolved: T3 clean-build/lint pass, T6 host contract is implemented with 19 passing JVM tests, and T4 has 50 passing host tests plus a verified fourteen-file stage from the genuine archive. T5 native packaging, instrumentation, native APK audit/reproducibility and physical S25 execution remain pending. No native execution is claimed. The module stays incomplete until every success criterion and Checkpoint C passes. Next interactive decision: blocker 3 (Gradle packaging).
+**Current status:** On `fix/native-runtime`, blockers 1–3 host work is resolved: 50 importer tests, 19 JVM tests and 12 real Gradle/APK checks pass; clean native debug APK/lint and ZIP/SDK inspection pass. T5 installed extraction/permissions is still unchecked and requires T9. Standalone auditor, instrumentation, clean-checkout evidence and S25 execution remain pending. No native execution is claimed; the module stays incomplete until every criterion and Checkpoint C passes. Next interactive decision: blocker 4 (standalone APK auditor).

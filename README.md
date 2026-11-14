@@ -31,14 +31,15 @@ included here and not evidence of server or WebUI compatibility.
 | T2 | Pinned Gradle wrapper & toolchain | Historical completion retained |
 | T3 | Minimal Views APK | Clean build/lint pass; no native payload |
 | T4 | Verified native payload staging | 50 tests + real fourteen-file stage verification pass |
-| T5 | Package exact native payload | Pending integration on isolated baseline |
-| T6 | Internal direct-process launcher | Implemented/compiled; 19 JVM tests pass; awaits T5 |
+| T5 | Package exact native payload | Host packaging verified; installed extraction pending T9 |
+| T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
 | T7 | Bounded app-context smoke harness | Pending reviewed implementation |
-| T8 | Clean-build APK audit | Pending native build/auditor |
+| T8 | Clean-build APK audit | Current APK inspected; standalone auditor/clean-checkout proof pending |
 | T9 | Physical S25 verification | Blocked: host prerequisites and no attached device |
 
-**Evidence on the isolated branch (blockers 1–2):**
-- **Host-tested:** 19 launcher JVM tests and 50 importer tests pass.
+**Evidence on the isolated branch (blockers 1–3 host work):**
+- **Host-tested:** 19 launcher JVM tests, 50 importer tests and 12 opt-in
+  real Gradle/APK integration checks pass.
   Staging tests cover real duplicate tar entries, ELF/receipt validation,
   copy/publication/rollback failures, concurrency and hard process exit.
 - **Stage-inspected:** real pinned archive stages exactly fourteen unchanged
@@ -46,13 +47,15 @@ included here and not evidence of server or WebUI compatibility.
   dependency/ELF evidence; full source commit was checked against upstream.
 - **Compiled:** clean debug APK build and lint pass; lint has four warnings,
   zero errors. Platform Views Activity has no production dependencies/listener.
-- **APK-inspected:** this minimal APK intentionally contains no native
-  payload. Its merged manifest has SDK 26/35, no permissions or exported
-  activities/services/receivers/providers. This is not native launch proof.
+- **APK-inspected:** fourteen ARM64 native ZIP entries match pinned hashes;
+  attribution matches source bytes, no extra natives/RPC/GGUF/receipt.
+  SDK `apkanalyzer` confirms SDK 26/35, extraction=true, no permissions or
+  exported Activity/services/receivers/providers. Compression/extraction
+  configuration is not proof of installed permissions/linking/execution.
 - **Device-tested:** none. Physical S25 proof remains blocked.
-- **Pending:** fail-closed native packaging (next decision), instrumentation,
-  native APK audit and clean-checkout/device evidence. The existing APK was
-  not rebuilt with native payloads during blocker 2.
+- **Pending:** standalone auditor (next decision), instrumentation,
+  clean-checkout/device evidence. T5's installed extraction clause remains
+  unchecked until T9; host packaging success does not complete the module.
 
 The earlier 34-Python-test count, disabled stage gate, binary-manifest audit
 crash and merge proposal describe the **original dirty checkout**, not this
@@ -76,7 +79,7 @@ python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar
 # Build
 ./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-# Instrumentation (compiles; device run requires phone)
+# Instrumentation (pending harness implementation, then compile/device run)
 ./gradlew --no-daemon :app:assembleDebugAndroidTest
 
 # APK audit
