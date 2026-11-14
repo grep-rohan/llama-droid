@@ -2,8 +2,9 @@
 
 Module: `native-runtime`  
 Spec: [SPEC-native-runtime.md](../SPEC-native-runtime.md), approved by the user.  
-Plan status: **Approved by the user. Implementation explicitly on hold.** No implementation has started.  
-Task target: [tasks/todo.md](todo.md), also approved by the user. Wait for an explicit instruction to begin implementation.
+Plan status: **Approved baseline; original implementation hold is historical.** Implementation files now exist, with deviations requiring review. This document preserves the approved design, not current execution evidence or approval of those deviations.
+
+Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The documentation review does not authorize further implementation.
 
 ## Overview
 

@@ -1,8 +1,16 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved by the user for technical planning. Implementation still requires separate plan and task approval.  
+Status: Approved specification; plan/task approval is recorded in [tasks/todo.md](tasks/todo.md). Current implementation deviates from the approved baseline and is incomplete; this documentation review does not authorize further implementation.
+
 Parent: [Approved capability map](CAPABILITY-MAP.md)
+
+**Evidence note:** Statements below about an empty/docs-only checkout,
+missing tools, and device availability are planning-time observations,
+not current status. Preserve this spec as the approved requirements;
+use [the task tracker](tasks/todo.md) and
+[build verification](docs/verification/native-build.md) for current
+results, reopened acceptance items and ordered blockers.
 
 ## Objective
 
@@ -185,4 +193,7 @@ If device access is unavailable, criteria 5–6 remain **blocked**, and this mod
 
 ## Approval Gate
 
-The user approved this specification. Technical planning may proceed; the separate plan and task approval gates still apply before implementation.
+The user approved this specification; subsequent plan/task approval is
+recorded in the task tracker. That approval does not waive success criteria
+or authorize unreviewed architecture, artifact or production-dependency
+changes. Current completion and blockers are tracked in `tasks/todo.md`.

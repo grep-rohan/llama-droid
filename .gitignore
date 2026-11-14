@@ -25,3 +25,8 @@ Thumbs.db
 
 # Third-party license text is committed; do not ignore it
 # third_party/llama.cpp-LICENSE  ← committed
+
+# Keep reviewed verification documentation visible; ignore other local evidence.
+docs/verification/*
+!docs/verification/native-artifact.md
+!docs/verification/native-build.md
