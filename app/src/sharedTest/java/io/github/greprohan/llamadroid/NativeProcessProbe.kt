@@ -83,7 +83,7 @@ internal class NativeProcessProbe(
         }
     }
 
-    private data class Pending<T>(val label: String, val future: FutureTask<T>, val thread: Thread)
+    private data class Pending<T>(val label: String, val future: FutureTask<T>)
     private data class Outcome<T>(val completed: Boolean, val value: T? = null, val timedOut: Boolean = false)
 
     private inner class Session(private val process: Process, private val started: Long) {
@@ -125,14 +125,16 @@ internal class NativeProcessProbe(
             val worker = thread(label) { future.run() }
             operations.add(worker)
             worker.start()
-            return Pending(label, future, worker)
+            return Pending(label, future)
         }
         private fun <T> await(pending: Pending<T>, end: Long): Outcome<T> {
             return try {
                 Outcome(true, pending.future.get(remaining(end), TimeUnit.NANOSECONDS))
             } catch (_: TimeoutException) {
-                pending.future.cancel(true)
-                pending.thread.interrupt()
+                // Thread.interrupt/cancel(true) can synchronously invoke a foreign
+                // NIO interruptor's blocking close. Never run that on the controller.
+                // A noncooperative daemon operation is reported as not stopped.
+                pending.future.cancel(false)
                 failure("${pending.label} deadline exceeded")
                 Outcome(false, timedOut = true)
             } catch (error: ExecutionException) {
@@ -140,7 +142,7 @@ internal class NativeProcessProbe(
                 Outcome(false)
             } catch (error: InterruptedException) {
                 interrupted = true // get/join clears the flag; restore only after cleanup.
-                pending.future.cancel(true)
+                pending.future.cancel(false)
                 failure("${pending.label} interrupted", error)
                 Outcome(false)
             }
@@ -238,7 +240,8 @@ internal class NativeProcessProbe(
                 begin("close stderr") { (errStream.get() ?: process.errorStream).close() },
                 begin("close stdin") { process.outputStream.close() },
             )
-            readers.filter { it.isAlive }.forEach { it.interrupt() }
+            // Stop flag + independently bounded close workers, not reader interrupts
+            // that could execute arbitrary blocking interruptor callbacks here.
             closes.forEach { await(it, end) }
             readers.forEach { joinUntil(it, end) }
             operations.forEach { joinUntil(it, end) }

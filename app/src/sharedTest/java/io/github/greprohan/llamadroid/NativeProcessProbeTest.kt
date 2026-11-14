@@ -4,10 +4,12 @@ import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.channels.spi.AbstractInterruptibleChannel
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -251,6 +253,50 @@ class NativeProcessProbeTest {
             assertTrue(process.forced.get() > 0)
             assertFalse(process.isAlive)
         } finally { release.countDown(); process.exit() }
+    }
+
+    @Test fun timeoutCancellationCannotBlockInsideAnInterruptibleApi() {
+        val releaseWait = CountDownLatch(1)
+        val releaseClose = CountDownLatch(1)
+        val interruptCloseEntered = CountDownLatch(1)
+        val returned = CountDownLatch(1)
+        val observed = AtomicReference<NativeProcessProbe.Result?>(null)
+        val channel = object : AbstractInterruptibleChannel() {
+            override fun implCloseChannel() {
+                interruptCloseEntered.countDown()
+                awaitIgnoringInterrupts(releaseClose)
+            }
+            fun block() {
+                begin()
+                try { awaitIgnoringInterrupts(releaseWait) } finally { end(true) }
+            }
+        }
+        val process = object : FakeProcess(aliveInitially = true, forceOnly = true) {
+            override fun waitFor(timeout: Long, unit: TimeUnit): Boolean {
+                channel.block()
+                return !isAlive
+            }
+        }
+        val controller = Thread({
+            try { observed.set(NativeProcessProbe(150, 300, 128).run(process)) }
+            finally { returned.countDown() }
+        }, "probe-controller-fixture").apply { isDaemon = true }
+        controller.start()
+        try {
+            assertTrue("Cancellation blocked the controller in an API interruptor", returned.await(2_500, TimeUnit.MILLISECONDS))
+            assertNotNull(observed.get())
+            assertFalse(observed.get()!!.successful)
+            assertFalse(observed.get()!!.operationsStopped)
+            assertEquals("Controller must not invoke a foreign interrupt/close callback", 1L, interruptCloseEntered.count)
+            assertTrue(process.forced.get() > 0)
+            assertFalse(process.isAlive)
+        } finally {
+            releaseClose.countDown()
+            releaseWait.countDown()
+            process.exit()
+            controller.join(1_500)
+            channel.close()
+        }
     }
 
     @Test fun brokenDestroyCannotPreventIndependentForceKill() {
