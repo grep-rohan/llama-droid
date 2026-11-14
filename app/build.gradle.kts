@@ -63,6 +63,13 @@ val generateAttributionAssets by tasks.registering(Sync::class) {
     into(layout.buildDirectory.dir("generated/attributionAssets"))
 }
 
+// This receipt is test-only; the production APK retains only attribution assets.
+val generateSmokeTestAssets by tasks.registering(Sync::class) {
+    dependsOn(verifyNativeStage)
+    from(rootProject.file("third_party/llama.cpp.json")) { rename { "native-provenance.json" } }
+    into(layout.buildDirectory.dir("generated/smokeTestAssets"))
+}
+
 android {
     namespace = "io.github.greprohan.llamadroid"
     compileSdk = 35
@@ -97,6 +104,13 @@ android {
         jniLibs.setSrcDirs(listOf(stageVerifiedNative))
         assets.srcDir(generateAttributionAssets)
     }
+    // Identical pure-JVM probe/fake-Process cases execute on the host and compile
+    // for ART instrumentation. They are never part of the production APK.
+    sourceSets.getByName("test").java.srcDir("src/sharedTest/java")
+    sourceSets.getByName("androidTest") {
+        java.srcDir("src/sharedTest/java")
+        assets.srcDir(generateSmokeTestAssets)
+    }
 
     packaging {
         jniLibs {
@@ -109,7 +123,7 @@ android {
 }
 
 tasks.named("preBuild") {
-    dependsOn(stageVerifiedNative, generateAttributionAssets)
+    dependsOn(stageVerifiedNative, generateAttributionAssets, generateSmokeTestAssets)
 }
 
 dependencies {

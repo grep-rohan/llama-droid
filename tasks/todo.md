@@ -2,7 +2,7 @@
 
 Spec: `SPEC-native-runtime.md` (approved). Plan: `tasks/plan.md` (approved). Task list: approved by the user.
 
-**Status: incomplete; blockers 1–4 host work resolved on `fix/native-runtime`.** User chose option A for isolation, staging, packaging and standalone auditor. Work in `D:/workspace/projects/llama-droid-native-runtime` preserves the original dirty checkout unchanged. Native APK ZIP/payload audit and separate SDK manifest inspection pass; installed extraction/permissions/linking remain T9 requirements, not waived T5 acceptance. Next interactive gate: approve current packaging/launcher contract before the bounded harness and full clean-checkout build (blocker 5). T8 remains incomplete pending that reproduction/instrumentation evidence; no later work is silently authorized.
+**Status: incomplete; blocker 5 in progress on `fix/native-runtime`.** User selected option A approving Checkpoint B and the bounded harness/clean-checkout verification. Original checkout remains untouched. The new test-only probe and fake cases pass 23 host JVM tests (42 JVM total); debug and instrumentation APKs compile. Clean-Git-checkout reproduction is next, not yet claimed. Android/ART instrumentation execution and real S25 proof remain blocked: `adb devices -l` listed no devices. Installed extraction/permissions/linking remain unchecked T5/T9 requirements.
 
 Standing completion bar: applicable tests pass with meaningful nonzero discovery, no regressions or unrelated scope, diagnostics and failure cleanup verified, relevant docs updated, and no unsupported runtime claims. Missing device evidence blocks completion; marking a task blocked does not complete the module.
 
@@ -192,24 +192,24 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 - [x] T4–T6 host/JVM tests pass with meaningful test discovery; intentional stage tampering is rejected.
 - [x] Packaged native payloads match the allowlist/digests and exclude RPC; no unsupported loader assumptions have been treated as proof.
-- [ ] Human review of current packaging/launcher implementation before device harness integration; historical approval is not a new code-review result.
+- [x] User selected option A at blocker 5, explicitly approving the current packaging/launcher boundary before harness integration. This approval is not device evidence.
 
 ## T7: Add the bounded app-context smoke harness
 
-- [ ] Complete T7 — **pending: original untracked harness not copied; build/run a reviewed harness after packaging.**
+- [ ] Complete T7 — **implemented/compiled, 23 shared fake-Process cases pass on JVM; ART and real-server execution blocked by no device.**
 
 **Description:** Add instrumentation that launches upstream `--version` from the installed app context, consumes output safely, enforces a deadline, and proves child cleanup. Test the harness's timeout/exit/error paths with a fake `Process`, not fake native ELF files.
 
 **Acceptance:**
-- [ ] Instrumentation compiles with the pinned test-only dependencies; no test hook is exported in the production app.
-- [ ] Instrumentation-side harness tests execute and cover timeout, abnormal exit, large output, and cleanup failure with a fake `Process`; cleanup/reaping and reader shutdown have no unbounded waits. Source/compilation alone is not a passing test result.
-- [ ] Real-server test requires pinned version identification and exit 0 within 30 seconds; both output streams are drained concurrently with bounded retained tails. **Blocked: host prerequisites above and no connected/authorized device.**
+- [x] Instrumentation compiles with the pinned test-only dependencies; no test hook is exported in the production app. Probe, fake cases and provenance asset are absent from the production APK and present only in the instrumentation APK.
+- [ ] Instrumentation-side harness tests execute and cover timeout, abnormal exit, large output, and cleanup failure with a fake `Process`; cleanup/reaping and reader shutdown have no unbounded waits. **Host evidence:** identical shared sources execute 23 cases on JVM, including stuck wait/destroy/read/close, caller interruption, reader Errors and false EOF after forced close. **Still blocked:** their ART/instrumentation run requires the device; compilation is not an Android test result.
+- [ ] Real-server test requires pinned version/build/commit identification and exit 0 within 30 seconds; both output streams must drain to EOF concurrently with bounded byte tails, child/reader/control-operation cleanup must succeed. **Blocked: no connected/authorized device.**
 
-**Verify:** `./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest` — prior compilation reported, **not revalidated for current sources**. On an authorized target S25, `./gradlew --no-daemon :app:connectedDebugAndroidTest` — **blocked**.
+**Verify:** `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` — **BUILD SUCCESSFUL, 81 executed tasks; 42 JVM tests (19 launcher + 23 probe), zero failures/errors/skips**, four existing lint warnings. On an authorized physical S25, `./gradlew --no-daemon :app:connectedDebugAndroidTest` — **blocked: no device**.
 
 **Dependencies:** T6.
 
-**Files (five):** `app/build.gradle.kts`, `gradle.properties`, `app/src/androidTest/java/io/github/greprohan/llamadroid/NativeProcessProbe.kt`, `app/src/androidTest/java/io/github/greprohan/llamadroid/NativeProcessProbeTest.kt`, `app/src/androidTest/java/io/github/greprohan/llamadroid/NativeVersionSmokeTest.kt`.
+**Files (four):** `app/build.gradle.kts`, `app/src/sharedTest/java/io/github/greprohan/llamadroid/NativeProcessProbe.kt`, `app/src/sharedTest/java/io/github/greprohan/llamadroid/NativeProcessProbeTest.kt`, `app/src/androidTest/java/io/github/greprohan/llamadroid/NativeVersionSmokeTest.kt`. Shared test-only sources execute on JVM and compile for instrumentation without duplicating cases or shipping probe code in production. Test-only provenance assets are generated from `third_party/llama.cpp.json`; no new dependency/version or `gradle.properties` change was needed.
 
 **Scope:** Medium.
 
