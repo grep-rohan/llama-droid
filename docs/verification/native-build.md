@@ -1,6 +1,174 @@
 # Native Build Verification (T8)
 
-## Current isolated-branch update — blocker 4 auditor verified
+## Current verification — blocker 5 host work complete; device blocked
+
+User selected option A approving Checkpoint B and the harness/clean-build
+work. Final functional revision: **`955bfe3f58cf515943f3ebfa6b76748dcc11092d`**.
+The detached worktree at `D:/workspace/projects/llama-droid-native-runtime-clean`
+was initially created at `82ea394`, then advanced while Git-clean to
+`955bfe3` after an additional cancellation counterexample. The same fresh
+pinned download was rechecked/restaged and the entire verification rerun.
+`git status --porcelain=v1` was empty before and after final verification; no
+untracked implementation, copied stage, SDK configuration file or build
+output from either existing checkout was used. The original dirty checkout
+remains untouched. This worktree and its audited outputs are retained for
+future device testing; subsequent documentation-only commits do not change
+this functional source revision.
+
+### Final clean-source reproduction (commands to recreate)
+
+```bash
+git worktree add --detach ../llama-droid-native-runtime-clean 955bfe3
+cd ../llama-droid-native-runtime-clean
+export JAVA_HOME='D:/softwares/jdk/jdk-17.0.14+7'
+export ANDROID_HOME='D:/softwares/android-sdk'
+export ANDROID_SDK_ROOT='D:/softwares/android-sdk'
+export PATH="/d/softwares/jdk/jdk-17.0.14+7/bin:$PATH"
+mkdir -p .cache
+curl --fail --location --retry 3 --max-time 180 \
+  --output .cache/llama-b12020-bin-android-arm64.tar.gz \
+  https://github.com/ggml-org/llama.cpp/releases/download/b12020/llama-b12020-bin-android-arm64.tar.gz
+printf '%s  %s\n' \
+  64717fce80d758c220345864a0e69788aa1488ffe4f4b85e322155fdd1beaeec \
+  .cache/llama-b12020-bin-android-arm64.tar.gz | sha256sum --check
+python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar.gz
+python scripts/import_llama_release.py --verify-only
+python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
+python scripts/tests/check_native_packaging.py -v
+```
+
+- Fresh release download succeeded; size **78,982,432 bytes**, pinned
+  archive SHA-256 matched. Fourteen original payloads staged/verified, no
+  relinking, source-building, fake ELF execution or model download.
+- **94 Python tests pass** (50 importer + 44 auditor), no skips.
+- **43 JVM tests pass** (19 launcher + 24 probe), zero failures/errors/skips.
+- Final clean build: **BUILD SUCCESSFUL in 39s**, all 81 tasks executed.
+  Both debug and instrumentation
+  APKs compiled. Lint: **0 errors, 4 unchanged warnings** (`RedundantLabel`,
+  two `GradleDependency`, `ChromeOsAbiSupport`).
+- **12 opt-in real Gradle/APK checks pass in 156.839s**, including the shipped
+  auditor CLI, using disposable copies created from this checkout.
+- Production ZIP/payload audit passes. SDK `apkanalyzer manifest print`
+  inspected both actual APKs. Source before/after status remained empty.
+- Existing global Gradle dependency/wrapper caches, installed SDK/JDK and
+  local debug signing key were reused. This is clean-source reproduction
+  on this Windows host, not a hermetic/cross-host/release-signing promise.
+
+### Actual tool versions
+
+| Tool/component | Observed |
+|---|---|
+| Java + javac | Temurin **17.0.14+7**, javac **17.0.14** |
+| Gradle wrapper | **8.10.2**, revision `415adb9e06a516c44b391edff552fd42139443f7` |
+| Project plugins | AGP **8.8.2**, Kotlin **2.0.21** unchanged; wrapper embedded Kotlin is **1.9.24** |
+| Host/Python | Windows 11 amd64; Python **3.14.7** |
+| SDK command-line tools at `latest/` | Actual `source.properties`: **12.0** (`cmdline-tools;12.0`) |
+| SDK platform/build-tools | `platforms;android-35` revision **2**; build-tools **35.0.0** |
+| SDK platform-tools inventory | **37.0.1** (the earlier ADB no-device observation was separate) |
+| Pinned NDK inspection tools | **27.2.12479018**, LLVM **18.0.3** |
+
+`sdkmanager --list_installed` exited 0 but warned that command-line tools
+understand SDK XML through version 3 while version-4 metadata was seen.
+Recorded as a non-blocking inventory-tool warning, **not silently fixed by
+installing/upgrading tools**. CMake 3.22.1 and NDK 27.0 are also installed
+but not used by this no-JNI/no-source-build module.
+
+### Reproduced APK identities and manifest/contents checks
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,208,764 | `19c39bfbb8315d8deb0de5efab9b7f1ffe2b9c68f5306907e6c6b2086afba2b1` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 927,596 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+These match the final hardened source-worktree build on this host; do not
+assume debug signing/packaging produces these hashes elsewhere. The earlier
+`82ea394` test APK is superseded; use these `955bfe3` identities.
+
+- Production: exact fourteen pinned ARM64 hashes and source attribution;
+  SDK 26/35, debug=true, extraction=true, one unexported Activity; no
+  permissions, instrumentation declaration, service/receiver/provider or
+  activity alias. No probe, fake-test or smoke-test class names in DEX and
+  no `native-provenance.json` asset.
+- Instrumentation: package `io.github.greprohan.llamadroid.test`, SDK 26/35,
+  runner `androidx.test.runner.AndroidJUnitRunner`, target package
+  `io.github.greprohan.llamadroid`. Contains probe/fake/smoke classes and a
+  provenance asset byte-identical to `third_party/llama.cpp.json`; no native
+  libraries or GGUFs. The SDK does **not** mark this artifact `testOnly`;
+  AndroidX adds `REORDER_TASKS`, test-service package queries, runner-library
+  use and three exported InstrumentationActivityInvoker activities. These
+  are confined to the test APK, **not the user APK**; do not distribute or
+  describe the instrumentation APK as the application.
+
+### Bounded probe evidence and limitations
+
+`src/sharedTest/java/` contains one probe and one set of fake-Process cases,
+compiled for both JVM and androidTest, never main. Real informational-command
+instrumentation lives under `src/androidTest/`. Test provenance is generated
+from the pin, not duplicated manually into production assets. No new
+production/test dependency versions or manifest hooks were added.
+
+The probe drains both streams concurrently into independent fixed byte
+rings (default 16 KiB each), including large single-line excess output.
+Execution deadline is 30s, counting recorded launcher latency when start
+returns; cleanup has a separate <=2s budget. Process wait/destroy/reap,
+stream closing and thread joins are deadline-bounded, including broken API
+simulation. Forced closure is not treated as EOF; reader Errors, leaked
+readers/operations, failure to reap, interruption and cleanup failures are
+explicit failures. Timeout cancellation is non-interrupting: Java/NIO
+interruptors can synchronously call a blocking close on the controller.
+Workers that cannot stop are reported as cleanup failures, not success.
+A 90s whole-instrumentation-test guard also covers
+prelaunch file hashing/OS startup, which no host fake proves reliable.
+
+Red-before-green tests caught missing implementation, an uncaught reader
+Error falsely appearing successful, and forced pipe closure falsely
+appearing drained. A real AbstractInterruptibleChannel counterexample also
+caught `cancel(true)` blocking the controller in its close callback; this
+was fixed before final source verification. All 24 shared cases now pass
+on JVM. That is **not an ART
+or native-executable execution result**.
+
+Pinned source inspection established the expected upstream output:
+`version: %s (build %d, commit %s)` from
+`common/build-info.cpp.in` at commit
+`0ec4027a2a0183de87c007069adddc06e665f7de`; `common/arg.cpp` handles
+`--version` by printing that header then `exit(0)`. The actual pinned common
+library embeds `0ec4027a2` (nine characters); NDK symbol inspection plus
+ELF LOAD-address mapping read the actual `LLAMA_BUILD_NUMBER` data as **12020**
+(source-worktree log `.cache/blocker5-static-build-number.log`, same pinned
+payload hash). Matcher requires build **12020**
+and that exact short commit, not a generic executable name or `b12020`
+substring. Source URLs:
+https://github.com/ggml-org/llama.cpp/blob/0ec4027a2a0183de87c007069adddc06e665f7de/common/build-info.cpp.in
+and
+https://github.com/ggml-org/llama.cpp/blob/0ec4027a2a0183de87c007069adddc06e665f7de/common/arg.cpp.
+Static source/strings are not a claim that the server ran here.
+
+On device, the smoke test will require target UID == current UID, validate
+installed native paths/permissions and every payload digest, launch only
+`--version`, require exit 0 within 30s, real EOF/cleanup and the pinned
+header, then assert no direct child remains alive. T9 still needs physical
+S25 properties, exact installed/test APK identities and a post-run process
+cross-check; an emulator or another ARM64 model does not complete it.
+
+### Evidence locations and remaining blocker
+
+In the retained clean worktree, ignored `.cache/blocker5-*` outputs contain
+download, host/build/audit/packaging logs, full tool inventory, both SDK-decoded
+manifests, APK identity JSON and empty pre/post source-status files. Integration
+case logs are under `.cache/blocker3/`. JUnit/lint reports remain in
+`app/build/`; none are required untracked implementation inputs.
+
+**Device execution is BLOCKED.** `adb devices -l` returned no devices at the
+start of this verification. No install, connected instrumentation run,
+installed extraction, real native version output, inference or WebUI result
+was observed. T5's installed extraction and T7/T9 ART/native cases stay
+unchecked; native-runtime and Checkpoint C remain incomplete. Do not start
+model-import/lifecycle/chat implementation from these host results.
+
+## Isolated branch snapshot — blocker 4 auditor verified
 
 User authorized the standalone auditor after `a69a90e`. Added
 `scripts/verify_apk.py` and adversarial tests; the opt-in packaging suite
@@ -274,13 +442,13 @@ sources were untracked. No installed-app native execution or Android 17 linker
 restriction is established. The existing APK is not tied to a reproduced
 source revision here; do not install it as a verified artifact.
 
-## Target clean-build procedure — blocked
+## Reusable clean-build procedure — host verified
 
-After resolving scope, staging, packaging and auditor blockers, reproduce
-the following from a disposable clean checkout/worktree with the selected
-implementation source tracked and only documented prerequisites. Record
-the revision, tool versions, full command results and both APK hashes/sizes.
-Do not claim clean reproducibility from this dirty working tree.
+The current verification above executed this workflow from tracked source
+in a detached worktree. Reproduce it in another disposable checkout with
+the documented prerequisites, recording its own revision, commands, versions
+and artifact hashes. Device execution remains a separate, blocked step.
+Never use destructive cleanup on the user's working directory.
 
 ### Prerequisites
 
@@ -300,8 +468,8 @@ Do not claim clean reproducibility from this dirty working tree.
 # 1. Ensure environment
 $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 
-# 2. Stage native payloads ONLY after the importer/merge blocker is resolved.
-# Do not overwrite the genuine stage to experiment with the current merge.
+# 2. Obtain the pinned archive using the acquisition commands above, then stage.
+# This branch never merges/relinks; preserve other checkout stages.
 python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar.gz
 python scripts/import_llama_release.py --verify-only
 
@@ -311,7 +479,7 @@ echo 'sdk.dir=D:/softwares/android-sdk' > local.properties
 # 4. Clean build + JVM tests + lint
 ./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-# 5. Instrumentation APK (compiles; device run requires physical S25)
+# 5. Instrumentation APK (compile only; run still requires physical S25)
 ./gradlew --no-daemon :app:assembleDebugAndroidTest
 
 # 6. APK inspection
@@ -351,8 +519,8 @@ python --version
 
 ## APK hash and size
 
-Pending: record both produced APKs' hashes and sizes for traceability
-(the instrumentation filename may vary; use the actual build output):
+Both current hashes/sizes are recorded above. Record fresh outputs on each
+reproduction rather than assuming identical debug signatures:
 
 ```powershell
 Get-FileHash app/build/outputs/apk/debug/app-debug.apk

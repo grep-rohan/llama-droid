@@ -8,7 +8,7 @@ Build a minimal FOSS Android wrapper around upstream llama.cpp `llama-server` an
 
 | Module id | Responsibility | Depends on | Specification |
 |---|---|---|---|
-| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (spec, plan, and tasks approved; implementation on hold) |
+| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (host clean-build/audit verified; packaged S25 launch blocked; module incomplete) |
 | `model-import` | Import GGUF through SAF; handle cancellation, insufficient storage, and partial-file cleanup | — | Not drafted |
 | `server-lifecycle` | Start, readiness, failure reporting, Stop/restart, foreground-service cleanup | `native-runtime`, `model-import` | Not drafted |
 | `local-chat` | Open upstream WebUI in a restricted localhost WebView; verify actual generation | `server-lifecycle` | Not drafted |

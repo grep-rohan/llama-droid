@@ -1,12 +1,13 @@
 # Build Instructions
 
-> **Isolated branch: blockers 1–4 host work verified.**
-> On `fix/native-runtime`, 94 host tests (50 importer + 44 APK auditor),
-> 19 JVM tests and 12 opt-in Gradle/APK integration checks pass. A clean native debug APK build/lint
-> passes; packaged payload hashes, attribution and SDK manifest were checked.
+> **Isolated branch: blockers 1–5 host work verified.**
+> From a clean detached checkout at `955bfe3`, fresh archive download,
+> 94 host tests, 43 JVM tests and 12 opt-in packaging checks pass. Debug and
+> instrumentation APKs compile; hashes, attribution and both SDK manifests
+> were checked. Lint has four existing warnings and zero errors.
 > Installed extraction/permissions/linking and S25 execution remain unproven.
-> The original dirty checkout and stage remain untouched. Instrumentation
-> and clean-checkout/device evidence remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
+> The original dirty checkout and stage remain untouched. ART/native
+> instrumentation execution and physical S25 evidence remain blocked. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No native execution
 > or WebUI success is claimed.
 
@@ -27,9 +28,14 @@ and Temurin JDK 17.0.14; compiler/lint output confirms the minimal APK build.
 
 | Requirement | Current status |
 |---|---|
-| SDK command-line tools at `D:\softwares\android-sdk\cmdline-tools\latest` | **Present** |
+| SDK command-line tools at `D:\softwares\android-sdk\cmdline-tools\latest` | **Present** — actual revision **12.0**, not an assumed newest version |
 | Platform `android-35` | **Installed** |
 | Build tools `35.0.0` | **Installed** |
+
+The clean-checkout inventory exited 0 with an SDK XML-v3/v4 compatibility
+warning from command-line tools 12.0. Actual compiler/packaging checks pass;
+record the warning rather than silently upgrading approved tooling. Full
+versions and commands are in [build evidence](verification/native-build.md).
 
 ### NDK (for artifact inspection only)
 
@@ -228,11 +234,37 @@ not proof of Android extraction, permissions or linking.
 
 ## Instrumentation smoke test (T7)
 
-The intended smoke test uses `NativeProcessProbe` to drain output with
-bounded tails, enforce a 30-second deadline and verify child cleanup.
-The original untracked instrumentation was not copied. A reviewed harness
-must be implemented after native packaging; this branch's launcher/layout
-now compile. Fake-Process source/compilation is not a passing device test.
+The implemented test-only `NativeProcessProbe` and fake-Process cases live
+in `app/src/sharedTest/java/`, compiled into JVM tests and androidTest,
+not main. All **24 shared cases execute on JVM** (43 JVM cases total with
+launcher tests); ART execution is still blocked by no device. Real startup
+instrumentation is `NativeVersionSmokeTest` under `src/androidTest/`.
+
+Two concurrent readers consume excess output without `readLine()`, retaining
+16 KiB byte tails per stream by default. The child has a 30-second execution
+deadline, including recorded launcher latency once start returns; cleanup
+has a separate <=2-second budget. Wait/destroy/force/reap, stream-close and
+thread-join operations are bounded. EOF must precede forced closure; dead
+readers, stuck operations, un-reaped processes, caller interruption and
+cleanup failures cannot become success. Cancellation deliberately does not
+interrupt foreign worker/read APIs: NIO interrupt callbacks can synchronously
+block the controller. Noncooperative daemon operations are explicit failures,
+not silently detached successes. A 90-second JUnit guard covers the
+whole real smoke case, including prelaunch installed-file hashing/OS start;
+none of this proves Android OS startup or cleanup works until run there.
+
+The real test checks target app UID, installed paths/mode and all fourteen
+SHA-256s, then launches only `--version`. It requires exit 0, actual EOF/
+cleanup and upstream's `version: ... (build 12020, commit 0ec4027a2)` header.
+Pinned source and binary-string inspection established that format; a generic
+`llama-server`/`b12020` substring is insufficient. No model or listener starts.
+
+Only instrumentation receives generated `native-provenance.json`. Production
+DEX/assets/manifest inspection confirms it contains no probe, fake tests,
+smoke class, provenance asset or launch hook. The separate test APK contains
+AndroidX runner permission/components (including exported test activities)
+and is **not the user application**. It was not marked `testOnly` by this
+SDK, so do not rely on that flag to prevent installation/distribution.
 
 ### Compile instrumentation APK
 
@@ -243,17 +275,24 @@ $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 
 ### Run on device
 
-Connect an authorized ARM64 device (Galaxy S25), then:
+**Blocked: no connected/authorized S25.** ADB listed no devices during the
+clean-build verification. Connect/authorize the owner's physical S25; use
+the retained clean checkout/output paths in [build verification](verification/native-build.md)
+and record device properties per the spec before running:
 
 ```powershell
+# Confirm only the owner's authorized S25 is selected; never publish its serial.
+adb devices -l
 ./gradlew --no-daemon :app:connectedDebugAndroidTest
 adb logcat -d -s llama.droid
 ```
 
-**Blocked by host prerequisites and no connected/authorized device.**
-`adb devices -l` listed no devices in the documentation review. If multiple
-devices are present later, explicitly select only the S25 for ADB and
-Gradle (see the task plan). Compilation alone does not execute these tests.
+If multiple devices are attached, explicitly select only the S25 for both
+ADB and Gradle, or disconnect the others first. Do not assume a shell
+launch, emulator, JVM fake cases or successful compilation satisfies T9.
+Record both installed/test APK hashes, UID/path/permission/version evidence,
+all instrumentation results and a post-run native-child process cross-check.
+No device install/test was performed as part of host verification.
 
 ## APK audit (T8)
 
@@ -310,9 +349,9 @@ inferred from synthetic ZIP fixtures or from the auditor's success.
 
 The minimal Views/direct-process launcher source set is now isolated and
 host-verified. Safe staging and fail-closed packaging are verified against
-fixtures and the pinned archive/native APK, and the standalone auditor
-passes with separate SDK manifest evidence. Current packaging/launcher
-review, instrumentation and complete clean-checkout reproduction are still
-required before device testing. The physical S25 must be
-connected and authorized. Tool installations alone do not remove these
+fixtures and the pinned archive/native APK; clean committed-source builds
+of both APKs, standalone audit and separate SDK manifest checks pass. User
+approved Checkpoint B before adding the test-only harness. **The remaining
+blocker is physical S25 access/authorization and ART/native execution.**
+T5 installed extraction, T7 runtime cases and T9 evidence remain unverified. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

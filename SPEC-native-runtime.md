@@ -1,7 +1,7 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now implements the host launch boundary; native packaging/device proof remains incomplete. Original-checkout architecture deviations are preserved separately, not approved or included here.
+Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 packaged-launch/cleanup proof remains blocked; module success criteria are not complete. Original-checkout architecture deviations are preserved separately, not approved or included here.
 
 Parent: [Approved capability map](CAPABILITY-MAP.md)
 

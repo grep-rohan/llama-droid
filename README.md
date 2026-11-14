@@ -1,6 +1,6 @@
 # llama.droid
 
-Minimal, fully open-source Android APK that packages and runs the
+**Goal:** a minimal, fully open-source Android APK that packages and runs the
 upstream **llama.cpp `llama-server`** locally and opens its built-in
 WebUI in an Android WebView.
 
@@ -33,20 +33,23 @@ included here and not evidence of server or WebUI compatibility.
 | T4 | Verified native payload staging | 50 tests + real fourteen-file stage verification pass |
 | T5 | Package exact native payload | Host packaging verified; installed extraction pending T9 |
 | T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
-| T7 | Bounded app-context smoke harness | Pending reviewed implementation |
-| T8 | Clean-build APK audit | Standalone audit + SDK checks pass; harness/clean-checkout proof pending |
-| T9 | Physical S25 verification | Blocked: host prerequisites and no attached device |
+| T7 | Bounded app-context smoke harness | 24 shared JVM cases pass; instrumentation compiles; ART/native run blocked |
+| T8 | Clean-build APK audit | Fresh committed-source build, both APKs, audit/SDK checks verified |
+| T9 | Physical S25 verification | Blocked: no connected/authorized device |
 
-**Evidence on the isolated branch (blockers 1–4 host work):**
-- **Host-tested:** 94 Python tests (50 importer + 44 auditor), 19 launcher
-  JVM tests and 12 opt-in real Gradle/APK integration checks pass.
+**Evidence on the isolated branch (blockers 1–5 host work):**
+- **Host-tested:** 94 Python tests, 43 JVM tests (19 launcher + 24 probe)
+  and 12 opt-in real Gradle/APK integration checks pass from a clean
+  detached checkout at `955bfe3`, using a fresh pinned archive download.
   Staging tests cover real duplicate tar entries, ELF/receipt validation,
   copy/publication/rollback failures, concurrency and hard process exit.
 - **Stage-inspected:** real pinned archive stages exactly fourteen unchanged
   payloads + receipt; read-only verification passes. NDK inspection confirms
   dependency/ELF evidence; full source commit was checked against upstream.
-- **Compiled:** clean debug APK build and lint pass; lint has four warnings,
-  zero errors. Platform Views Activity has no production dependencies/listener.
+- **Compiled:** clean debug **and instrumentation** APK builds pass; lint
+  has four existing warnings, zero errors. SDK inventory has a recorded
+  non-blocking XML-version warning; no tooling was silently upgraded.
+  Platform Views Activity has no production dependencies/listener.
 - **APK-inspected:** the standalone ZIP/payload auditor passes for the real
   APK: fourteen pinned ARM64 native files, source-identical attribution,
   no detected extra natives/RPC/GGUF/staging content or duplicate ZIP names.
@@ -54,9 +57,15 @@ included here and not evidence of server or WebUI compatibility.
   exported Activity/services/receivers/providers. Compression/extraction
   configuration is not proof of installed permissions/linking/execution.
 - **Device-tested:** none. Physical S25 proof remains blocked.
-- **Pending:** current packaging/launcher review, bounded instrumentation,
-  clean-checkout/device evidence (next decision). T5's installed extraction
-  clause remains unchecked until T9; host success does not complete the module.
+- **Pending:** authorize the physical S25 and execute the instrumentation
+  suite, including real `--version` and cleanup/device evidence. T5 installed
+  extraction and T7/T9 ART/native checks remain unchecked. Host success does
+  not complete this module or authorize model-import/lifecycle/chat work.
+
+The production APK excludes the probe/tests/provenance asset. The separate
+`app-debug-androidTest.apk` is developer instrumentation only; AndroidX adds
+test permissions/activities there, **not in the user APK**. Both artifact
+hashes and reproduction details are in [build verification](docs/verification/native-build.md).
 
 The auditor never decodes binary XML or verifies APK signing/device behavior.
 Its success message explicitly scopes these out; resource/format limits and
@@ -72,10 +81,11 @@ module is incomplete, not complete with a waiver.
 
 ### Verification commands
 
-These are the target workflow, **not a currently passing recipe**.
-Resolve the [ordered blockers](tasks/todo.md#blockers-in-precedence-order)
-first. Preserve the original checkout/stage; its NDK merge proposal is
-unvalidated and is not part of this branch.
+The documented host build/audit workflow below passed from clean committed
+source. **The device command remains blocked** until the S25 is connected
+and authorized; see [remaining blockers](tasks/todo.md#blockers-in-precedence-order).
+Preserve the original checkout/stage; its unvalidated NDK merge proposal is
+not part of this branch.
 
 ```powershell
 # Staging
@@ -84,7 +94,7 @@ python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar
 # Build
 ./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-# Instrumentation (pending harness implementation, then compile/device run)
+# Instrumentation APK compilation (verified; does not execute device tests)
 ./gradlew --no-daemon :app:assembleDebugAndroidTest
 
 # APK audit
