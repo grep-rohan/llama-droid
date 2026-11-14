@@ -1,10 +1,62 @@
 # Native Build Verification (T8)
 
-## Current evidence — incomplete
+## Isolated branch evidence — blocker 1 resolved
 
-This file is a reproduction checklist, **not a successful clean-build
-report**. Earlier completion claims are not established for the current
-working tree. See [ordered blockers](../../tasks/todo.md#blockers-in-precedence-order).
+User selected option A: isolated branch/worktree `fix/native-runtime` at
+`D:/workspace/projects/llama-droid-native-runtime`, based on `4641a20`.
+Original JNI/Ktor/inference changes and generated native stage remain
+untouched in the other checkout. No original untracked harness/auditor or
+merge proposal was copied. See [ordered blockers](../../tasks/todo.md#blockers-in-precedence-order).
+
+### Commands and results
+
+Run from the isolated worktree in Git Bash, with session-local variables
+(no global PATH changes or tool installation):
+
+```bash
+export JAVA_HOME='/d/softwares/jdk/jdk-17.0.14+7'
+export ANDROID_HOME='D:/softwares/android-sdk'
+export ANDROID_SDK_ROOT='D:/softwares/android-sdk'
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew --version
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*NativeServerLauncherTest'
+./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+```
+
+- Versions: Gradle **8.10.2**, Temurin JDK **17.0.14+7** on Windows 11.
+  AGP/Kotlin project pins remain 8.8.2/2.0.21; wrapper's reported embedded
+  Kotlin 1.9.24 is not the project's compiler plugin version.
+- Red: focused test compilation failed for missing launcher/layout classes.
+- Green: **19 JVM tests, zero failures/errors/skips** (JUnit XML checked).
+- Final clean build: **BUILD SUCCESSFUL in 29s**, 50 executed tasks.
+- Lint: **0 errors, 4 warnings**: `RedundantLabel`, two `GradleDependency`
+  suggestions, `ChromeOsAbiSupport`. No version/ABI changes to silence them.
+- Existing importer suite: **22 pass**; acceptance gaps remain (blocker 2).
+- Checked merged manifest: minSdk 26/targetSdk 35, no permissions, exported
+  activities, services, receivers or providers. No new launch/test endpoint.
+- Launcher payload-name set matches all fourteen provenance entries.
+- ZIP check: **no `lib/` members**, intentionally. No native stage was copied
+  or imported; this is a minimal build/configuration check, not a native APK.
+
+APK: `app/build/outputs/apk/debug/app-debug.apk`, **819,819 bytes**.
+SHA-256: `58cf53cd14219df8007dbb039aa1059adc4af2741a40cdbd8498577a6c89424c`.
+
+Reports: `app/build/test-results/testDebugUnitTest/`,
+`app/build/reports/lint-results-debug.{xml,html}`. Local, ignored build logs:
+`.cache/blocker1-{red,green,build,host-tests,toolchain}.log` (not required as
+build inputs and not committed). APK hashes can vary on a later rebuild;
+record the actual artifacts rather than assuming byte-reproducible signing.
+
+**Not verified:** native extraction/permissions/linking, ARM64 execution,
+instrumentation harness compilation/execution, native APK audit or physical
+S25 compatibility. Native packaging (T5) still blocks T6 integration. No
+model loading, inference, service, listener or WebUI claim is made.
+
+## Original checkout snapshot — historical documentation review
+
+The following results describe the original dirty checkout before branch
+isolation; they are **not current isolated-branch results**:
 
 Checks executed during documentation reconciliation:
 
@@ -19,9 +71,9 @@ Checks executed during documentation reconciliation:
 Limits: duplicate-member rejection is not asserted by its named test;
 receipt/ELF validation is incomplete; monolithic tests use synthetic ZIPs
 and size checks, not a real merge. No Gradle/JVM/lint/instrumentation
-command was run in this review. Required launcher classes and JVM tests
-are absent, stage verification is disabled, and harness/auditor sources
-are untracked. No installed-app native execution or Android 17 linker
+command was run in that review. In that original checkout, launcher/JVM
+sources were absent, stage verification was disabled, and harness/auditor
+sources were untracked. No installed-app native execution or Android 17 linker
 restriction is established. The existing APK is not tied to a reproduced
 source revision here; do not install it as a verified artifact.
 
@@ -41,7 +93,7 @@ Do not claim clean reproducibility from this dirty working tree.
 | Android SDK command-line tools | latest | `ANDROID_SDK_ROOT` or `local.properties` |
 | Platform `android-35` | installed | Required for compilation |
 | Build tools `35.0.0` | installed | Required for packaging |
-| NDK `27.2.12479018` | documented local installation | Approved for ELF inspection; current CMake/merge additions require scope review |
+| NDK `27.2.12479018` | documented local installation | Approved for ELF inspection; original CMake/merge additions are not included here |
 | Python 3 | standard library | Staging and APK audit |
 | Gradle 8.10.2 | wrapper (pinned) | `gradle/wrapper/gradle-wrapper.jar` |
 
@@ -129,8 +181,10 @@ Verify:
 - Permissions and `<uses-native-library>` declarations (if any)
 - ABI contents: `arm64-v8a` only (inspect ZIP members separately)
 
-These checks are pending. The Python ZIP auditor is not currently a
-working binary-manifest decoder and must not substitute for SDK inspection.
+Native APK/SDK checks are pending. The blocker-1 check above inspected
+only the merged manifest of a no-native APK, not extraction behavior.
+The original Python ZIP auditor was not a working binary-manifest decoder;
+its replacement must not substitute text-fixture checks for SDK inspection.
 
 ## Disposal
 

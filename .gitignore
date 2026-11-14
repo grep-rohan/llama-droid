@@ -8,6 +8,8 @@ app/src/main/jniLibs/
 app/build/
 build/
 .gradle/
+.kotlin/
+__pycache__/
 
 # Local SDK paths (host-specific)
 !docs/BUILDING.md

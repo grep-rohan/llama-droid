@@ -18,9 +18,10 @@ not need Termux, root, ADB, a separate inference service, or a cloud API.
 
 The `native-runtime` module aims to establish the build, packaging,
 linking, and direct-process launch foundation. Installed-app execution
-under the app UID is **not yet proven**. Current JNI/Ktor/inference
-changes diverge from the approved module boundary and need review;
-they are not evidence of upstream server or WebUI compatibility.
+under the app UID is **not yet proven**. Work continues on the isolated
+`fix/native-runtime` branch/worktree selected by the user. The original
+checkout's JNI/Ktor/inference experiments are preserved separately, not
+included here and not evidence of server or WebUI compatibility.
 
 ### Verification Status
 
@@ -28,27 +29,29 @@ they are not evidence of upstream server or WebUI compatibility.
 |---|---|---|
 | T1 | Artifact provenance boundary | Historical completion retained |
 | T2 | Pinned Gradle wrapper & toolchain | Historical completion retained |
-| T3 | Minimal Views APK | Reopened: current Activity starts a server |
-| T4 | Verified native payload staging | Reopened: safety/receipt gaps; merge unverified |
-| T5 | Package exact native payload | Reopened: Gradle stage verification disabled |
-| T6 | Internal direct-process launcher | Reopened: launcher classes/JVM tests absent |
-| T7 | Bounded app-context smoke harness | Current compilation/execution unverified |
-| T8 | Clean-build APK audit | Blocked: real APK auditor crashes; clean build pending |
+| T3 | Minimal Views APK | Clean build/lint pass; no native payload |
+| T4 | Verified native payload staging | Pending safety/receipt fixes; next decision |
+| T5 | Package exact native payload | Pending integration on isolated baseline |
+| T6 | Internal direct-process launcher | Implemented/compiled; 19 JVM tests pass; awaits T5 |
+| T7 | Bounded app-context smoke harness | Pending reviewed implementation |
+| T8 | Clean-build APK audit | Pending native build/auditor |
 | T9 | Physical S25 verification | Blocked: host prerequisites and no attached device |
 
-**Evidence from the documentation review:**
-- **Host-tested:** 34 Python tests pass (22 importer + 12 APK audit).
-  Coverage gaps remain; duplicate rejection is not actually asserted and
-  monolithic tests check synthetic ZIPs, not successful native linking.
-- **Stage-inspected:** existing fourteen-file payload digest check passes;
-  receipt and ELF architecture checks remain incomplete.
-- **Compiled/JVM/lint:** not rerun for current sources; earlier reports do
-  not establish current success. Instrumentation references missing classes.
-- **APK-inspected:** auditor crashes decoding binary `AndroidManifest.xml`;
-  packaged manifest checks and clean-build hash evidence remain pending.
-- **Device-tested:** not established; `adb devices -l` lists no devices.
-- **Linking proposal:** unvalidated; do not treat the merge or the claimed
-  Android 17 restriction as a verified diagnosis/remedy.
+**Evidence on the isolated branch (blocker 1):**
+- **Host-tested:** 19 launcher JVM tests pass (zero skips/failures/errors),
+  plus 22 existing importer tests. Importer acceptance gaps remain.
+- **Compiled:** clean debug APK build and lint pass; lint has four warnings,
+  zero errors. Platform Views Activity has no production dependencies/listener.
+- **APK-inspected:** this minimal APK intentionally contains no native
+  payload. Its merged manifest has SDK 26/35, no permissions or exported
+  activities/services/receivers/providers. This is not native launch proof.
+- **Device-tested:** none. Physical S25 proof remains blocked.
+- **Pending:** safe staging, fail-closed native packaging, instrumentation,
+  native APK audit and clean-checkout/device evidence.
+
+The earlier 34-Python-test count, disabled stage gate, binary-manifest audit
+crash and merge proposal describe the **original dirty checkout**, not this
+isolated branch. The unreviewed harness/auditor/merge were not copied here.
 
 See [ordered blockers and task acceptance](tasks/todo.md) and
 [current build evidence](docs/verification/native-build.md). A blocked
@@ -58,8 +61,8 @@ module is incomplete, not complete with a waiver.
 
 These are the target workflow, **not a currently passing recipe**.
 Resolve the [ordered blockers](tasks/todo.md#blockers-in-precedence-order)
-first. In particular, do not rerun import with NDK discovery enabled
-against the genuine stage until the merge proposal is reviewed.
+first. Preserve the original checkout/stage; its NDK merge proposal is
+unvalidated and is not part of this branch.
 
 ```powershell
 # Staging

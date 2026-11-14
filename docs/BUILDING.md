@@ -1,19 +1,18 @@
 # Build Instructions
 
-> **Current workflow is blocked, not verified end to end.** See
-> [ordered blockers](../tasks/todo.md#blockers-in-precedence-order) and
-> [current evidence](verification/native-build.md). The commands below
-> describe the approved target workflow, not a successful current build.
-> The existing stage passes its payload digest check, but Gradle's stage
-> verifier is disabled and the real APK audit crashes on the binary
-> manifest. Launcher classes/JVM tests are absent from the current tree.
-> Do not rerun import with NDK discovery enabled against the genuine stage
-> until the unvalidated merge proposal is reviewed. No device run is proven.
+> **Isolated branch: blocker 1 verified, native workflow still pending.**
+> On `fix/native-runtime`, 19 launcher JVM tests and a clean no-native APK
+> build/lint pass. The original dirty checkout and stage remain untouched.
+> Staging safety fixes, native packaging, instrumentation/auditor and S25
+> execution remain pending. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
+> and [branch evidence](verification/native-build.md). No native execution
+> or WebUI success is claimed.
 
 ## Prerequisites
 
 Installation entries below reflect previously documented host setup,
-not tool versions reverified during the documentation review.
+not a fresh SDK inventory. The blocker-1 build reverified Gradle 8.10.2
+and Temurin JDK 17.0.14; compiler/lint output confirms the minimal APK build.
 
 ### Java
 
@@ -38,11 +37,11 @@ not tool versions reverified during the documentation review.
 | `llvm-readelf` / `llvm-nm` | **Available** at `D:\softwares\android-sdk\ndk\27.2.12479018\toolchains\llvm\prebuilt\windows-x86_64\bin\` |
 
 The approved plan uses the NDK for ELF inspection (T1), not native
-compilation. Current CMake/JNI and importer merge additions diverge from
-that baseline and require review. Importer tool discovery currently
-returns no toolchain despite the documented installation; identify and
-configure the pinned tools rather than installing another version blindly.
-Setting `ANDROID_NDK_HOME` alone does not validate the merge proposal.
+compilation. The original checkout's CMake/JNI/merge additions were not
+copied into this branch. Its NDK discovery failure and unvalidated merge
+are historical diagnostics, not requirements to build this branch's
+minimal APK. Do not enable that original merge merely by setting
+`ANDROID_NDK_HOME`; review any native transformation separately.
 
 ### Gradle Wrapper
 
@@ -68,14 +67,15 @@ python scripts/import_llama_release.py --verify-only
 ```
 
 The approved stage is fourteen byte-preserved files in
-`app/src/main/jniLibs/arm64-v8a/` plus `.payload_receipt.json`. The current
-importer additionally attempts an unverified merge when it finds an NDK;
-its verifier still expects the original fourteen digests. Receipt and ELF
-validation also need repair. Preserve the genuine stage during investigation.
+`app/src/main/jniLibs/arm64-v8a/` plus `.payload_receipt.json`. This branch
+retains the committed no-merge importer; receipt/ELF validation and safety
+tests still need repair (blocker 2). No payload is staged here yet. Preserve
+the original checkout's genuine stage during investigation.
 
 The intended Gradle `verifyNativeStage` gate must reject absent, tampered,
-or unexpected payloads before packaging. **It is currently disabled** by
-`onlyIf { false }`; its invocation also needs the explicit directory option:
+or unexpected payloads before native packaging. **It is not yet implemented
+on this isolated baseline** (blocker 3). The original dirty gate was disabled;
+when implementing it here, use the explicit directory option:
 
 ```powershell
 python scripts/import_llama_release.py --verify-only --staging-dir app/src/main/jniLibs/arm64-v8a
@@ -128,27 +128,27 @@ java -version
 
 ## Testing (T6)
 
-The required launcher JVM test sources are currently absent. Restore
-meaningful tests before treating this command as verification; require
-nonzero test discovery. The intended tests run on the host without
-executing the ARM64 ELF:
+The launcher JVM tests now run on the host without executing an ARM64
+ELF. The focused suite passes **19 tests, zero failures/errors/skips**:
 
 ```powershell
 $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 ./gradlew --no-daemon :app:testDebugUnitTest --tests '*NativeServerLauncherTest*'
 ```
 
-Required coverage: path resolution, argument separation, environment
-construction, and configuration failure paths. No current passing JVM
-result is established.
+Coverage includes trusted path/argument/environment construction,
+missing payloads (including every dependency/backend), permission decisions,
+start failures and caller-owned streams. Fixture files are never executed;
+permission decisions/process creation are injected internal test seams,
+not proof of Android extraction, permissions or linking.
 
 ## Instrumentation smoke test (T7)
 
 The intended smoke test uses `NativeProcessProbe` to drain output with
 bounded tails, enforce a 30-second deadline and verify child cleanup.
-Current instrumentation references missing `NativeRuntimeLayout` and
-`NativeServerLauncher` classes; compilation must be re-established first.
-Fake-Process instrumentation source/compilation is not a passing device test.
+The original untracked instrumentation was not copied. A reviewed harness
+must be implemented after native packaging; this branch's launcher/layout
+now compile. Fake-Process source/compilation is not a passing device test.
 
 ### Compile instrumentation APK
 
@@ -174,11 +174,11 @@ Gradle (see the task plan). Compilation alone does not execute these tests.
 ## APK audit (T8)
 
 The intended ZIP audit checks payload integrity, ABI, attribution and
-absence of GGUF weights. **Current real-APK result: `UnicodeDecodeError`**
-while decoding binary `AndroidManifest.xml` as UTF-8. The monolithic path
-also uses size-only acceptance instead of digest verification. Repair these
-before trusting success; inspect the packaged manifest separately with
-SDK `apkanalyzer` as described in [the build checklist](verification/native-build.md).
+absence of GGUF weights. **The reviewed auditor is not implemented on this
+branch yet.** The original dirty auditor crashed on binary-manifest UTF-8
+decoding and used size-only monolithic acceptance; do not copy those
+assumptions. Inspect the packaged manifest separately with SDK `apkanalyzer`
+as described in [the build checklist](verification/native-build.md).
 
 ```powershell
 python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
@@ -192,8 +192,9 @@ python -m unittest discover -s scripts/tests -p 'test_verify_apk.py' -v
 
 ## Unresolved prerequisites
 
-An agreed native-runtime source set, restored launcher/JVM tests,
-fail-closed staging/packaging, a trustworthy real-APK audit, and a clean
-reproduction are required before device testing. The physical S25 must be
+The minimal Views/direct-process launcher source set is now isolated and
+host-verified. Safe staging, fail-closed native packaging, a trustworthy
+native APK audit and complete clean-checkout reproduction are still
+required before device testing. The physical S25 must be
 connected and authorized. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

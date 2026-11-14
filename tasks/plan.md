@@ -4,7 +4,7 @@ Module: `native-runtime`
 Spec: [SPEC-native-runtime.md](../SPEC-native-runtime.md), approved by the user.  
 Plan status: **Approved baseline; original implementation hold is historical.** Implementation files now exist, with deviations requiring review. This document preserves the approved design, not current execution evidence or approval of those deviations.
 
-Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The documentation review does not authorize further implementation.
+Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The user subsequently selected isolated worktree option A for blocker 1: minimal Activity, direct-process launcher and JVM tests. That scoped implementation is verified on `fix/native-runtime`; later blockers remain interactive decisions.
 
 ## Overview
 
@@ -107,7 +107,7 @@ T7 requires T6's interface and T5's packaging. T9 may be blocked by phone access
 
 ## Approved Task Index
 
-The approved acceptance/verification details are in `tasks/todo.md`. Approval does not override the user's explicit instruction to hold implementation.
+The approved acceptance/verification details and current scoped authorization are in `tasks/todo.md`. Historical hold statements below are not new authorization for later tasks.
 
 1. T1 — Record and reproduce the inspected upstream payload and licensing.
 2. T2 — Establish the pinned wrapper and host setup instructions.
@@ -205,4 +205,4 @@ T1 artifact review and T2 wrapper setup can run in parallel; T3 depends on T2. T
 
 ## Next Gate
 
-The user approved the plan and task list together and explicitly instructed: do not start implementation. Keep all implementation tasks unchecked and wait for an explicit instruction to begin. When released, start with T1 using the approved incremental, test-driven workflow.
+The original implementation hold was later superseded for the user's chosen blocker-1 scope (isolated worktree option A). That host boundary is now implemented/tested. Pause for the next interactive decision: retain the approved fourteen-file staging format and repair its safety/receipt tests (recommended), or separately review an alternative artifact/linking strategy. No later task is silently authorized by this status update.

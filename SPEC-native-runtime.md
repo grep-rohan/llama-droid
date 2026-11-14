@@ -1,7 +1,7 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved specification; plan/task approval is recorded in [tasks/todo.md](tasks/todo.md). Current implementation deviates from the approved baseline and is incomplete; this documentation review does not authorize further implementation.
+Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now implements the host launch boundary; native packaging/device proof remains incomplete. Original-checkout architecture deviations are preserved separately, not approved or included here.
 
 Parent: [Approved capability map](CAPABILITY-MAP.md)
 
