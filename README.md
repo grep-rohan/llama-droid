@@ -16,15 +16,15 @@ not need Termux, root, ADB, a separate inference service, or a cloud API.
 
 ## Native Runtime Module
 
-The `native-runtime` module is **complete on `fix/native-runtime`** after
+The `native-runtime` module is **complete and merged into `main`** after
 owner approval of Checkpoint C. It establishes the build, packaging,
 linking, and direct-process version-launch foundation only; M0 remains in
 progress. Installed-app `--version` execution under the app UID is
 **verified on the owner's physical S25**.
-The completed work remains on the isolated `fix/native-runtime` branch;
-it has not been merged. The original checkout's JNI/Ktor/inference experiments
-are preserved separately, not included here and not evidence of server or
-WebUI compatibility.
+The owner separately authorized merging `fix/native-runtime`; merge commit
+`c8ea610` integrates the verified work without changing its source tree.
+The original dirty checkout's JNI/Ktor/inference experiments remain untouched
+and are not included here or evidence of server/WebUI compatibility.
 
 ### Verification Status
 
@@ -71,8 +71,9 @@ WebUI compatibility.
   processes remained. Gradle connected testing is still unsafe to assume
   data-preserving. See [S25 evidence](docs/verification/native-s25.md).
 - **Approved:** the owner selected option A after evidence commit `ca55ef5`,
-  approving Checkpoint C and closing **native-runtime only**. No merge or
-  model-import/lifecycle/chat work is authorized by that approval.
+  approving Checkpoint C and closing **native-runtime only**. The later
+  explicit merge request authorized integration into `main`, not
+  model-import/lifecycle/chat work.
 
 The production APK excludes the probe/tests/provenance asset. The separate
 `app-debug-androidTest.apk` is developer instrumentation only; AndroidX adds

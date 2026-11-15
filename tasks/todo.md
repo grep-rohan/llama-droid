@@ -6,6 +6,21 @@ Spec: `SPEC-native-runtime.md` (approved). Plan: `tasks/plan.md` (approved). Tas
 
 Standing completion bar: applicable tests pass with meaningful nonzero discovery, no regressions or unrelated scope, diagnostics and failure cleanup verified, relevant docs updated, and no unsupported runtime claims. Missing device evidence blocks completion; marking a task blocked does not complete the module.
 
+## Integration into main — separately owner-approved
+
+The owner subsequently requested **merge**. Merge commit `c8ea610` integrates
+`fix/native-runtime` at `9036aa9` into `main`'s history; its tree exactly matches
+the approved branch. Integration used the clean worktree
+`D:/workspace/projects/llama-droid-integration`, leaving the original dirty
+`D:/workspace/projects/llama-droid` checkout and its local `main` at `4641a20`
+unmodified by merge commands. Its dirty diff/untracked inventory changed during
+integration (including `.gitignore`); those separate changes were left in place,
+not incorporated or restored. Publication targets `origin/main`; the dirty local
+checkout must be reconciled separately before advancing it. No stash/reset/checkout
+of user work, phone commands or downstream work was used. **94 host tests pass** on the merge
+tree. The later integration-status edits are documentation-only; no new native
+build or device-test result is claimed.
+
 ## Current evidence and actionable blockers
 
 ### Current — owner-approved direct retest passed; packages retained
@@ -305,4 +320,4 @@ The original dirty checkout's importer attempts `ld.lld -shared --whole-archive`
 | 6. Current device properties/privacy | [native-s25.md](../docs/verification/native-s25.md): SM-S931B/API 37, ABI/patch/build/raw One UI/memory/page size; no unique transport identifiers published |
 | 7. Internal consumer launch contract only | `NativeRuntimeLayout`/`NativeServerLauncher`, 19 JVM cases, [native-build.md](../docs/verification/native-build.md); no downstream import/service/chat code or production test hooks |
 
-**Current status:** Native-runtime is **complete on `fix/native-runtime`**, with T1–T9 verified and Checkpoint C explicitly approved by the owner. Host verification and physical native smoke pass (94 Python/43 JVM/12 packaging checks; direct 25/25 ART/native instrumentation). The owner-approved fresh-install/direct retest resolved the operational hold and retained both audited packages. This closes the native build/packaging/version-launch foundation only, not M0 or the full app. No model compatibility, inference, service/WebUI success, merge or downstream module approval is claimed.
+**Current status:** Native-runtime is **complete and merged into `main`**, with T1–T9 verified and Checkpoint C explicitly approved by the owner. Host verification and physical native smoke pass (94 Python/43 JVM/12 packaging checks; direct 25/25 ART/native instrumentation). The owner-approved fresh-install/direct retest resolved the operational hold and retained both audited packages. This closes the native build/packaging/version-launch foundation only, not M0 or the full app. The owner separately authorized integration into `main` via merge `c8ea610`; no model compatibility, inference, service/WebUI success or downstream module approval is claimed.

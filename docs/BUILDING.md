@@ -11,8 +11,8 @@
 > Direct retest passed **25/25**, retaining both audited APKs with matching
 > before/after hashes/UIDs/paths. T1–T9 are verified; the owner approved
 > Checkpoint C (option A after `ca55ef5`), closing native-runtime only.
-> The module is complete on `fix/native-runtime`, not merged; downstream work
-> requires separate approval.
+> The owner separately authorized merging into `main` (merge `c8ea610`);
+> downstream work still requires separate approval.
 > See [S25 evidence](verification/native-s25.md).
 > The original dirty checkout and stage remain untouched. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No model inference
@@ -378,7 +378,8 @@ of both APKs, standalone audit and separate SDK manifest checks pass. User
 approved Checkpoint B before adding the test-only harness. Physical S25
 version execution and all 24 ART fake cases now pass, including the owner-approved
 fresh-install/direct retest retaining both audited APKs. **Checkpoint C is now
-owner-approved; native-runtime is complete on `fix/native-runtime`.** No merge
-or downstream specification/implementation is authorized by that closure.
+owner-approved; native-runtime is complete and separately owner-authorized
+for merging into `main` (merge `c8ea610`).** No downstream specification or
+implementation is authorized by either approval.
 Native inference, model compatibility and WebUI are still unverified. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

@@ -28,8 +28,9 @@ the owner confirmed: **"there was no data, fresh install ok"**. That confirmatio
 resolved the data-impact decision and authorized the fresh-install/direct-test
 sequence; it does not retroactively make Gradle cleanup data-preserving.
 
-**Checkpoint C is owner-approved; native-runtime is complete on `fix/native-runtime`.**
-This does not merge the branch or authorize downstream work. Use owner-approved
+**Checkpoint C is owner-approved; native-runtime is complete.** The owner
+subsequently requested merging into `main` (merge `c8ea610`); this changes no
+device-test evidence or downstream approval boundary. Use owner-approved
 installs followed by direct `am instrument`, not a repeat of the uninstalling
 Gradle task on a data-bearing installation. The retest verified installed APK
 identities before and after testing without framework removal.
@@ -205,7 +206,8 @@ this time with both packages still installed. No model or listener was started.
 
 **T9's retained-installation/operational review is satisfied.** After evidence
 commit `ca55ef5`, the owner selected option A approving Checkpoint C and closing
-native-runtime only. The module is complete on `fix/native-runtime`; inference,
+native-runtime only. The owner later separately requested integration into
+`main` (merge `c8ea610`). The module is complete; inference,
 model compatibility, services and WebUI remain outside this evidence. No merge,
 additional device changes or downstream specification/implementation is
 implied by that approval.
@@ -234,8 +236,8 @@ do not reuse it as a retained-installation test.
 
 **Completion review:** Checkpoint C and the seven-criterion trace are approved;
 see [tasks/todo.md](../../tasks/todo.md#checkpoint-c-native-runtime-completion-review).
-No further native-runtime task is pending. Any merge or later module needs a
-separate owner decision.
+No further native-runtime task is pending. Merging into `main` was subsequently
+owner-authorized (merge `c8ea610`); any later module still needs separate approval.
 Native startup success is not model compatibility, foreground-service
 reliability, inference, WebUI hosting or permission to start those modules
 without their separate approval gates.
