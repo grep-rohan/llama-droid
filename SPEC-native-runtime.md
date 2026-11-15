@@ -1,7 +1,7 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved specification; plan/task approval is recorded in [tasks/todo.md](tasks/todo.md). Current implementation deviates from the approved baseline and is incomplete; this documentation review does not authorize further implementation.
+Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 version-command and child-cleanup evidence now passes. After historical Gradle cleanup removed the packages, the owner confirmed no prior data and approved fresh installation. Direct instrumentation passed 25/25, retaining both audited APKs with unchanged before/after hashes/UIDs/paths. T1–T9 are verified; after evidence commit `ca55ef5`, the owner selected option A approving Checkpoint C and closing native-runtime only on `fix/native-runtime`. The module is complete; M0, model compatibility/inference/WebUI, merging and downstream work are not approved or proven by this closure. Original-checkout architecture deviations are preserved separately, not approved or included here.
 
 Parent: [Approved capability map](CAPABILITY-MAP.md)
 
@@ -82,9 +82,12 @@ adb shell getprop ro.build.version.oneui
 adb shell getprop ro.build.fingerprint
 adb shell grep MemTotal /proc/meminfo
 
-# Install and run app-context native smoke tests with only the target S25 connected.
+# Owner-approved retained-installation test with only the target S25 connected.
+# WARNING: the originally prescribed Gradle connected task removed both packages
+# after testing and may delete app data; prefer direct instrumentation.
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s llama.droid
 ```
 

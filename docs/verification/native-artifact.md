@@ -6,9 +6,43 @@
 |---|---|
 | URL | https://github.com/ggml-org/llama.cpp/releases/download/b12020/llama-b12020-bin-android-arm64.tar.gz |
 | Release | b12020 |
-| Source commit | `0ec4027a2a0183de87c007069adddc6e665f7de` |
+| Source commit | `0ec4027a2a0183de87c007069adddc06e665f7de` |
 | Archive size | 78,982,432 bytes |
 | Archive SHA-256 | `64717fce80d758c220345864a0e69788aa1488ffe4f4b85e322155fdd1beaeec` |
+
+## Blocker 2 reinspection on the isolated branch
+
+The user selected the approved fourteen-file, byte-preserving artifact
+format. No merge/relink/stripping/source build was performed.
+
+- Rechecked the existing archive (read-only from the original checkout's
+  `.cache/`): 78,982,432 bytes; the SHA-256 above matches the release asset.
+  All fourteen selected per-file hashes also match the manifest unchanged.
+- Confirmed full source SHA using both upstream endpoints:
+  https://api.github.com/repos/ggml-org/llama.cpp/git/ref/tags/b12020 and
+  https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b12020.
+  Both identify `0ec4027a2a0183de87c007069adddc06e665f7de` (commit object);
+  the release asset also reports the pinned archive digest/size. Corrected
+  the earlier 39-character transcription in provenance/notice/evidence.
+- Archive has 44 entries: one directory and 43 regular files; no links or
+  special files. Importer scans all entries, but copies only the allowlist
+  into `app/src/main/jniLibs/arm64-v8a/` in the isolated worktree.
+- Pinned NDK 27.2.12479018 `llvm-readelf` reports LLVM 18.0.3. Re-ran
+  `-h -l -d` on every staged payload: ELF64 AArch64 ET_DYN, all LOAD
+  alignments `0x4000`, each dependency set equals its provenance entry,
+  no RPATH/RUNPATH. Only the launcher has a program interpreter.
+- `llvm-nm --defined-only` confirms embedded UI symbols in the server
+  implementation again. No WebUI hosting claim.
+- Exact stage: fourteen native files + versioned receipt, no RPC/utilities.
+  Import and `--verify-only` succeed. Both native files and transaction
+  controls are ignored under `app/src/main/jniLibs/`; nothing native is
+  added to Git. Original checkout/stage remains untouched.
+
+Local inspection transcripts are ignored:
+`.cache/blocker2-readelf.log`, `.cache/blocker2-ui-symbols.log`, and
+`.cache/b12020-{tag,release}.json`. They are evidence outputs, not inputs
+required to reproduce staging. Device permissions/linking/CPU selection
+remain unverified.
 
 ## ELF Inspection (NDK llvm-readelf)
 
@@ -21,7 +55,7 @@ Tool: `D:/softwares/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/windo
 | Class | ELF64 |
 | Type | DYN (Shared object file) |
 | Machine | AArch64 |
-| Interpreter | `/system/bin/linker64` |
+| Interpreter | Launcher only: `/system/bin/linker64`; none on the other 13 shared libraries |
 | PT_LOAD alignment | `0x4000` (16 KiB) |
 | RPATH/RUNPATH | None |
 | libc++_shared.so | Not a DT_NEEDED dependency |

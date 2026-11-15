@@ -1,6 +1,6 @@
 # llama.droid
 
-Minimal, fully open-source Android APK that packages and runs the
+**Goal:** a minimal, fully open-source Android APK that packages and runs the
 upstream **llama.cpp `llama-server`** locally and opens its built-in
 WebUI in an Android WebView.
 
@@ -16,39 +16,76 @@ not need Termux, root, ADB, a separate inference service, or a cloud API.
 
 ## Native Runtime Module
 
-The `native-runtime` module aims to establish the build, packaging,
-linking, and direct-process launch foundation. Installed-app execution
-under the app UID is **not yet proven**. Current JNI/Ktor/inference
-changes diverge from the approved module boundary and need review;
-they are not evidence of upstream server or WebUI compatibility.
+The `native-runtime` module is **complete on `fix/native-runtime`** after
+owner approval of Checkpoint C. It establishes the build, packaging,
+linking, and direct-process version-launch foundation only; M0 remains in
+progress. Installed-app `--version` execution under the app UID is
+**verified on the owner's physical S25**.
+The completed work remains on the isolated `fix/native-runtime` branch;
+it has not been merged. The original checkout's JNI/Ktor/inference experiments
+are preserved separately, not included here and not evidence of server or
+WebUI compatibility.
 
 ### Verification Status
 
 | Task | Description | Status |
 |---|---|---|
-| T1 | Artifact provenance boundary | Historical completion retained |
+| T1 | Artifact provenance boundary | Archive/ELF rechecked; source commit transcription corrected |
 | T2 | Pinned Gradle wrapper & toolchain | Historical completion retained |
-| T3 | Minimal Views APK | Reopened: current Activity starts a server |
-| T4 | Verified native payload staging | Reopened: safety/receipt gaps; merge unverified |
-| T5 | Package exact native payload | Reopened: Gradle stage verification disabled |
-| T6 | Internal direct-process launcher | Reopened: launcher classes/JVM tests absent |
-| T7 | Bounded app-context smoke harness | Current compilation/execution unverified |
-| T8 | Clean-build APK audit | Blocked: real APK auditor crashes; clean build pending |
-| T9 | Physical S25 verification | Blocked: host prerequisites and no attached device |
+| T3 | Minimal Views APK | Platform Views scaffold compiled; no native launch UI |
+| T4 | Verified native payload staging | 50 tests + real fourteen-file stage verification pass |
+| T5 | Package exact native payload | APK + installed fourteen-file hashes/permissions verified on S25 |
+| T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
+| T7 | Bounded app-context smoke harness | 24 ART cases + real native smoke pass (25/25) |
+| T8 | Clean-build APK audit | Fresh committed-source build, both APKs, audit/SDK checks verified |
+| T9 | Physical S25 verification | Direct retest 25/25; both audited APKs retained and hashes verified |
 
-**Evidence from the documentation review:**
-- **Host-tested:** 34 Python tests pass (22 importer + 12 APK audit).
-  Coverage gaps remain; duplicate rejection is not actually asserted and
-  monolithic tests check synthetic ZIPs, not successful native linking.
-- **Stage-inspected:** existing fourteen-file payload digest check passes;
-  receipt and ELF architecture checks remain incomplete.
-- **Compiled/JVM/lint:** not rerun for current sources; earlier reports do
-  not establish current success. Instrumentation references missing classes.
-- **APK-inspected:** auditor crashes decoding binary `AndroidManifest.xml`;
-  packaged manifest checks and clean-build hash evidence remain pending.
-- **Device-tested:** not established; `adb devices -l` lists no devices.
-- **Linking proposal:** unvalidated; do not treat the merge or the claimed
-  Android 17 restriction as a verified diagnosis/remedy.
+**Evidence on the isolated branch:**
+- **Host-tested:** 94 Python tests, 43 JVM tests (19 launcher + 24 probe)
+  and 12 opt-in real Gradle/APK integration checks pass from a clean
+  detached checkout at `955bfe3`, using a fresh pinned archive download.
+  Staging tests cover real duplicate tar entries, ELF/receipt validation,
+  copy/publication/rollback failures, concurrency and hard process exit.
+- **Stage-inspected:** real pinned archive stages exactly fourteen unchanged
+  payloads + receipt; read-only verification passes. NDK inspection confirms
+  dependency/ELF evidence; full source commit was checked against upstream.
+- **Compiled:** clean debug **and instrumentation** APK builds pass; lint
+  has four existing warnings, zero errors. SDK inventory has a recorded
+  non-blocking XML-version warning; no tooling was silently upgraded.
+  Platform Views Activity has no production dependencies/listener.
+- **APK-inspected:** the standalone ZIP/payload auditor passes for the real
+  APK: fourteen pinned ARM64 native files, source-identical attribution,
+  no detected extra natives/RPC/GGUF/staging content or duplicate ZIP names.
+  SDK `apkanalyzer` confirms SDK 26/35, extraction=true, no permissions or
+  exported Activity/services/receivers/providers. Compression/extraction
+  configuration is not proof of installed permissions/linking/execution.
+- **Device-tested:** physical **SM-S931B, Android 17/API 37**: **25/25**
+  instrumentation cases pass in the direct retest. Real pinned server exits
+  **0 in 102 ms** under app UID; installed hashes/mode 0755, stream EOF and
+  child cleanup verified.
+  This is version-command evidence, not inference/WebUI/backend-kernel proof.
+- **Operational issue resolved for this run:** the earlier Gradle cleanup
+  removed both packages. The owner confirmed no prior data and approved a
+  fresh install. Direct `am instrument` then passed **25/25**, with unchanged
+  installed APK hashes/UIDs/paths and both packages retained. No target-UID
+  processes remained. Gradle connected testing is still unsafe to assume
+  data-preserving. See [S25 evidence](docs/verification/native-s25.md).
+- **Approved:** the owner selected option A after evidence commit `ca55ef5`,
+  approving Checkpoint C and closing **native-runtime only**. No merge or
+  model-import/lifecycle/chat work is authorized by that approval.
+
+The production APK excludes the probe/tests/provenance asset. The separate
+`app-debug-androidTest.apk` is developer instrumentation only; AndroidX adds
+test permissions/activities there, **not in the user APK**. Both artifact
+hashes and reproduction details are in [build verification](docs/verification/native-build.md).
+
+The auditor never decodes binary XML or verifies APK signing/device behavior.
+Its success message explicitly scopes these out; resource/format limits and
+content-detection limitations are documented in [BUILDING](docs/BUILDING.md#apk-audit-t8).
+
+The earlier 34-Python-test count, disabled stage gate, binary-manifest audit
+crash and merge proposal describe the **original dirty checkout**, not this
+isolated branch. The unreviewed harness/auditor/merge were not copied here.
 
 See [ordered blockers and task acceptance](tasks/todo.md) and
 [current build evidence](docs/verification/native-build.md). A blocked
@@ -56,10 +93,12 @@ module is incomplete, not complete with a waiver.
 
 ### Verification commands
 
-These are the target workflow, **not a currently passing recipe**.
-Resolve the [ordered blockers](tasks/todo.md#blockers-in-precedence-order)
-first. In particular, do not rerun import with NDK discovery enabled
-against the genuine stage until the merge proposal is reviewed.
+The documented host build/audit workflow below passed from clean committed
+source. **Do not repeat Gradle connected testing on a data-bearing app:**
+its cleanup removed the packages in the first verification. The owner-approved
+direct retest retained both packages; see [completed review](tasks/todo.md#checkpoint-c-native-runtime-completion-review).
+Preserve the original checkout/stage; its unvalidated NDK merge proposal is
+not part of this branch.
 
 ```powershell
 # Staging
@@ -68,15 +107,17 @@ python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar
 # Build
 ./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
-# Instrumentation (compiles; device run requires phone)
+# Instrumentation APK compilation (verified; does not execute device tests)
 ./gradlew --no-daemon :app:assembleDebugAndroidTest
 
 # APK audit
 python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
 
-# On device (requires authorized S25)
+# Device retest: only after owner approval; select only the S25 privately.
+# Prefer direct instrumentation to avoid Gradle's uninstall-after-test cleanup.
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s llama.droid
 ```
 
@@ -108,7 +149,7 @@ module must not claim those capabilities work.
 - Android SDK with platform 35, build-tools 35.0.0
 - NDK 27.2.12479018 (approved for ELF inspection; merge proposal unverified)
 - Python 3 (for staging and verification)
-- Physical ARM64 Android device (for smoke test — currently blocked)
+- Physical ARM64 Android device (smoke test verified on SM-S931B/API 37 only)
 
 ## License
 

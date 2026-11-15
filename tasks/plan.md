@@ -4,7 +4,7 @@ Module: `native-runtime`
 Spec: [SPEC-native-runtime.md](../SPEC-native-runtime.md), approved by the user.  
 Plan status: **Approved baseline; original implementation hold is historical.** Implementation files now exist, with deviations requiring review. This document preserves the approved design, not current execution evidence or approval of those deviations.
 
-Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The documentation review does not authorize further implementation.
+Task target: [tasks/todo.md](todo.md), the current status and ordered-blocker tracker. The user subsequently selected isolated worktree option A for blocker 1: minimal Activity, direct-process launcher and JVM tests. That scoped implementation is verified on `fix/native-runtime`. The user then selected option A for blocker 2: retain the fourteen byte-preserved payloads and repair staging. T4 now passes 50 host tests plus genuine-archive verification. The user then authorized blocker 3 packaging: 12 Gradle/APK checks, clean native build/lint, hash/attribution and SDK manifest inspection pass; installed extraction/linking is now separately verified under T9. The user then authorized blocker 4: a standalone ZIP/payload auditor now passes 44 adversarial tests and the real APK; SDK inspection is separate and passed against the same hash. Full host discovery is 94 passing tests. User then approved Checkpoint B/blocker 5: the test-only bounded harness passes 24 shared JVM cases (43 JVM total), both APKs compile, and a clean detached checkout at `955bfe3` reproduced download/staging/build/audit with 12 packaging checks. T8 host evidence is complete. The later physical S25 run passed 25/25 ART/native cases and verified installed extraction, but Gradle removed both packages afterward. The owner then confirmed no prior data and approved fresh installation. Direct instrumentation passed 25/25, real exit 0 in 102 ms, retaining both audited APKs with matching before/after hashes/UIDs/paths. T1–T9 are verified; the owner subsequently selected option A after evidence commit `ca55ef5`, approving Checkpoint C and closing native-runtime only. The module is complete on `fix/native-runtime`, not merged; downstream specification/implementation requires separate approval.
 
 ## Overview
 
@@ -107,7 +107,7 @@ T7 requires T6's interface and T5's packaging. T9 may be blocked by phone access
 
 ## Approved Task Index
 
-The approved acceptance/verification details are in `tasks/todo.md`. Approval does not override the user's explicit instruction to hold implementation.
+The approved acceptance/verification details and current scoped authorization are in `tasks/todo.md`. Historical hold statements below are not new authorization for later tasks.
 
 1. T1 — Record and reproduce the inspected upstream payload and licensing.
 2. T2 — Establish the pinned wrapper and host setup instructions.
@@ -160,7 +160,10 @@ python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
 # Final device checks; select only the authorized S25 before running instrumentation.
 adb devices -l
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+# Historical Gradle connected run passed but uninstalled both packages afterward.
+# Only after owner approval, prefer direct instrumentation without that cleanup:
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s llama.droid
 ```
 
@@ -205,4 +208,4 @@ T1 artifact review and T2 wrapper setup can run in parallel; T3 depends on T2. T
 
 ## Next Gate
 
-The user approved the plan and task list together and explicitly instructed: do not start implementation. Keep all implementation tasks unchecked and wait for an explicit instruction to begin. When released, start with T1 using the approved incremental, test-driven workflow.
+The original implementation hold was later superseded for the user's chosen blocker-1 scope (isolated worktree option A). That host boundary is implemented/tested. The user subsequently retained the approved fourteen-file format and authorized blocker 2 staging repairs, now verified with 50 host tests and the genuine archive. The user also authorized blocker 3's fail-closed Gradle packaging, now host-verified with native bytes/attribution/SDK manifest inspection and 12 integration checks. T5's installed-extraction requirement is now separately verified under T9. The user also authorized blocker 4's standalone auditor, now verified against 44 adversarial fixtures and the real APK (94 host tests total); SDK inspection remains separate. User subsequently approved Checkpoint B and blocker 5, now host-verified from clean committed source at `955bfe3` with 94 Python/43 JVM/12 packaging checks and both APKs compiled/audited as applicable. Shared test-only sources avoid shipping probes or duplicating JVM/ART cases. The physical S25 later passed 25/25 ART/native tests, including normal pinned version exit. Unexpected Gradle cleanup then removed both packages. The owner confirmed no prior data and approved fresh installation; direct instrumentation now also passed 25/25 and retained both audited packages with identical before/after hashes/UIDs/paths. T1–T9 are verified; the owner subsequently selected option A after evidence commit `ca55ef5`, approving Checkpoint C and closing native-runtime only. No merge or downstream work is authorized by this approval; each later module retains its separate specification/plan/task gates. No uninstall/downgrade/data-clear without separate consent.

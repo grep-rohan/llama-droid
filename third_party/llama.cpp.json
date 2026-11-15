@@ -1,6 +1,6 @@
 {
   "release": "b12020",
-  "source_commit": "0ec4027a2a0183de87c007069adddc6e665f7de",
+  "source_commit": "0ec4027a2a0183de87c007069adddc06e665f7de",
   "archive_url": "https://github.com/ggml-org/llama.cpp/releases/download/b12020/llama-b12020-bin-android-arm64.tar.gz",
   "archive_size": 78982432,
   "archive_sha256": "64717fce80d758c220345864a0e69788aa1488ffe4f4b85e322155fdd1beaeec",
@@ -231,7 +231,7 @@
     "impl_libraries": "libllama-*-impl.so libraries are build artifacts not required at runtime.",
     "embedded_ui": "libllama-server-impl.so contains embedded WebUI assets (index.html references, asset data sections, gzip support). No separate WebUI asset files in this archive.",
     "no_rpath": "No RPATH or RUNPATH found in any library; runtime linker resolution is used.",
-    "no_libcxx": "No separate libc++_shared.so dependency observed; Android platform C++ runtime is used.",
+    "no_libcxx": "No separate libc++_shared.so dependency observed; this alone does not establish how the C++ runtime was linked or prove device compatibility.",
     "cpu_backend_discovery": "CPU backend libraries are dynamically discovered by the backend loader; GGML_BACKEND_PATH should not be set to the native library directory.",
     "alignment_warning": "All sampled ELFs have 0x4000 (16 KiB) PT_LOAD alignment. Verify against actual device page size (adb shell getconf PAGE_SIZE) during physical testing."
   }

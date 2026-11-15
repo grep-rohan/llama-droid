@@ -8,8 +8,11 @@ app/src/main/jniLibs/
 app/build/
 build/
 .gradle/
+.kotlin/
+__pycache__/
 
 # Local SDK paths (host-specific)
+local.properties
 !docs/BUILDING.md
 
 # IDE
@@ -30,3 +33,4 @@ Thumbs.db
 docs/verification/*
 !docs/verification/native-artifact.md
 !docs/verification/native-build.md
+!docs/verification/native-s25.md
