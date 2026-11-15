@@ -1,6 +1,14 @@
 # Model Import — Verification Evidence
 
-## Current status — Native-stage blocker resolved
+## Current status — MI-01 host-verified
+
+**MI-01 is implemented and host-tested:** pure selection/reset record values,
+bounded codecs, and safe display names. **29 new tests / 72 total JVM tests pass**;
+lint reports **0 errors / 4 existing warnings**, and both APKs build. This is not
+an implemented end-user import flow or a device test. MI-02 onward remains
+unauthorized. Detailed MI-01 evidence follows the baseline history below.
+
+### Baseline reconciliation
 
 The owner subsequently requested **“address blocker”**, authorizing host-only
 re-staging of the verified local archive and rerunning the blocked baseline.
@@ -244,3 +252,121 @@ approval of reconciliation and MI-01 selects this existing checkout without
 stashing, resetting, or deleting unrelated work. MI-00 is therefore complete;
 this is not a claim of a fresh clean-checkout build. No model-import code was
 added during stage repair, and no ADB or other phone operation was performed.
+
+## MI-01 — Bounded records and display names
+
+Owner authorization: **“y”** after the proposal to reconcile MI-00 and implement
+MI-01 only with failing tests first. Run date: **2026-11-15 UTC**. Worktree,
+JDK/SDK/plugins and exclusions are the reviewed MI-00 environment. Starting HEAD
+was `20f478f59991fb4bbc332947a8b7c3515647d0d9`; reconciliation is documentation-only
+commit `d858794`. Verified implementation commits are **`dc14cd1`** (names) and
+**`4e68a8d`** (records/codec). No new dependencies, Android components, UI wiring,
+permissions, native payloads, or toolchain changes.
+
+### Deliverables and contract
+
+Exactly the five MI-01 deliverables were added under the approved prefixes:
+
+- `app/src/main/java/io/github/greprohan/llamadroid/modelimport/ModelRecord.kt`:
+  empty/active selection with epoch and optional pending nonce, plus the reset-id
+  and intended-new-epoch record type. Values contain no source URI/path fields.
+- `app/src/main/java/io/github/greprohan/llamadroid/modelimport/ModelRecordCodec.kt`:
+  checked encode/decode and bounded stream read. The caller owns the stream;
+  short reads are accepted, no `available()`/seek/reopen is used, and reads stop
+  at EOF or 2,049 bytes. Invalid data is rejected, never repaired or promoted.
+- `app/src/main/java/io/github/greprohan/llamadroid/modelimport/ModelName.kt`:
+  scan at most 256 code points, neutralize control/format/lone-surrogate and
+  line/paragraph-separator characters to spaces, trim the bounded prefix and
+  use `Unnamed model` for an empty result. Valid names are <=256 code points /
+  1,024 UTF-8 bytes; large inputs cannot cause whole-input UTF-8 allocation.
+- `app/src/test/java/io/github/greprohan/llamadroid/modelimport/ModelRecordCodecTest.kt`:
+  **21 tests**, including independent wire fixtures and adversarial input.
+- `app/src/test/java/io/github/greprohan/llamadroid/modelimport/ModelNameTest.kt`:
+  **8 tests**, including supplementary characters and bounded-prefix fallback.
+
+V1 wire contract: ASCII `LDMR`, unsigned-byte version `1`, unsigned-byte kind
+`0` (selection) or `1` (reset). All ids are exactly 32 lower-case ASCII hex bytes.
+Selection fields: epoch, strict 0/1 pending flag and optional nonce, strict 0/1
+active flag and optional payload id / signed-64-bit byte count / unsigned-16-bit
+UTF-8 byte length / UTF-8 name. Reset fields: reset id and new epoch. Integers
+are big-endian. No padding or trailing bytes are accepted. Empty selection
+contains no payload fields; active size is at least 24. Names are decoded with
+strict UTF-8 error reporting and must already satisfy the safe-name contract.
+The maximum actual V1 selection is 1,138 bytes, within the 2,048-byte record cap.
+No length/count can request an unbounded allocation.
+
+Decoding a reset record is **not** evidence of committed consent or permission to
+delete files. Authoritative-path checking, checked file replacement, store
+ownership, and reset execution are MI-02/MI-03/MI-13 work, not implemented here.
+Malformed-record errors use the fixed `Invalid model record` message without
+retaining parser causes or untrusted metadata. External stream I/O errors
+propagate to the caller; no diagnostics/logging boundary is implemented here.
+
+### Test-first evidence and exact verification
+
+The name slice was tested, linted/built, regression-tested and committed before
+the record slice. The codec was expanded through tested selection, reset/read,
+and adversarial-schema increments, then fully verified and committed.
+Compiling no-op contracts were used for the initial RED runs; failures were
+actual assertions, not missing symbols, missing tests, or compilation failures.
+
+| Retained RED result | Discovery / intended failures | GREEN result |
+|---|---|---|
+| `name-red.log` / `.xml` | 8 tests, 7 failed | 8 name tests pass (`name-green.xml`) |
+| `selection-red.log` / `.xml` | 5 codec tests, 5 failed | 5 codec tests pass (`selection-green.xml`) |
+| `reset-read-red.log` / `.xml` | 10 codec tests, 4 failed | 10 codec tests pass (`reset-read-green.xml`) |
+
+Every RED run had zero errors/skips and exit 1. Successful runs had exit 0.
+Commands from the repository root, with successive tests/implementations between
+RED/GREEN repetitions:
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*ModelNameTest'
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*ModelNameTest' :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew --no-daemon :app:testDebugUnitTest
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*ModelRecordCodecTest' --tests '*ModelNameTest'
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+Final focused discovery: **29 tests** (21 codec + 8 names), all pass.
+Final unfiltered JVM regression: **72 tests** (29 new + 24 native probe + 19
+native launcher), **0 failures/errors/skips**. Full Gradle verification:
+**BUILD SUCCESSFUL in 28s**, 80 actionable tasks (13 executed / 67 up-to-date).
+Native-stage verification also passes within that build. Lint: **0 errors / 4
+existing warnings** (`RedundantLabel`, two `GradleDependency`,
+`ChromeOsAbiSupport`); no suppression or dependency upgrade. Kotlin production,
+unit-test and Android-test compilation succeed; Android instrumentation is
+**compiled, not executed**. The earlier 94 Python passes remain applicable:
+the host scripts and test inputs have not changed, so that suite was not rerun.
+
+Coverage explicitly includes unknown magic/version/kind/flags, every identity
+field, all empty/active/reset truncations, trailing/oversized records, invalid
+lengths/UTF-8, negative/too-small/64-bit sizes, maximum Unicode names, unsafe or
+huge input names, missing names, short/zero-progress stream reads, a guarded
+large synthetic stream, caller-owned resource lifetime and I/O failure.
+These are pure JVM contract tests, not Android filesystem/provider evidence.
+
+### Artifacts, exclusions, and remaining work
+
+| Built artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,482,963 | `54b046ed2a336f91fd1bb3a7e013f7daa57ef59fd3c11cbcc9558f5a4c9ad251` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 927,596 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+Local evidence: `.cache/model-import/mi-01-20261115T202408Z/`. It retains command
+logs/exit codes, RED and GREEN XML snapshots, all four final JUnit reports,
+lint XML, source/artifact/report hashes in `results.json`, preflight identities,
+the original tracker snapshot, and the final preservation/bookkeeping check.
+
+All native-stage contents (including the receipt), `.gitignore`, `app/.cxx/`
+and unrelated approved planning content are unchanged. Tracker edits are scoped
+to the current gate and MI-00/MI-01 results; MI-02 onward and historical native
+records remain unchanged. New source/tests/evidence are committed; tracker
+bookkeeping remains in the existing uncommitted planning document so its prior
+owner changes are not swept into an implementation commit.
+
+**MI-01 is implemented, JVM-tested and compiled; not device-tested.** It is not
+wired to file persistence, a controller, or the Activity, so it adds no user
+import/reset behavior yet. No ADB calls or phone writes occurred. Next smallest
+task is **MI-02 — checked record replacement**, requiring its own batch approval.
+Checkpoint F1 is still pending MI-02/MI-03 and review.
