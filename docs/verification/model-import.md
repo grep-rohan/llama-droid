@@ -10,9 +10,13 @@ Python tests** remain applicable; their inputs are unchanged. See the follow-up
 results below for commands and artifact identities.
 
 No production source, dependencies, toolchain, native library bytes, or phone
-state changed. MI-01 is not authorized. MI-00 remains open only for its reviewed
-clean implementation-source/worktree requirement: this successful in-place
-baseline does not establish a clean checkout.
+state changed during baseline verification. The owner subsequently authorized
+reconciling MI-00 and implementing **MI-01 only** (“y” after the explicit proposal).
+MI-00 is complete: the existing checkout is the reviewed implementation source,
+with unchanged tracked app/build inputs and the documented unrelated-work
+exclusions. A separate clean checkout is not required to establish this baseline;
+no clean-checkout reproduction is claimed. MI-02 onward and phone access remain
+unauthorized.
 
 ## MI-00 — Initial host preflight (superseded baseline blocker)
 
@@ -232,10 +236,11 @@ and local evidence logs are **not committed**.
 
 ### Remaining boundary
 
-The native-stage blocker and blocked host checks are resolved. MI-00's baseline
-acceptance is checked in the tracker, but its overall completion remains open
-until the clean, reviewed implementation-source/worktree requirement is
-established; no fresh clean worktree was created as part of this narrow repair.
-The next smallest action is that workspace decision, not MI-01 code.
-MI-01 onward still requires batch authorization. No model-import code was added,
-and no ADB or other phone operation was performed.
+The native-stage blocker and blocked host checks are resolved. At the end of
+this repair, the tracker still held MI-00 open for a separate clean-worktree
+decision. That was unnecessarily restrictive: its reviewed tracked source was
+unchanged and unrelated work was explicitly excluded. The subsequent owner
+approval of reconciliation and MI-01 selects this existing checkout without
+stashing, resetting, or deleting unrelated work. MI-00 is therefore complete;
+this is not a claim of a fresh clean-checkout build. No model-import code was
+added during stage repair, and no ADB or other phone operation was performed.
