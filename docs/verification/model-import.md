@@ -1,6 +1,20 @@
 # Model Import — Verification Evidence
 
-## MI-00 — Authorized host preflight, baseline blocked
+## Current status — Native-stage blocker resolved
+
+The owner subsequently requested **“address blocker”**, authorizing host-only
+re-staging of the verified local archive and rerunning the blocked baseline.
+The receipt/stage verification now passes, **43 JVM tests pass**, lint has
+**0 errors / 4 existing warnings**, and both APKs build. The earlier **94 passing
+Python tests** remain applicable; their inputs are unchanged. See the follow-up
+results below for commands and artifact identities.
+
+No production source, dependencies, toolchain, native library bytes, or phone
+state changed. MI-01 is not authorized. MI-00 remains open only for its reviewed
+clean implementation-source/worktree requirement: this successful in-place
+baseline does not establish a clean checkout.
+
+## MI-00 — Initial host preflight (superseded baseline blocker)
 
 Run date: **2026-11-15 UTC**. The owner replied **“auth”** to the explicit
 proposal for **MI-00 only**: inspect workspace/tooling, run baseline host
@@ -145,6 +159,83 @@ another worktree by this task.
   Compilation was attempted only for the existing baseline and was blocked.
 - All model-import runtime, provider, cancellation, process-death, >2 GiB,
   backup/transfer, and physical-device criteria remain unverified.
-- Tracker bookkeeping records MI-00 authorization, evidence, and blockers;
-  MI-00 completion/build acceptance remains unchecked. MI-01–MI-23 and every
-  checkpoint/device gate remain pending. Existing native history is untouched.
+- Initial tracker bookkeeping recorded MI-00 authorization, evidence, and
+  blockers; completion/build acceptance remained unchecked at that time.
+  MI-01–MI-23 and every checkpoint/device gate remained pending. Existing native
+  history is untouched.
+
+## MI-00 follow-up — Authorized stage repair and passing host baseline
+
+Run date: **2026-11-15 UTC**; re-stage began at **20:18:02 UTC**. Authorization:
+owner requested **“address blocker”** after the proposed local re-stage and
+baseline retry were described. This extends MI-00 to that generated-host-stage
+repair only; it does not authorize model-import implementation or phone access.
+
+Source/worktree and environment are unchanged from the initial preflight.
+Follow-up HEAD: **`8e2fc47f665f64451704d7851ec1cd3b16c01346`**, an evidence-only
+commit over the original baseline. Tracked app/scripts/build/native-provenance
+inputs still match HEAD with no source changes. Existing dirty planning files
+and `app/.cxx/` remain excluded. Their contents were checked unchanged before
+follow-up bookkeeping; no stash, reset, or copying into another source tree.
+
+### Commands and actual results
+
+The archive size and SHA-256 were checked again against the committed manifest
+before the importer was allowed to mutate the stage. The existing current
+importer, not a hand-edited receipt, performed the complete transactional import:
+
+```bash
+python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar.gz
+python scripts/import_llama_release.py --verify-only
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+| Check | Actual result |
+|---|---|
+| Native import | **Exit 0**; 14 byte-preserved payloads staged from the pinned local archive; no download |
+| Native verification | **Exit 0**; exact payload set, ELF headers, versioned receipt, and transaction state pass |
+| Gradle baseline | **Exit 0**, **BUILD SUCCESSFUL in 24s**; 80 actionable tasks, 68 executed and 12 up-to-date |
+| JVM discovery/execution | **43 tests pass**, 0 failures/errors/skips: `NativeProcessProbeTest` **24**, `NativeServerLauncherTest` **19** |
+| Lint | **0 errors / 4 warnings**: `RedundantLabel`, two `GradleDependency`, `ChromeOsAbiSupport`; same categories as historical native evidence; not fixed or suppressed |
+| Production debug APK | `:app:assembleDebug` succeeds |
+| Android test APK | `:app:assembleDebugAndroidTest` succeeds; **compiled only**, not executed |
+
+These are existing native-runtime JVM tests, not tests of an implemented
+model-import flow. The 94 Python tests were **not rerun**: importer/auditor/test
+source and their fixture contracts are unchanged since their passing initial
+run. Changing the generated real stage does not change those disposable-fixture
+tests. No final clean-output build, APK content/manifest audit, device install,
+or instrumentation execution is claimed by this follow-up.
+
+### Generated-state and artifact identities
+
+The importer regenerated `.payload_receipt.json` with SHA-256
+`fe2b7459b888908415f8b52336f2f541a9c6faf80e06df4ea8198ff536af8d73`.
+All **14 staged library SHA-256 values are unchanged** from the initial stage
+and match the pinned manifest; archive bytes and provenance are unchanged.
+Successful verification confirms no unresolved import marker or backup remains.
+The importer's persistent host lock file is generated state, not app payload.
+
+| Built artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,482,905 | `990419bb5d26ed00a19d08ff30bb14e93e23605f5afdc9ddd434697edbe79a99` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 927,596 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+Retained follow-up evidence:
+`.cache/model-import/mi-00-restage-20261115T201802Z/`, containing preflight
+identities, original receipt/tracker snapshots, `native-import.log`,
+`native-verify.log`, `gradle-baseline.log`, checked exit codes,
+`verification-results.json`, copies of both JUnit XML reports and the lint XML
+report, plus the final preservation/bookkeeping check. Reports record nonzero
+test discovery and exact artifact/report hashes. Generated stage files, APKs,
+and local evidence logs are **not committed**.
+
+### Remaining boundary
+
+The native-stage blocker and blocked host checks are resolved. MI-00's baseline
+acceptance is checked in the tracker, but its overall completion remains open
+until the clean, reviewed implementation-source/worktree requirement is
+established; no fresh clean worktree was created as part of this narrow repair.
+The next smallest action is that workspace decision, not MI-01 code.
+MI-01 onward still requires batch authorization. No model-import code was added,
+and no ADB or other phone operation was performed.
