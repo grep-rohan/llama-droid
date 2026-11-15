@@ -6,11 +6,13 @@
 > instrumentation APKs compile; hashes, attribution and both SDK manifests
 > were checked. Lint has four existing warnings and zero errors.
 > The physical S25 subsequently passed 25/25 ART/native tests, including
-> real version-command exit/cleanup. **Operational hold:** Gradle connected-
-> test cleanup removed both packages and may have removed private app data.
-> No further device writes before owner direction; see [S25 evidence](verification/native-s25.md).
+> real version-command exit/cleanup. After historical Gradle cleanup removed
+> both packages, the owner confirmed no prior data and approved fresh installation.
+> Direct retest passed **25/25**, retaining both audited APKs with matching
+> before/after hashes/UIDs/paths. T9 is verified; Checkpoint C human review remains.
+> See [S25 evidence](verification/native-s25.md).
 > The original dirty checkout and stage remain untouched. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
-> and [branch evidence](verification/native-build.md). No native execution
+> and [branch evidence](verification/native-build.md). No model inference
 > or WebUI success is claimed.
 
 ## Prerequisites
@@ -149,7 +151,8 @@ All fourteen native ZIP-member digests and both attribution asset bytes
 were compared with their pinned/source inputs. The real packaged manifest
 was inspected with SDK `apkanalyzer`, not UTF-8 decoding of binary XML.
 These are packaging/configuration checks, **not installed extraction,
-executable permission or Android linker/process proof** (T9 remains blocked).
+executable permission or Android linker/process proof** by themselves; separate
+physical S25 evidence now verifies T9.
 
 ### Opt-in real packaging integration checks
 
@@ -280,9 +283,11 @@ $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 The physical S25 run passed **25/25** tests, but Gradle/UTP then removed
 both installed packages. **This can delete private app data. Do not use
 `:app:connectedDebugAndroidTest` as a data-preserving test command.** The
-previous replacement-install assurance did not cover framework cleanup;
-prior private-data contents/loss are unknown. No automatic reinstall,
-uninstall, downgrade or data-clear is authorized by this documentation.
+previous replacement-install assurance did not cover framework cleanup.
+The owner subsequently confirmed no prior data and approved fresh installation;
+the direct retest below passed 25/25 with both packages retained and matching
+before/after APK hashes. No automatic reinstall, uninstall, downgrade or
+data-clear is authorized by this documentation.
 
 After explicit owner approval, select only the S25 and prefer direct
 instrumentation with the retained audited artifacts:
@@ -305,8 +310,9 @@ reinstall. Use time/UID-scoped log capture and redact serials/endpoints.
 Record device properties, installed/test APK hashes, UID/path/modes, version
 output and independent post-run native-process checks. Neither a shell-context
 server launch nor an emulator substitutes for app-context physical S25 proof.
-The completed run and operational limitation are in [native-s25.md](verification/native-s25.md);
-safer reinstallation/retest is currently paused awaiting the owner.
+The completed direct retest and historical cleanup limitation are in
+[native-s25.md](verification/native-s25.md). T9 is verified; Checkpoint C awaits
+human review. This fresh-install run is not existing-app-data preservation proof.
 
 ## APK audit (T8)
 
@@ -366,8 +372,8 @@ host-verified. Safe staging and fail-closed packaging are verified against
 fixtures and the pinned archive/native APK; clean committed-source builds
 of both APKs, standalone audit and separate SDK manifest checks pass. User
 approved Checkpoint B before adding the test-only harness. Physical S25
-version execution and all 24 ART fake cases now pass. **The remaining hold
-is owner disposition of the unexpected Gradle package/data cleanup and a
-safer retained-installation verification/review**, then Checkpoint C.
+version execution and all 24 ART fake cases now pass, including the owner-approved
+fresh-install/direct retest retaining both audited APKs. **Only Checkpoint C
+human review remains for native-runtime completion.**
 Native inference, model compatibility and WebUI are still unverified. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

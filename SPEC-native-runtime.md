@@ -1,7 +1,7 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 version-command and child-cleanup evidence now passes, but Gradle test-tool cleanup removed the packages and may have removed private data. Owner data-impact/retest review and Checkpoint C remain pending; module completion is not declared. Original-checkout architecture deviations are preserved separately, not approved or included here.
+Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 version-command and child-cleanup evidence now passes. After historical Gradle cleanup removed the packages, the owner confirmed no prior data and approved fresh installation. Direct instrumentation passed 25/25, retaining both audited APKs with unchanged before/after hashes/UIDs/paths. T9 is verified; Checkpoint C human review remains pending and module completion is not declared. Original-checkout architecture deviations are preserved separately, not approved or included here.
 
 Parent: [Approved capability map](CAPABILITY-MAP.md)
 

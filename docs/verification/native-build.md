@@ -3,12 +3,13 @@
 ## Host verification — blocker 5 complete
 
 **Subsequent device result:** the physical S25 passed 25/25 instrumentation
-cases, including real pinned `--version` (exit 0 in 101 ms). However Gradle's
-connected-test cleanup removed both packages and may have removed private
-app data. Device actions are now paused for owner direction/safer retest;
-Checkpoint C is not complete. See [native-s25.md](native-s25.md). Historical
-no-device statements below describe the earlier host-verification phase,
-not current availability or a reason to waive the observed cleanup issue.
+cases. The first Gradle run removed both packages; the owner then confirmed no
+prior data and approved fresh installation. Direct `am instrument` passed
+**25/25**, real pinned `--version` exit **0 in 102 ms**, with both audited APKs
+retained and before/after hashes/UIDs/paths unchanged. T9 is verified;
+Checkpoint C human review remains pending. See [native-s25.md](native-s25.md).
+Historical no-device/unverified-device statements below describe earlier
+host-verification phases, not current availability or waived requirements.
 
 User selected option A approving Checkpoint B and the harness/clean-build
 work. Final functional revision: **`955bfe3f58cf515943f3ebfa6b76748dcc11092d`**.

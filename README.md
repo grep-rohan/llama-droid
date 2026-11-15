@@ -17,9 +17,10 @@ not need Termux, root, ADB, a separate inference service, or a cloud API.
 ## Native Runtime Module
 
 The `native-runtime` module aims to establish the build, packaging,
-linking, and direct-process launch foundation. Installed-app execution
-under the app UID is **not yet proven**. Work continues on the isolated
-`fix/native-runtime` branch/worktree selected by the user. The original
+linking, and direct-process launch foundation. Installed-app `--version`
+execution under the app UID is **verified on the owner's physical S25**.
+Work continues on the isolated `fix/native-runtime` branch/worktree selected
+by the user. The original
 checkout's JNI/Ktor/inference experiments are preserved separately, not
 included here and not evidence of server or WebUI compatibility.
 
@@ -35,7 +36,7 @@ included here and not evidence of server or WebUI compatibility.
 | T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
 | T7 | Bounded app-context smoke harness | 24 ART cases + real native smoke pass (25/25) |
 | T8 | Clean-build APK audit | Fresh committed-source build, both APKs, audit/SDK checks verified |
-| T9 | Physical S25 verification | Native smoke passed; Gradle uninstall/data-impact review pending |
+| T9 | Physical S25 verification | Direct retest 25/25; both audited APKs retained and hashes verified |
 
 **Evidence on the isolated branch:**
 - **Host-tested:** 94 Python tests, 43 JVM tests (19 launcher + 24 probe)
@@ -57,16 +58,17 @@ included here and not evidence of server or WebUI compatibility.
   exported Activity/services/receivers/providers. Compression/extraction
   configuration is not proof of installed permissions/linking/execution.
 - **Device-tested:** physical **SM-S931B, Android 17/API 37**: **25/25**
-  instrumentation cases pass. Real pinned server exits **0 in 101 ms** under
-  app UID; installed hashes/mode 0755, stream EOF and child cleanup verified.
+  instrumentation cases pass in the direct retest. Real pinned server exits
+  **0 in 102 ms** under app UID; installed hashes/mode 0755, stream EOF and
+  child cleanup verified.
   This is version-command evidence, not inference/WebUI/backend-kernel proof.
-- **Operational hold:** Gradle's connected-test cleanup then removed both
-  app packages and **may have deleted private app data**. The earlier
-  data-preservation assurance was incorrect for that complete procedure.
-  Existing private-data contents/loss are unknown. No further device writes
-  will occur before owner direction. See [S25 evidence and safer retest](docs/verification/native-s25.md).
-- **Pending:** owner decision on reinstallation/data impact, safer retained-
-  installation verification and Checkpoint C review. The module is not yet
+- **Operational issue resolved for this run:** the earlier Gradle cleanup
+  removed both packages. The owner confirmed no prior data and approved a
+  fresh install. Direct `am instrument` then passed **25/25**, with unchanged
+  installed APK hashes/UIDs/paths and both packages retained. No target-UID
+  processes remained. Gradle connected testing is still unsafe to assume
+  data-preserving. See [S25 evidence](docs/verification/native-s25.md).
+- **Pending:** Checkpoint C human review only. The module is not yet
   declared complete; no model-import/lifecycle/chat work is authorized.
 
 The production APK excludes the probe/tests/provenance asset. The separate
@@ -90,8 +92,8 @@ module is incomplete, not complete with a waiver.
 
 The documented host build/audit workflow below passed from clean committed
 source. **Do not repeat Gradle connected testing on a data-bearing app:**
-its cleanup removed the packages in this verification. Device retest awaits
-owner direction; see [remaining review](tasks/todo.md#blockers-in-precedence-order).
+its cleanup removed the packages in the first verification. The owner-approved
+direct retest retained both packages; see [remaining review](tasks/todo.md#blockers-in-precedence-order).
 Preserve the original checkout/stage; its unvalidated NDK merge proposal is
 not part of this branch.
 
@@ -144,7 +146,7 @@ module must not claim those capabilities work.
 - Android SDK with platform 35, build-tools 35.0.0
 - NDK 27.2.12479018 (approved for ELF inspection; merge proposal unverified)
 - Python 3 (for staging and verification)
-- Physical ARM64 Android device (for smoke test — currently blocked)
+- Physical ARM64 Android device (smoke test verified on SM-S931B/API 37 only)
 
 ## License
 

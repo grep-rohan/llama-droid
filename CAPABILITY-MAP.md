@@ -8,7 +8,7 @@ Build a minimal FOSS Android wrapper around upstream llama.cpp `llama-server` an
 
 | Module id | Responsibility | Depends on | Specification |
 |---|---|---|---|
-| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (host + S25 version smoke verified; test-tool uninstall/data-impact review and Checkpoint C pending; module incomplete) |
+| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (host + S25 direct 25/25 verified; both audited APKs retained; Checkpoint C human review pending, module not yet declared complete) |
 | `model-import` | Import GGUF through SAF; handle cancellation, insufficient storage, and partial-file cleanup | — | Not drafted |
 | `server-lifecycle` | Start, readiness, failure reporting, Stop/restart, foreground-service cleanup | `native-runtime`, `model-import` | Not drafted |
 | `local-chat` | Open upstream WebUI in a restricted localhost WebView; verify actual generation | `server-lifecycle` | Not drafted |
@@ -20,7 +20,7 @@ Each module goes through separate Specify → Plan → Tasks → Implement appro
 ## Shared decisions
 
 - Target device: owner's Samsung Galaxy S25 (base model). Published baseline: Snapdragon 8 Elite for Galaxy, 12 GB RAM, 128/256/512 GB storage variants; launched with Android 15 / One UI 7.0. Sources: https://www.sammobile.com/samsung/galaxy-s25/ and https://www.gsmarena.com/samsung_galaxy_s25-13610.php
-- Published specifications are sufficient for initial hardware targeting. The owner's storage variant, currently installed Android/One UI version, available memory, and runtime behavior remain unverified; launch software versions must not be presented as current installed versions.
+- Published specifications are sufficient for initial hardware targeting. Current S25 evidence records Android 17/API 37, raw One UI `90000`, OS-visible memory and successful native `--version` only; see `docs/verification/native-s25.md`. Storage variant, model fit and inference remain unverified; launch software versions must not be presented as current installed versions.
 - Selected model: `LiquidAI/LFM3-1.7B-GGUF`, file `LFM3-1.7B-QAD-Q4_0.gguf`.
 - Source: https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/blob/main/LFM3-1.7B-QAD-Q4_0.gguf
 - The source uses the mutable `main` branch. Record the actual revision, SHA-256, and size of the tested file before claiming a reproducible baseline.

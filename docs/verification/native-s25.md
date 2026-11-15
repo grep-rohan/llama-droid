@@ -1,26 +1,36 @@
 # Physical S25 native-runtime verification
 
-## Outcome and operational hold
+## Outcome — retained-installation retest passed
 
-**Native smoke test passed: 25/25 instrumentation cases on the owner's physical
+**Original native smoke test passed: 25/25 instrumentation cases on the owner's physical
 Samsung Galaxy S25.** The real pinned upstream server exited 0 under the target
 app UID in 101 ms; stream EOF/reaping/worker cleanup checks passed. This is
 version-command evidence only, not model loading, inference or WebUI evidence.
 
-**Unexpected test-tool cleanup:** after Gradle's `connectedDebugAndroidTest`
+**Current result:** after the owner confirmed there was no prior app data and
+approved a fresh install, both audited APKs were installed and the full suite
+rerun with direct `am instrument`: **25/25 passed**, real exit **0 in 102 ms**.
+Both packages remained installed with unchanged paths, UIDs and audited APK
+hashes before/after; no target-UID processes remained. T9 is verified;
+Checkpoint C still requires human review. See the retained-installation section below.
+
+**Historical unexpected test-tool cleanup:** after Gradle's `connectedDebugAndroidTest`
 finished, both the target and test packages were absent. AGP/UTP has an
 `uninstallAfterTest` installer configuration; this run removed both packages.
 Uninstall can remove private app data. The agent's earlier statement that
 replacement installs would preserve data did not account for framework cleanup
 and was incorrect for the complete procedure. The agent made no pre-run private-data
-inventory or backup; prior contents, external backups and actual loss are unknown.
-No data recovery is claimed. No further device writes were performed after
-this was discovered; owner direction is required before reinstallation/retest.
+inventory or backup; at discovery, prior contents, external backups and actual
+loss were unknown.
+No data recovery is claimed. Device writes were paused after discovery until
+the owner confirmed: **"there was no data, fresh install ok"**. That confirmation
+resolved the data-impact decision and authorized the fresh-install/direct-test
+sequence; it does not retroactively make Gradle cleanup data-preserving.
 
-**Checkpoint C/module completion remains on hold.** Prefer owner-approved
-replacement installs followed by direct `am instrument`, not a repeat of the
-uninstalling Gradle task on a data-bearing installation. That permits installed
-APK identities to be checked before and after testing without framework removal.
+**Checkpoint C/module completion awaits human review.** Use owner-approved
+installs followed by direct `am instrument`, not a repeat of the uninstalling
+Gradle task on a data-bearing installation. The retest verified installed APK
+identities before and after testing without framework removal.
 Do not uninstall, downgrade or clear app data to resolve an installation issue
 without separate owner approval. Pairing codes, connection endpoints, device
 GUID and unique serial are deliberately excluded from this document and Git.
@@ -138,6 +148,63 @@ pinned AGP UTP installer's `setUninstallAfterTest` paths; no undocumented Gradle
 option was silently applied to change behavior. Future verification should
 avoid this cleanup path and explicitly preserve the target package/data.
 
+## Retained-installation retest — owner-approved fresh install
+
+The owner confirmed no prior app data and approved fresh installation. Exactly
+one authorized physical S25 was selected privately; properties matched the table
+above. Both packages were absent before installation. The retained clean
+worktree was Git-clean at `955bfe3`; the target ZIP/payload audit passed again,
+and both local APK sizes/SHA-256 values matched the artifact table. No build,
+native transformation, release change or production source edit was needed.
+
+Actual commands, with the private device selector omitted:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Both installs reported `Success`; no uninstall, downgrade or data-clear command
+was issued. This run did **not** invoke Gradle/UTP. Installed `base.apk` hashes
+were verified after installation and immediately before/after the test:
+
+| Package | UID | Before/after SHA-256 |
+|---|---:|---|
+| `io.github.greprohan.llamadroid` | 10437 | `19c39bfbb8315d8deb0de5efab9b7f1ffe2b9c68f5306907e6c6b2086afba2b1` |
+| `io.github.greprohan.llamadroid.test` | 10439 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+Package paths and UIDs were also unchanged before/after. The test package is
+intentionally retained; no test-APK cleanup or further phone changes are implied.
+This fresh-install run does not prove preservation of existing app data.
+
+Runner output reported **`OK (25 tests)`**, time **2.321 s**, final
+`INSTRUMENTATION_CODE: -1` (successful instrumentation completion). Raw status
+records were checked for 25 unique matched start/pass pairs, **24**
+`NativeProcessProbeTest` cases and **1** `NativeVersionSmokeTest`, with no
+failure/error/skip events. This is a new direct-run result, not reused Gradle XML.
+
+Sanitized native excerpts (device log marker `11-15 12:05`; no year inferred):
+
+```text
+Target uid=10437 parentPid=25303 model=SM-S931B API=37
+Installed nativeLibraryDir=/data/app/.../lib/arm64
+Version result exit=0 timeout=false reaped=true readersStopped=true streamsDrained=true operationsStopped=true exitMs=102 totalMs=102
+stdout bytes=0 tail=
+stderr bytes=95 tail=version: 0.8.0-dev (build 12020, commit 0ec4027a2)
+built with Clang 21.0.0 for Android aarch64
+```
+
+All fourteen installed payload hash assertions passed again; all logged modes
+were **0755**, file-owner UID **1000**, executable=true. The test asserted app UID
+**10437**, normal bounded exit, EOF, reaping, stopped workers and no live child.
+Separate UID-filtered `ps -A -o UID,PID,PPID,NAME` checks were empty before/after,
+this time with both packages still installed. No model or listener was started.
+
+**T9's retained-installation/operational review is satisfied.** Only the explicit
+Checkpoint C human review remains before module completion; inference, model
+compatibility, services and WebUI remain outside this evidence.
+
 ## Local evidence and remaining action
 
 Sanitized ignored evidence in the retained clean worktree `.cache/`:
@@ -152,10 +219,16 @@ Generated Gradle reports under `app/build/` are ignored and may contain local
 transport metadata; do not commit or publish them unredacted. No credentials,
 serials, host IP/port, reports or binaries are inputs to the repository build.
 
-**Next owner decision:** reinstall the audited packages and rerun with direct
-instrumentation while retaining the target app, restore only the target APK,
-or pause to discuss possible data impact. No more device writes before that
-choice. Then review the full evidence and all seven spec criteria at
-Checkpoint C. Native startup success is not model compatibility, foreground
-service reliability, inference, WebUI hosting or permission to start those
-modules without their separate approval gates.
+New sanitized ignored evidence uses the `.cache/blocker6-direct-` prefix:
+`preflight.json`, `install-{target,test}.log`, `installed.json`, `before.json`,
+`after.json`, `instrumentation.log`, `summary.json`, `logcat.log`,
+`log-start.txt` and `ps-{before,after}.log`. The local-only
+`verify_s25_direct.py` driver never invokes Gradle, uninstall or data-clear.
+The older `verify_s25.py run` action invokes the unsafe historical Gradle task;
+do not reuse it as a retained-installation test.
+
+**Next owner decision:** review Checkpoint C and the seven-criterion trace in
+[tasks/todo.md](../../tasks/todo.md#checkpoint-c-native-runtime-completion-review).
+Native startup success is not model compatibility, foreground-service
+reliability, inference, WebUI hosting or permission to start those modules
+without their separate approval gates.
