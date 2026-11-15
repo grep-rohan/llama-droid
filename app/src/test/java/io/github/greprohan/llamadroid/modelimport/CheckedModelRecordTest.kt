@@ -9,7 +9,8 @@ class CheckedModelRecordTest {
     private val new = old.copy(pendingPickerNonce = "b".repeat(32))
 
     @Test fun preCommitFailuresPreserveOldBytesAndStopAllWriters() {
-        for (event in listOf("create:selection.next", "info-write", "write", "written", "flush", "sync", "closed-write", "rename")) {
+        for (event in listOf("create:selection.next", "info-write", "write", "written", "flush", "sync", "closed-write",
+                             "open:selection.next", "read:selection.next", "rename")) {
             val files = FakeModelFiles().apply { put("selection", old) }
             val bytes = files.nodes.getValue("selection").bytes.copyOf()
             val failure = IOException(event)
