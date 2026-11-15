@@ -9,7 +9,10 @@
 > real version-command exit/cleanup. After historical Gradle cleanup removed
 > both packages, the owner confirmed no prior data and approved fresh installation.
 > Direct retest passed **25/25**, retaining both audited APKs with matching
-> before/after hashes/UIDs/paths. T9 is verified; Checkpoint C human review remains.
+> before/after hashes/UIDs/paths. T1–T9 are verified; the owner approved
+> Checkpoint C (option A after `ca55ef5`), closing native-runtime only.
+> The module is complete on `fix/native-runtime`, not merged; downstream work
+> requires separate approval.
 > See [S25 evidence](verification/native-s25.md).
 > The original dirty checkout and stage remain untouched. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No model inference
@@ -311,8 +314,9 @@ Record device properties, installed/test APK hashes, UID/path/modes, version
 output and independent post-run native-process checks. Neither a shell-context
 server launch nor an emulator substitutes for app-context physical S25 proof.
 The completed direct retest and historical cleanup limitation are in
-[native-s25.md](verification/native-s25.md). T9 is verified; Checkpoint C awaits
-human review. This fresh-install run is not existing-app-data preservation proof.
+[native-s25.md](verification/native-s25.md). T9 is verified and Checkpoint C
+owner-approved for native-runtime closure only. This fresh-install run is not
+existing-app-data preservation proof.
 
 ## APK audit (T8)
 
@@ -373,7 +377,8 @@ fixtures and the pinned archive/native APK; clean committed-source builds
 of both APKs, standalone audit and separate SDK manifest checks pass. User
 approved Checkpoint B before adding the test-only harness. Physical S25
 version execution and all 24 ART fake cases now pass, including the owner-approved
-fresh-install/direct retest retaining both audited APKs. **Only Checkpoint C
-human review remains for native-runtime completion.**
+fresh-install/direct retest retaining both audited APKs. **Checkpoint C is now
+owner-approved; native-runtime is complete on `fix/native-runtime`.** No merge
+or downstream specification/implementation is authorized by that closure.
 Native inference, model compatibility and WebUI are still unverified. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

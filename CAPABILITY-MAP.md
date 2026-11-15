@@ -8,12 +8,16 @@ Build a minimal FOSS Android wrapper around upstream llama.cpp `llama-server` an
 
 | Module id | Responsibility | Depends on | Specification |
 |---|---|---|---|
-| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (host + S25 direct 25/25 verified; both audited APKs retained; Checkpoint C human review pending, module not yet declared complete) |
+| `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (complete on `fix/native-runtime`; host + S25 direct 25/25 verified, both audited APKs retained; Checkpoint C owner-approved, not merged) |
 | `model-import` | Import GGUF through SAF; handle cancellation, insufficient storage, and partial-file cleanup | — | Not drafted |
 | `server-lifecycle` | Start, readiness, failure reporting, Stop/restart, foreground-service cleanup | `native-runtime`, `model-import` | Not drafted |
 | `local-chat` | Open upstream WebUI in a restricted localhost WebView; verify actual generation | `server-lifecycle` | Not drafted |
 
 Build order: `native-runtime` → `model-import` → `server-lifecycle` → `local-chat`.
+
+The owner approved Checkpoint C and closure of **native-runtime only** after
+evidence commit `ca55ef5`. Downstream specification/implementation and merging
+remain separately gated; this is not completion of the offline-chat baseline.
 
 Each module goes through separate Specify → Plan → Tasks → Implement approval gates. Physical-device checks belong in the relevant module's acceptance criteria; successful compilation does not establish runtime reliability.
 

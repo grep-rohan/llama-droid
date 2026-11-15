@@ -2,7 +2,7 @@
 
 Spec: `SPEC-native-runtime.md` (approved). Plan: `tasks/plan.md` (approved). Task list: approved by the user.
 
-**Status: T1–T9 verified; Checkpoint C human review pending.** On `fix/native-runtime` source `955bfe3`, the physical SM-S931B/Android 17 API 37 passed **25/25** direct-instrumentation cases (24 ART fake cases + real pinned version command). Exit 0 in **102 ms**, installed hashes/mode 0755 and EOF/reaping/worker cleanup verified. Earlier Gradle cleanup removed both packages; the owner confirmed **no prior data** and approved fresh installation. Direct `am instrument` retained both audited APKs with unchanged hashes/UIDs/paths and empty target-UID process checks before/after. No model/inference/WebUI claim or downstream implementation approval.
+**Status: native-runtime complete; T1–T9 verified and Checkpoint C approved by the owner.** On `fix/native-runtime` source `955bfe3`, the physical SM-S931B/Android 17 API 37 passed **25/25** direct-instrumentation cases (24 ART fake cases + real pinned version command). Exit 0 in **102 ms**, installed hashes/mode 0755 and EOF/reaping/worker cleanup verified. Earlier Gradle cleanup removed both packages; the owner confirmed **no prior data** and approved fresh installation. Direct `am instrument` retained both audited APKs with unchanged hashes/UIDs/paths and empty target-UID process checks before/after. No model/inference/WebUI claim or downstream implementation approval.
 
 Standing completion bar: applicable tests pass with meaningful nonzero discovery, no regressions or unrelated scope, diagnostics and failure cleanup verified, relevant docs updated, and no unsupported runtime claims. Missing device evidence blocks completion; marking a task blocked does not complete the module.
 
@@ -14,7 +14,7 @@ Standing completion bar: applicable tests pass with meaningful nonzero discovery
 - Clean source `955bfe3` remained Git-clean; both audited APK sizes/hashes were rechecked and the real target ZIP/payload audit passed. Exactly one authorized physical S25 was selected privately; properties matched the first run. Both packages were absent before installation.
 - Explicit audited target/test installs succeeded, followed only by direct `adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner`. **25 unique matched start/pass pairs, 0 failures/errors/skips**, 24 ART harness + 1 real native; runner `OK (25 tests)`, **2.321s**. No Gradle/UTP, uninstall, downgrade or data-clear command.
 - Real pinned version exited **0 in 102 ms** (102 ms total), timeout=false, reaped/readersStopped/streamsDrained/operationsStopped=true; exact build/commit header and all fourteen installed hashes/modes passed again. App UID **10437**, test UID **10439**; file owner UID 1000 is separate from app identity.
-- Both installed APK hashes, paths and UIDs matched before/after; packages are intentionally retained. Target-UID process checks were empty before/after with packages still installed. **T9 verified; Checkpoint C human review remains pending.** Full evidence: [native-s25.md](../docs/verification/native-s25.md).
+- Both installed APK hashes, paths and UIDs matched before/after; packages are intentionally retained. Target-UID process checks were empty before/after with packages still installed. **T9 verified; Checkpoint C subsequently approved by the owner (option A, native-runtime closure only).** Full evidence: [native-s25.md](../docs/verification/native-s25.md).
 
 ### Historical — first S25 run and unexpected test-tool cleanup
 
@@ -96,7 +96,7 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 4. **Resolved: standalone ZIP/payload auditor (T8 host portion).** User chose option A. New auditor and 44 adversarial tests pass; real native APK passes with pinned hashes and strict attribution; separate SDK inspection passes against the same APK identity. No original untracked auditor was copied and no manifest-decoding/monolithic fallback is used. Clean-source build and instrumentation compilation evidence was subsequently completed under blocker 5; physical ART/native execution is separately verified under blocker 6.
 5. **Resolved: Checkpoint B review, bounded harness and clean-source reproduction (T7/T8).** User chose option A. Probe implemented/host-tested, both APKs compiled from committed source in a clean detached worktree, fresh archive verified/staged, actual versions/results/hashes/SDK manifests recorded. Source status clean before/after; no untracked implementation input needed. T7 ART/native execution is separately verified under blocker 6, not inferred from host tests.
 6. **Resolved: physical S25 native launch and retained-installation verification (T9).** After the first Gradle run removed the packages, the owner confirmed no prior data and approved fresh installation. The audited target/test APKs were installed and direct instrumentation passed **25/25** with real exit 0 in **102 ms**. Both packages remained installed with identical audited hashes/UIDs/paths before/after; native cleanup and independent UID-scoped process checks passed. No Gradle test task, uninstall, downgrade or data-clear was used. Full hash-linked evidence is in `docs/verification/native-s25.md`.
-7. **Review completion evidence (Checkpoint C).** Trace all seven spec criteria, update README/capability status, and obtain human review before downstream work. If any prerequisite remains blocked, the module remains incomplete.
+7. **Resolved: completion evidence reviewed (Checkpoint C).** All seven spec criteria are traced below; README/capability status is updated. After evidence commit `ca55ef5`, the owner selected **A — Approve Checkpoint C and close native-runtime only**. No downstream specification, implementation, merge or further device changes are authorized by that approval.
 
 ## T1: Establish the artifact provenance boundary
 
@@ -289,11 +289,11 @@ The original dirty checkout's importer attempts `ld.lld -shared --whole-archive`
 
 ## Checkpoint C: Native-runtime completion review
 
-- [ ] T3–T9 revalidation evidence reviewed; real S25 smoke test passed. If blocked, record the blocker without checking this completion box.
-- [ ] All seven approved spec success criteria traced to evidence; no unchecked requirement is relabeled complete.
-- [ ] Human review before moving to the `model-import` specification. No model import, model loading, service, or chat implementation has been added here.
+- [x] T3–T9 revalidation evidence reviewed; real S25 smoke test passed. No native-runtime prerequisite remains blocked.
+- [x] All seven approved spec success criteria traced to evidence; no unchecked requirement is relabeled complete.
+- [x] Human review complete: after evidence commit `ca55ef5`, the owner selected option A approving Checkpoint C and closing **native-runtime only**. No model import, model loading, service, or chat implementation has been added here; downstream work still requires separate approval.
 
-### Seven-criterion evidence trace (prepared for human review)
+### Seven-criterion evidence trace (Checkpoint C approved)
 
 | Spec criterion | Evidence |
 |---|---|
@@ -305,4 +305,4 @@ The original dirty checkout's importer attempts `ld.lld -shared --whole-archive`
 | 6. Current device properties/privacy | [native-s25.md](../docs/verification/native-s25.md): SM-S931B/API 37, ABI/patch/build/raw One UI/memory/page size; no unique transport identifiers published |
 | 7. Internal consumer launch contract only | `NativeRuntimeLayout`/`NativeServerLauncher`, 19 JVM cases, [native-build.md](../docs/verification/native-build.md); no downstream import/service/chat code or production test hooks |
 
-**Current status:** T1–T9 evidence is ready for Checkpoint C human review. Host verification and physical native smoke pass (94 Python/43 JVM/12 packaging checks; direct 25/25 ART/native instrumentation). The owner-approved fresh-install/direct retest resolved the operational hold and retained both audited packages. Checkpoint C remains unchecked pending explicit review; no model compatibility, inference, service/WebUI success or downstream module approval is claimed.
+**Current status:** Native-runtime is **complete on `fix/native-runtime`**, with T1–T9 verified and Checkpoint C explicitly approved by the owner. Host verification and physical native smoke pass (94 Python/43 JVM/12 packaging checks; direct 25/25 ART/native instrumentation). The owner-approved fresh-install/direct retest resolved the operational hold and retained both audited packages. This closes the native build/packaging/version-launch foundation only, not M0 or the full app. No model compatibility, inference, service/WebUI success, merge or downstream module approval is claimed.

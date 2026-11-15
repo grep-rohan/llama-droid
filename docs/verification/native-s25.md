@@ -11,8 +11,9 @@ version-command evidence only, not model loading, inference or WebUI evidence.
 approved a fresh install, both audited APKs were installed and the full suite
 rerun with direct `am instrument`: **25/25 passed**, real exit **0 in 102 ms**.
 Both packages remained installed with unchanged paths, UIDs and audited APK
-hashes before/after; no target-UID processes remained. T9 is verified;
-Checkpoint C still requires human review. See the retained-installation section below.
+hashes before/after; no target-UID processes remained. T9 is verified.
+The owner subsequently approved Checkpoint C (option A after evidence commit
+`ca55ef5`), closing native-runtime only. See the retained-installation section below.
 
 **Historical unexpected test-tool cleanup:** after Gradle's `connectedDebugAndroidTest`
 finished, both the target and test packages were absent. AGP/UTP has an
@@ -27,7 +28,8 @@ the owner confirmed: **"there was no data, fresh install ok"**. That confirmatio
 resolved the data-impact decision and authorized the fresh-install/direct-test
 sequence; it does not retroactively make Gradle cleanup data-preserving.
 
-**Checkpoint C/module completion awaits human review.** Use owner-approved
+**Checkpoint C is owner-approved; native-runtime is complete on `fix/native-runtime`.**
+This does not merge the branch or authorize downstream work. Use owner-approved
 installs followed by direct `am instrument`, not a repeat of the uninstalling
 Gradle task on a data-bearing installation. The retest verified installed APK
 identities before and after testing without framework removal.
@@ -201,9 +203,12 @@ were **0755**, file-owner UID **1000**, executable=true. The test asserted app U
 Separate UID-filtered `ps -A -o UID,PID,PPID,NAME` checks were empty before/after,
 this time with both packages still installed. No model or listener was started.
 
-**T9's retained-installation/operational review is satisfied.** Only the explicit
-Checkpoint C human review remains before module completion; inference, model
-compatibility, services and WebUI remain outside this evidence.
+**T9's retained-installation/operational review is satisfied.** After evidence
+commit `ca55ef5`, the owner selected option A approving Checkpoint C and closing
+native-runtime only. The module is complete on `fix/native-runtime`; inference,
+model compatibility, services and WebUI remain outside this evidence. No merge,
+additional device changes or downstream specification/implementation is
+implied by that approval.
 
 ## Local evidence and remaining action
 
@@ -227,8 +232,10 @@ New sanitized ignored evidence uses the `.cache/blocker6-direct-` prefix:
 The older `verify_s25.py run` action invokes the unsafe historical Gradle task;
 do not reuse it as a retained-installation test.
 
-**Next owner decision:** review Checkpoint C and the seven-criterion trace in
-[tasks/todo.md](../../tasks/todo.md#checkpoint-c-native-runtime-completion-review).
+**Completion review:** Checkpoint C and the seven-criterion trace are approved;
+see [tasks/todo.md](../../tasks/todo.md#checkpoint-c-native-runtime-completion-review).
+No further native-runtime task is pending. Any merge or later module needs a
+separate owner decision.
 Native startup success is not model compatibility, foreground-service
 reliability, inference, WebUI hosting or permission to start those modules
 without their separate approval gates.

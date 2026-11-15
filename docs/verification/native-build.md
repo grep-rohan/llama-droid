@@ -7,7 +7,9 @@ cases. The first Gradle run removed both packages; the owner then confirmed no
 prior data and approved fresh installation. Direct `am instrument` passed
 **25/25**, real pinned `--version` exit **0 in 102 ms**, with both audited APKs
 retained and before/after hashes/UIDs/paths unchanged. T9 is verified;
-Checkpoint C human review remains pending. See [native-s25.md](native-s25.md).
+Checkpoint C was subsequently owner-approved (option A after evidence commit
+`ca55ef5`), closing native-runtime only on `fix/native-runtime`, not merging or
+authorizing downstream work. See [native-s25.md](native-s25.md).
 Historical no-device/unverified-device statements below describe earlier
 host-verification phases, not current availability or waived requirements.
 

@@ -16,13 +16,15 @@ not need Termux, root, ADB, a separate inference service, or a cloud API.
 
 ## Native Runtime Module
 
-The `native-runtime` module aims to establish the build, packaging,
-linking, and direct-process launch foundation. Installed-app `--version`
-execution under the app UID is **verified on the owner's physical S25**.
-Work continues on the isolated `fix/native-runtime` branch/worktree selected
-by the user. The original
-checkout's JNI/Ktor/inference experiments are preserved separately, not
-included here and not evidence of server or WebUI compatibility.
+The `native-runtime` module is **complete on `fix/native-runtime`** after
+owner approval of Checkpoint C. It establishes the build, packaging,
+linking, and direct-process version-launch foundation only; M0 remains in
+progress. Installed-app `--version` execution under the app UID is
+**verified on the owner's physical S25**.
+The completed work remains on the isolated `fix/native-runtime` branch;
+it has not been merged. The original checkout's JNI/Ktor/inference experiments
+are preserved separately, not included here and not evidence of server or
+WebUI compatibility.
 
 ### Verification Status
 
@@ -68,8 +70,9 @@ included here and not evidence of server or WebUI compatibility.
   installed APK hashes/UIDs/paths and both packages retained. No target-UID
   processes remained. Gradle connected testing is still unsafe to assume
   data-preserving. See [S25 evidence](docs/verification/native-s25.md).
-- **Pending:** Checkpoint C human review only. The module is not yet
-  declared complete; no model-import/lifecycle/chat work is authorized.
+- **Approved:** the owner selected option A after evidence commit `ca55ef5`,
+  approving Checkpoint C and closing **native-runtime only**. No merge or
+  model-import/lifecycle/chat work is authorized by that approval.
 
 The production APK excludes the probe/tests/provenance asset. The separate
 `app-debug-androidTest.apk` is developer instrumentation only; AndroidX adds
@@ -93,7 +96,7 @@ module is incomplete, not complete with a waiver.
 The documented host build/audit workflow below passed from clean committed
 source. **Do not repeat Gradle connected testing on a data-bearing app:**
 its cleanup removed the packages in the first verification. The owner-approved
-direct retest retained both packages; see [remaining review](tasks/todo.md#blockers-in-precedence-order).
+direct retest retained both packages; see [completed review](tasks/todo.md#checkpoint-c-native-runtime-completion-review).
 Preserve the original checkout/stage; its unvalidated NDK merge proposal is
 not part of this branch.
 
