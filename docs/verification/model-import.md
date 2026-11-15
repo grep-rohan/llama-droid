@@ -1,12 +1,14 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-01 host-verified
+## Current status — MI-02 host-verified
 
-**MI-01 is implemented and host-tested:** pure selection/reset record values,
-bounded codecs, and safe display names. **29 new tests / 72 total JVM tests pass**;
-lint reports **0 errors / 4 existing warnings**, and both APKs build. This is not
-an implemented end-user import flow or a device test. MI-02 onward remains
-unauthorized. Detailed MI-01 evidence follows the baseline history below.
+**MI-01/MI-02 are implemented and host-tested:** bounded records/names plus
+checked record replacement, uncertainty handling and a compiled Android adapter.
+**91 total JVM tests pass**, including **19 new MI-02 tests**. Lint reports
+**0 errors / 4 existing warnings**, and both APKs build. Android filesystem
+behavior is **unverified** pending MI-15/MI-20; this is not an end-user import
+flow or device result. Owner authorized MI-02 with **“start next”** after MI-01.
+MI-03 onward remains unauthorized. Detailed evidence follows below.
 
 ### Baseline reconciliation
 
@@ -23,8 +25,8 @@ reconciling MI-00 and implementing **MI-01 only** (“y” after the explicit pr
 MI-00 is complete: the existing checkout is the reviewed implementation source,
 with unchanged tracked app/build inputs and the documented unrelated-work
 exclusions. A separate clean checkout is not required to establish this baseline;
-no clean-checkout reproduction is claimed. MI-02 onward and phone access remain
-unauthorized.
+no clean-checkout reproduction is claimed. That approval covered neither MI-02
+nor phone access; the subsequent MI-02 authorization/results are recorded below.
 
 ## MI-00 — Initial host preflight (superseded baseline blocker)
 
@@ -368,5 +370,136 @@ owner changes are not swept into an implementation commit.
 **MI-01 is implemented, JVM-tested and compiled; not device-tested.** It is not
 wired to file persistence, a controller, or the Activity, so it adds no user
 import/reset behavior yet. No ADB calls or phone writes occurred. Next smallest
-task is **MI-02 — checked record replacement**, requiring its own batch approval.
-Checkpoint F1 is still pending MI-02/MI-03 and review.
+task at MI-01 closure was **MI-02 — checked record replacement**, requiring its
+own batch approval. That approval and its results follow. Checkpoint F1 remains
+pending MI-03 and review.
+
+## MI-02 — Checked record replacement
+
+Authorization: owner requested **“start next”** following the MI-01 completion
+report and explicit MI-02 next-task proposal. Scope is MI-02 only; no device
+consent. Run date: **2026-11-15 UTC**. Starting HEAD:
+`fde2a8df283da0193fa7981381c58d6b2bb082c9`; same reviewed source/exclusions and
+MI-00 JDK/SDK/toolchain. Implementation commits: **`bb5fb4f`** (protocol/fakes),
+**`13407f3`** (Android adapter/additional cases), **`443bdfe`** (sidecar readback
+fault matrix). No dependency, native payload, manifest or Activity changes.
+
+### Five deliverables
+
+Under `app/src/main/java/io/github/greprohan/llamadroid/modelimport/`:
+
+- `ModelFileOps.kt`: small no-follow entry/descriptor I/O boundary with
+  device/inode/type/length/link identity, reader/writer ownership, exclusive
+  creation and checked namespace operations.
+- `CheckedModelRecord.kt`: fixed `selection`/`reset` slots; caller supplies the
+  expected old record. Creates `.next` exclusively, checks identity, writes,
+  explicitly flushes/syncs/closes, bounded-readbacks the temporary record, then
+  verifies the old base again before same-directory rename. Confirms the new
+  base's entire record and transferred inode, closed descriptors and absent
+  sidecar before success. It never truncates/deletes/renames aside the old base.
+- `AndroidModelFileOps.kt`: existing canonical private root only, root inode/type
+  rechecks, direct-child names, `lstat`/`fstat`, no-follow/exclusive/nonblocking
+  opens with mode 0600, unbuffered checked writes, `fsync`, checked `Os.close`,
+  public `Os.rename` and checked `Os.remove` on a validated single-link regular
+  file. No public `Os.unlink` assumption. The borrowed input stream does not own
+  a second descriptor; its enclosing Reader owns/closes the original fd.
+
+Under `app/src/test/java/io/github/greprohan/llamadroid/modelimport/`:
+`FakeModelFiles.kt` and `CheckedModelRecordTest.kt` (**19 JVM methods**, with
+per-operation fault matrices). No Android API mocks are counted as platform
+proof. All mutation is in-memory fake data; no owner model paths are accessed.
+
+### Outcome/resource contract
+
+- `NEW`: expected replacement and candidate inode confirmed at base, `.next`
+  absent, no live descriptor. An exception after successful rename can still
+  reconcile to this outcome; its original failure is retained for the caller.
+- `OLD`: exact old record and inode (or initial absence) confirmed after the
+  attempt/cleanup. Only a known owned sidecar may be removed, after all handles
+  stop. Sidecar-removal failure is explicit debt, never permission to delete the
+  authoritative base or any payload.
+- `AMBIGUOUS`: unknown/unreadable/mismatched namespace or unresolved descriptor;
+  no rollback or guessed selection. Debt is conservatively true here, not proof
+  that a sidecar physically exists. `quiescent=false` blocks subsequent I/O;
+  explicit `close()` retries only the captured handle, never a reused descriptor.
+
+Read-only lookup never promotes or deletes `.next`. Stale regular owned
+sidecars are checked before removal, and cleanup false returns are detected by
+postinspection. Primary write/sync failures retain secondary close/cleanup
+failures. Caller must retain one serialized, exclusively leased store owner;
+root lease/recovery/payload ownership are **MI-03**, not implemented here.
+The protocol does not establish power-loss/directory-fsync durability.
+
+### Test-first and build evidence
+
+| Stage | Actual evidence |
+|---|---|
+| Initial publication RED | **1 discovered / 1 assertion failure**, exit 1; compiling no-op protocol |
+| Publication GREEN | 1/1 pass, exit 0 |
+| Reconciliation RED | **4 discovered / 3 assertion failures**, exit 1; pre-commit faults, false normal returns, post-rename exception |
+| Reconciliation/resource GREEN | Passing focused tests after implementation, then expanded contract cases |
+| Protocol slice | Focused tests + lint/both APKs pass; full JVM regression passes before commit |
+| First Android adapter build | JVM/APK steps pass, **lint fails** with `NewApi` for `OsConstants.O_CLOEXEC` (SDK field since 27, minSdk 26) |
+| Corrected adapter build | **BUILD SUCCESSFUL in 21s**, lint 0 errors / 4 existing warnings, both APKs built |
+| Final expanded readback matrix | **91 JVM tests pass**, 0 failures/errors/skips; **BUILD SUCCESSFUL in 18s**, 80 actionable tasks (6 executed / 74 up-to-date), lint and APK tasks pass |
+
+Final suite roster: MI-02 **19**, codec **21**, names **8**, native probe **24**,
+native launcher **19**. Required malformed/postcondition/resource cases are not
+skipped. Tests exercise create/info/write/flush/sync/close/readback/rename faults,
+rename-then-throw, silent write/rename/close/delete failures, debt/retry, unknown
+base, wrong inode, unsafe entry kinds/hardlinks, stale sidecars, reset/initial
+slots, fixed operation ordering, byte preservation until rename, and no further
+I/O while a descriptor remains live. No worker threads or Android processes are
+created by these tests. Native-stage verification passes in each Gradle build.
+The 94 earlier Python results remain applicable; their inputs are unchanged.
+
+Exact repository-root commands, repeated only after relevant source/test edits
+or for expanded regression scope:
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*CheckedModelRecordTest'
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*CheckedModelRecordTest' :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+./gradlew --no-daemon :app:testDebugUnitTest
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+javap -classpath D:/softwares/android-sdk/platforms/android-35/android.jar android.system.Os android.system.OsConstants
+```
+
+### API-26 flag correction provenance
+
+SDK API metadata confirms public `Os.open`, `Os.rename` and `Os.remove` since 21,
+`OsConstants.O_CLOEXEC` since 27 and `Os.fcntlInt` since 30. Neither newer Java
+API is used in the final adapter. Atomic close-on-exec open is retained via the
+verified ARM64 Linux UAPI value **02000000 octal = 0x80000**, not a lint
+suppression or minSdk upgrade. This is specific to the already ARM64-only APK;
+any ABI expansion requires reviewing native constants again.
+
+Evidence: Android 8.0/API-26 [generic fcntl header](https://android.googlesource.com/platform/bionic/+/android-8.0.0_r1/libc/kernel/uapi/asm-generic/fcntl.h)
+and its [ARM64 include/overrides](https://android.googlesource.com/platform/bionic/+/android-8.0.0_r1/libc/kernel/uapi/asm-arm64/asm/fcntl.h).
+The installed, unchanged NDK **27.2.12479018** headers agree:
+`sysroot/usr/include/asm-generic/fcntl.h` and
+`sysroot/usr/include/aarch64-linux-android/asm/fcntl.h`. Header snapshots and
+SDK API metadata results are retained locally. This source/API check is not an
+API-26 or S25 runtime test of fd flags/closing/linking.
+
+### Artifacts and remaining gate
+
+| Built artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,482,963 | `d949e7d72878b1d93e065e4ecfc9c999f055bae32a0baf69d0f353e9b7adb9ea` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 927,596 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+Local evidence: `.cache/model-import/mi-02-20261115T204241Z/`: preflight/tracker
+snapshots, RED/GREEN XML and logs, checked exit codes, initial failing lint log,
+final five JUnit reports/lint XML, `android-public-api.txt`, NDK header snapshots,
+source/artifact/report identities in `results.json` and final preservation check.
+No generated files, APKs, logs or native payloads are committed. Existing owner
+planning changes remain uncommitted; tracker bookkeeping does not sweep them
+into the implementation commits.
+
+**MI-02 is implemented, fake-I/O/JVM-tested and Android-compiled, not
+Android/device-tested.** Filesystem syscall/descriptor/rename behavior must be
+validated by MI-15/MI-20; source review, JVM fakes and lint are not substitutes.
+No ADB, device installation/launch/stop, process-death, backup or owner-data test
+occurred. Native stage, `.gitignore`, `app/.cxx/`, toolchain and unrelated files
+are unchanged. Next smallest task is **MI-03 — authoritative selection recovery**,
+requiring its own authorization; Checkpoint F1 remains pending that task/review.
