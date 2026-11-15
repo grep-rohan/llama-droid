@@ -5,9 +5,11 @@
 > 94 host tests, 43 JVM tests and 12 opt-in packaging checks pass. Debug and
 > instrumentation APKs compile; hashes, attribution and both SDK manifests
 > were checked. Lint has four existing warnings and zero errors.
-> Installed extraction/permissions/linking and S25 execution remain unproven.
-> The original dirty checkout and stage remain untouched. ART/native
-> instrumentation execution and physical S25 evidence remain blocked. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
+> The physical S25 subsequently passed 25/25 ART/native tests, including
+> real version-command exit/cleanup. **Operational hold:** Gradle connected-
+> test cleanup removed both packages and may have removed private app data.
+> No further device writes before owner direction; see [S25 evidence](verification/native-s25.md).
+> The original dirty checkout and stage remain untouched. See [ordered blockers](../tasks/todo.md#blockers-in-precedence-order)
 > and [branch evidence](verification/native-build.md). No native execution
 > or WebUI success is claimed.
 
@@ -275,24 +277,36 @@ $env:JAVA_HOME = 'D:\softwares\jdk\jdk-17.0.14+7'
 
 ### Run on device
 
-**Blocked: no connected/authorized S25.** ADB listed no devices during the
-clean-build verification. Connect/authorize the owner's physical S25; use
-the retained clean checkout/output paths in [build verification](verification/native-build.md)
-and record device properties per the spec before running:
+The physical S25 run passed **25/25** tests, but Gradle/UTP then removed
+both installed packages. **This can delete private app data. Do not use
+`:app:connectedDebugAndroidTest` as a data-preserving test command.** The
+previous replacement-install assurance did not cover framework cleanup;
+prior private-data contents/loss are unknown. No automatic reinstall,
+uninstall, downgrade or data-clear is authorized by this documentation.
+
+After explicit owner approval, select only the S25 and prefer direct
+instrumentation with the retained audited artifacts:
 
 ```powershell
-# Confirm only the owner's authorized S25 is selected; never publish its serial.
-adb devices -l
-./gradlew --no-daemon :app:connectedDebugAndroidTest
-adb logcat -d -s llama.droid
+# Use the clean verification worktree, not the original dirty checkout.
+# Keep the device selector private; confirm only the owner's S25 is targeted.
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-If multiple devices are attached, explicitly select only the S25 for both
-ADB and Gradle, or disconnect the others first. Do not assume a shell
-launch, emulator, JVM fake cases or successful compilation satisfies T9.
-Record both installed/test APK hashes, UID/path/permission/version evidence,
-all instrumentation results and a post-run native-child process cross-check.
-No device install/test was performed as part of host verification.
+This starts the same fixed test runner without Gradle's uninstall-after-test
+installer step. Retain the packages for before/after installed-APK hash checks;
+do not silently uninstall even the test APK without owner direction. If an
+installation fails due to version/signature, stop and ask rather than retrying
+with `-d`, uninstall or data-clear. No app-data recovery is promised by a
+reinstall. Use time/UID-scoped log capture and redact serials/endpoints.
+
+Record device properties, installed/test APK hashes, UID/path/modes, version
+output and independent post-run native-process checks. Neither a shell-context
+server launch nor an emulator substitutes for app-context physical S25 proof.
+The completed run and operational limitation are in [native-s25.md](verification/native-s25.md);
+safer reinstallation/retest is currently paused awaiting the owner.
 
 ## APK audit (T8)
 
@@ -351,7 +365,9 @@ The minimal Views/direct-process launcher source set is now isolated and
 host-verified. Safe staging and fail-closed packaging are verified against
 fixtures and the pinned archive/native APK; clean committed-source builds
 of both APKs, standalone audit and separate SDK manifest checks pass. User
-approved Checkpoint B before adding the test-only harness. **The remaining
-blocker is physical S25 access/authorization and ART/native execution.**
-T5 installed extraction, T7 runtime cases and T9 evidence remain unverified. Tool installations alone do not remove these
+approved Checkpoint B before adding the test-only harness. Physical S25
+version execution and all 24 ART fake cases now pass. **The remaining hold
+is owner disposition of the unexpected Gradle package/data cleanup and a
+safer retained-installation verification/review**, then Checkpoint C.
+Native inference, model compatibility and WebUI are still unverified. Tool installations alone do not remove these
 blockers; see the [precedence list](../tasks/todo.md#blockers-in-precedence-order).

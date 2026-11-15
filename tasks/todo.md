@@ -2,13 +2,22 @@
 
 Spec: `SPEC-native-runtime.md` (approved). Plan: `tasks/plan.md` (approved). Task list: approved by the user.
 
-**Status: incomplete; blockers 1–5 host work verified on `fix/native-runtime`.** User approved Checkpoint B, then final source commit `955bfe3f58cf515943f3ebfa6b76748dcc11092d` was built from a clean detached checkout with a fresh pinned archive download. 94 Python, 43 JVM and 12 Gradle/APK integration checks pass; both APKs compile and their hashes/SDK manifests are recorded. Original checkout remains untouched. **Next blocker: physical S25 access/authorization and ART/native execution.** T5 installed extraction, T7 device cases and T9 stay unchecked; no native startup or module completion is claimed.
+**Status: native smoke passed; operational hold before completion review.** On `fix/native-runtime` source `955bfe3`, the physical SM-S931B/Android 17 API 37 passed **25/25** instrumentation cases (24 ART fake cases + real pinned version command). Exit 0 in 101 ms, installed hashes/mode 0755 and EOF/reaping/worker cleanup verified. **Unexpected Gradle cleanup removed both packages and may have removed private app data.** Prior contents/loss are unknown; the earlier preservation assurance was inaccurate for that procedure. No further device writes pending owner choice. T9 retained-installation review/Checkpoint C remain incomplete; no model/inference/WebUI claim or downstream implementation approval.
 
 Standing completion bar: applicable tests pass with meaningful nonzero discovery, no regressions or unrelated scope, diagnostics and failure cleanup verified, relevant docs updated, and no unsupported runtime claims. Missing device evidence blocks completion; marking a task blocked does not complete the module.
 
 ## Current evidence and actionable blockers
 
-### Current — blocker 5 host harness/clean-build verification
+### Current — physical S25 evidence and unexpected test-tool cleanup
+
+- Owner authorized installation/test on one connected physical S25; no serial, pairing code, GUID or connection endpoint is published. Device reports **SM-S931B, Android 17/API 37**, security patch `2026-10-05`, raw One UI `90000`, `arm64-v8a`, page size **4096**, OS-visible MemTotal **11379964 kB**.
+- Replacement installs succeeded and initial installed APK hashes matched the audited local files. Gradle then ran the exact source artifacts: **25 tests, zero failures/errors/skips**, class breakdown checked (24 NativeProcessProbeTest + 1 NativeVersionSmokeTest), suite time 2.926s. Gradle succeeded in 41s, 67 tasks (2 executed, 65 up-to-date).
+- Real installed native directory `/data/app/.../lib/arm64`, app UID **10436**, parent PID **17598**. All fourteen installed digests matched, file owner UID 1000/mode 0755, executable=true. Actual header: `version: 0.8.0-dev (build 12020, commit 0ec4027a2)`, `built with Clang 21.0.0 for Android aarch64`. Native exit **0**, **101 ms** observed exit/116 ms total, timeout=false, reaped/readersStopped/streamsDrained/operationsStopped=true; stdout 0 bytes, stderr 95 bytes. No model/listener started.
+- In-test child-alive assertion passed before framework cleanup; UID-scoped post-run process list was empty. The earlier blanket Android-17 linking restriction was not reproduced with this APK/context/device; no binary transform or security workaround needed.
+- **Operational issue:** after `connectedDebugAndroidTest`, target and test packages were both absent. Gradle/UTP uninstall-after-test cleanup can remove private app data. No original private data was inventoried/backed up; contents/loss unknown. Agent acknowledged the mistaken preservation assurance and stopped all device writes. No data recovery claim.
+- T9 is held for owner disposition/safer retained-installation verification and Checkpoint C review. Do not repeat connected Gradle testing on data-bearing installs; propose explicit replacement installs + direct `am instrument`, or restore only target, or pause. No uninstall/downgrade/data-clear without separate approval. See [sanitized S25 evidence](../docs/verification/native-s25.md).
+
+### Snapshot — blocker 5 host harness/clean-build verification
 
 - User selected option A explicitly approving Checkpoint B and the harness/clean-build work. Shared test-only probe/cases are under `app/src/sharedTest/java/`; real installed-app smoke test is under `src/androidTest/`. Nothing was copied from the original untracked harness or shipped in production.
 - Probe consumes both streams concurrently with fixed byte rings (default 16 KiB each), 30s execution deadline plus <=2s cleanup budget, bounded wait/destroy/force/reap/close/join operations, explicit EOF-before-forced-close evidence and caller-interrupt restoration. A 90s whole-test guard covers hashing/OS startup; no JVM fake proves Android system startup reliable.
@@ -76,7 +85,7 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 3. **Host work resolved: fail-closed Gradle packaging (T5).** User chose option A. Gate, verified JNI snapshot, extraction settings/byte preservation and generated attribution are implemented; 12 actual Gradle/APK checks and the real clean-output build pass. Source/installed execution remains separate: actual extraction/permissions/linking is still unchecked under T5/T9. No device requirement is waived.
 4. **Resolved: standalone ZIP/payload auditor (T8 host portion).** User chose option A. New auditor and 44 adversarial tests pass; real native APK passes with pinned hashes and strict attribution; separate SDK inspection passes against the same APK identity. No original untracked auditor was copied and no manifest-decoding/monolithic fallback is used. Clean-source build and instrumentation compilation evidence was subsequently completed under blocker 5; ART/native execution still requires the physical device.
 5. **Host work resolved: Checkpoint B review, bounded harness and clean-source reproduction (T7/T8).** User chose option A. Probe implemented/host-tested, both APKs compiled from committed source in a clean detached worktree, fresh archive verified/staged, actual versions/results/hashes/SDK manifests recorded. Source status clean before/after; no untracked implementation input needed. T7 ART/native execution remains a device blocker, not a host-test completion claim.
-6. **Authorize the physical S25 and prove installed-app launch (T9) — next interactive gate, currently blocked.** Device authorization can be arranged in parallel, but install/test only the audited build from steps 1–5. Select only the S25 for ADB and Gradle; record properties without serials, app UID, installed native paths/permissions, pinned version output, exit 0 within 30 seconds, and child cleanup. Capture exact linker errors if it fails; no Android 17/`LD_LIBRARY_PATH` restriction is established by the evidence currently recorded. Exit: full instrumentation suite passes with hash-linked evidence in `docs/verification/native-s25.md`.
+6. **Native test passed; resolve test-tool cleanup before T9 completion.** The owner authorized S25 verification and 25/25 ART/native cases passed. However Gradle removed the packages afterward; private-data impact is unknown. Owner must choose restoration/safer direct-instrumentation retest or pause before more device writes. Historical test scope/requirements: Device authorization can be arranged in parallel, but install/test only the audited build from steps 1–5. Select only the S25 for ADB and Gradle; record properties without serials, app UID, installed native paths/permissions, pinned version output, exit 0 within 30 seconds, and child cleanup. Capture exact linker errors if it fails; no Android 17/`LD_LIBRARY_PATH` restriction is established by the evidence currently recorded. Exit: full instrumentation suite passes with hash-linked evidence in `docs/verification/native-s25.md`.
 7. **Review completion evidence (Checkpoint C).** Trace all seven spec criteria, update README/capability status, and obtain human review before downstream work. If any prerequisite remains blocked, the module remains incomplete.
 
 ## T1: Establish the artifact provenance boundary
@@ -163,13 +172,13 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## T5: Package the exact native payload
 
-- [ ] Complete T5 — **host packaging implemented/compiled/APK-inspected; installed extraction remains blocked under T9.**
+- [x] Complete T5 — **APK and physical S25 installed payload hashes/0755 permissions/version execution verified. Operational test-tool cleanup is separately held under T9.**
 
 **Description:** Integrate verification-only staging into Gradle and configure extraction/preservation for the installed native-library directory, retaining license text in the APK.
 
 **Acceptance:**
 - [x] Gradle fails clearly for absent/tampered/extra native stage instead of producing a stale or empty native APK.
-- [ ] ARM64 payloads are extracted by the intended packaging settings and preserved byte-for-byte; no source path is used as a runtime executable location. **Host evidence:** fourteen exact ZIP hashes, compression and `extractNativeLibs=true` confirmed; source launcher resolves installed `nativeLibraryDir` only. **Still blocked:** actual installed extraction/permissions must be proven in T9; this clause is not marked complete from manifest inspection alone.
+- [x] ARM64 payloads are extracted by the intended packaging settings and preserved byte-for-byte; no source path is used as a runtime executable location. Physical S25 test read all fourteen installed files under target app UID 10436: every digest matched, mode 0755/file owner UID 1000/executable=true; bundled version command exited 0. This checkbox is based on actual installed-app evidence, not manifest inspection alone.
 - [x] APK contains the allowlisted native files and required attribution, but no RPC backend, utility executables, GGUFs, or unrelated native backend.
 
 **Verify:** Stage with the documented importer, then `./gradlew --no-daemon :app:assembleDebug`; compare ZIP-member SHA-256 against the manifest. Demonstrate build rejection using temporary staged fixtures and restore/re-verify the genuine stage. Inspect merged manifest extraction settings.
@@ -207,16 +216,16 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## T7: Add the bounded app-context smoke harness
 
-- [ ] Complete T7 — **implemented/compiled, 24 shared fake-Process cases pass on JVM; ART and real-server execution blocked by no device.**
+- [x] Complete T7 — **24 shared cases pass on ART plus real pinned native smoke (25/25), no source fix required. This is not model/service/WebUI verification.**
 
 **Description:** Add instrumentation that launches upstream `--version` from the installed app context, consumes output safely, enforces a deadline, and proves child cleanup. Test the harness's timeout/exit/error paths with a fake `Process`, not fake native ELF files.
 
 **Acceptance:**
 - [x] Instrumentation compiles with the pinned test-only dependencies; no test hook is exported in the production app. Probe, fake cases and provenance asset are absent from the production APK and present only in the instrumentation APK.
-- [ ] Instrumentation-side harness tests execute and cover timeout, abnormal exit, large output, and cleanup failure with a fake `Process`; cleanup/reaping and reader shutdown have no unbounded waits. **Host evidence:** identical shared sources execute 24 cases on JVM, including stuck wait/destroy/read/close, caller interruption, reader Errors and false EOF after forced close. **Still blocked:** their ART/instrumentation run requires the device; compilation is not an Android test result.
-- [ ] Real-server test requires pinned version/build/commit identification and exit 0 within 30 seconds; both output streams must drain to EOF concurrently with bounded byte tails, child/reader/control-operation cleanup must succeed. **Blocked: no connected/authorized device.**
+- [x] Instrumentation-side harness tests execute and cover timeout, abnormal exit, large output, and cleanup failure with a fake `Process`; cleanup/reaping and reader shutdown have no unbounded waits. All 24 shared cases passed on the physical S25's ART, including stuck APIs, interruption, reader Errors, false EOF and blocking NIO interruptors.
+- [x] Real-server test identified pinned build/commit and exit 0 in 101 ms (within 30s); both streams reached EOF, child was reaped, readers/control workers stopped and in-test child-alive assertion passed. Exact evidence is in `docs/verification/native-s25.md`.
 
-**Verify:** `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` — **BUILD SUCCESSFUL, 81 executed tasks; 43 JVM tests (19 launcher + 24 probe), zero failures/errors/skips**, four existing lint warnings. On an authorized physical S25, `./gradlew --no-daemon :app:connectedDebugAndroidTest` — **blocked: no device**.
+**Verify:** `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` — **BUILD SUCCESSFUL, 81 executed tasks; 43 JVM tests (19 launcher + 24 probe), zero failures/errors/skips**, four existing lint warnings. Physical S25 Gradle run passed 25/25, **but its cleanup removed both packages and may have removed private data**. Treat that historical command as unsafe for data-bearing installs; future direct-instrumentation protocol awaits owner approval.
 
 **Dependencies:** T6.
 
@@ -245,16 +254,16 @@ That earlier review performed no Gradle/JVM/instrumentation/installation/native-
 
 ## T9: Verify packaged launch on the physical S25
 
-- [ ] Complete T9 — **blocked: no connected/authorized physical S25; installed extraction and ART/native cases still unverified.**
+- [ ] Complete T9 — **native/device criteria observed passing; retained-installation verification and unexpected Gradle uninstall/data-impact review await owner direction.**
 
 **Description:** Install the audited APK and run the complete instrumentation suite on the owner's S25, recording device properties and exact process evidence. Remain within the version-command boundary.
 
 **Acceptance:**
-- [ ] Device evidence records model/ABI/current Android/API/security patch/build, One UI availability, OS-visible memory, installed executable path/permissions, and app UID without publishing unique serials.
-- [ ] `--version` executes from the installed native directory under the app UID, exits 0 within 30 seconds with recognizable pinned build output, and leaves no child process; harness failure cases also pass.
-- [ ] Evidence ties the installed/test APKs and upstream artifact to hashes; README/spec outcome distinguishes host-tested, compiled, APK-inspected, and device-tested, with no inference/WebUI claim.
+- [x] Device evidence records model/ABI/current Android/API/security patch/build, raw One UI, OS-visible memory, actual installed executable path/permissions and app UID; unique serial/connection details omitted.
+- [x] `--version` executed from installed native directory under app UID 10436, exited 0 within 101 ms with exact build/commit header, in-test reaping/EOF/aliveness checks passed; all 24 ART harness cases passed. UID-scoped post-run process list empty, with framework-cleanup caveat documented.
+- [ ] Retained installed/test APK identity and operational review finalized. Initial installed APK hashes matched; Gradle reinstalled unchanged local artifacts and during-test native hashes matched, but then removed both packages. Final installed-APK hashing/data-preservation proof is unavailable; owner decision and safer retest/review pending. No inference/WebUI claim.
 
-**Verify:** Spec's device-property commands; `adb install -r app/build/outputs/apk/debug/app-debug.apk`; `./gradlew --no-daemon :app:connectedDebugAndroidTest`; `adb logcat -d -s llama.droid`; app-context instrumentation cleanup assertions and a post-run process-list cross-check. If more than one device is connected, explicitly select only the S25 for both ADB and Gradle.
+**Verify:** The historical Gradle connected run passed, then removed both packages. Do not repeat that task on data-bearing installs. After owner approval, use spec property commands, explicit replacement installs of audited target/test APKs and direct `adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner`, plus time/UID-scoped logs, before/after APK identity and process checks. Select only the S25 privately. No uninstall, downgrade, data-clear or claim of data restoration without separate consent.
 
 **Dependencies:** T8; physical S25 access.
 
@@ -274,4 +283,4 @@ The original dirty checkout's importer attempts `ld.lld -shared --whole-archive`
 - [ ] All seven approved spec success criteria traced to evidence; no unchecked requirement is relabeled complete.
 - [ ] Human review before moving to the `model-import` specification. No model import, model loading, service, or chat implementation has been added here.
 
-**Current status:** Host blockers 1–5 verified: Checkpoint B approved, clean-source download/staging/build/audit of both APKs reproduced, 94 Python + 43 JVM + 12 packaging checks pass. T5 installed extraction/permissions and T7/T9 ART/native execution remain blocked by no device. Next interactive action: connect/authorize the physical S25, then run the fixed informational smoke suite and record properties/cleanup evidence. No model-import, server lifecycle or chat work until Checkpoint C review; module remains incomplete.
+**Current status:** Host verification and physical native smoke pass (94 Python/43 JVM/12 packaging checks; 25/25 ART/native instrumentation). Gradle's post-test package removal created an operational/data-impact hold; no further device writes until owner chooses safe restoration/retest or pause. T9 finalization and Checkpoint C remain incomplete. No model compatibility, inference, service/WebUI success or downstream module approval is claimed.

@@ -1,6 +1,14 @@
 # Native Build Verification (T8)
 
-## Current verification — blocker 5 host work complete; device blocked
+## Host verification — blocker 5 complete
+
+**Subsequent device result:** the physical S25 passed 25/25 instrumentation
+cases, including real pinned `--version` (exit 0 in 101 ms). However Gradle's
+connected-test cleanup removed both packages and may have removed private
+app data. Device actions are now paused for owner direction/safer retest;
+Checkpoint C is not complete. See [native-s25.md](native-s25.md). Historical
+no-device statements below describe the earlier host-verification phase,
+not current availability or a reason to waive the observed cleanup issue.
 
 User selected option A approving Checkpoint B and the harness/clean-build
 work. Final functional revision: **`955bfe3f58cf515943f3ebfa6b76748dcc11092d`**.

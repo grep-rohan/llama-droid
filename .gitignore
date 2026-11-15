@@ -33,3 +33,4 @@ Thumbs.db
 docs/verification/*
 !docs/verification/native-artifact.md
 !docs/verification/native-build.md
+!docs/verification/native-s25.md

@@ -31,13 +31,13 @@ included here and not evidence of server or WebUI compatibility.
 | T2 | Pinned Gradle wrapper & toolchain | Historical completion retained |
 | T3 | Minimal Views APK | Platform Views scaffold compiled; no native launch UI |
 | T4 | Verified native payload staging | 50 tests + real fourteen-file stage verification pass |
-| T5 | Package exact native payload | Host packaging verified; installed extraction pending T9 |
+| T5 | Package exact native payload | APK + installed fourteen-file hashes/permissions verified on S25 |
 | T6 | Internal direct-process launcher | Implemented/compiled/APK-integrated; 19 JVM tests pass |
-| T7 | Bounded app-context smoke harness | 24 shared JVM cases pass; instrumentation compiles; ART/native run blocked |
+| T7 | Bounded app-context smoke harness | 24 ART cases + real native smoke pass (25/25) |
 | T8 | Clean-build APK audit | Fresh committed-source build, both APKs, audit/SDK checks verified |
-| T9 | Physical S25 verification | Blocked: no connected/authorized device |
+| T9 | Physical S25 verification | Native smoke passed; Gradle uninstall/data-impact review pending |
 
-**Evidence on the isolated branch (blockers 1–5 host work):**
+**Evidence on the isolated branch:**
 - **Host-tested:** 94 Python tests, 43 JVM tests (19 launcher + 24 probe)
   and 12 opt-in real Gradle/APK integration checks pass from a clean
   detached checkout at `955bfe3`, using a fresh pinned archive download.
@@ -56,11 +56,18 @@ included here and not evidence of server or WebUI compatibility.
   SDK `apkanalyzer` confirms SDK 26/35, extraction=true, no permissions or
   exported Activity/services/receivers/providers. Compression/extraction
   configuration is not proof of installed permissions/linking/execution.
-- **Device-tested:** none. Physical S25 proof remains blocked.
-- **Pending:** authorize the physical S25 and execute the instrumentation
-  suite, including real `--version` and cleanup/device evidence. T5 installed
-  extraction and T7/T9 ART/native checks remain unchecked. Host success does
-  not complete this module or authorize model-import/lifecycle/chat work.
+- **Device-tested:** physical **SM-S931B, Android 17/API 37**: **25/25**
+  instrumentation cases pass. Real pinned server exits **0 in 101 ms** under
+  app UID; installed hashes/mode 0755, stream EOF and child cleanup verified.
+  This is version-command evidence, not inference/WebUI/backend-kernel proof.
+- **Operational hold:** Gradle's connected-test cleanup then removed both
+  app packages and **may have deleted private app data**. The earlier
+  data-preservation assurance was incorrect for that complete procedure.
+  Existing private-data contents/loss are unknown. No further device writes
+  will occur before owner direction. See [S25 evidence and safer retest](docs/verification/native-s25.md).
+- **Pending:** owner decision on reinstallation/data impact, safer retained-
+  installation verification and Checkpoint C review. The module is not yet
+  declared complete; no model-import/lifecycle/chat work is authorized.
 
 The production APK excludes the probe/tests/provenance asset. The separate
 `app-debug-androidTest.apk` is developer instrumentation only; AndroidX adds
@@ -82,8 +89,9 @@ module is incomplete, not complete with a waiver.
 ### Verification commands
 
 The documented host build/audit workflow below passed from clean committed
-source. **The device command remains blocked** until the S25 is connected
-and authorized; see [remaining blockers](tasks/todo.md#blockers-in-precedence-order).
+source. **Do not repeat Gradle connected testing on a data-bearing app:**
+its cleanup removed the packages in this verification. Device retest awaits
+owner direction; see [remaining review](tasks/todo.md#blockers-in-precedence-order).
 Preserve the original checkout/stage; its unvalidated NDK merge proposal is
 not part of this branch.
 
@@ -100,9 +108,11 @@ python scripts/import_llama_release.py .cache/llama-b12020-bin-android-arm64.tar
 # APK audit
 python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
 
-# On device (requires authorized S25)
+# Device retest: only after owner approval; select only the S25 privately.
+# Prefer direct instrumentation to avoid Gradle's uninstall-after-test cleanup.
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s llama.droid
 ```
 

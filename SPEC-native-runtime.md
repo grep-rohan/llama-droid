@@ -1,7 +1,7 @@
 # Spec: Native Runtime
 
 Module id: `native-runtime`  
-Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 packaged-launch/cleanup proof remains blocked; module success criteria are not complete. Original-checkout architecture deviations are preserved separately, not approved or included here.
+Status: Approved specification; plan/task approval and scoped interactive decisions are recorded in [tasks/todo.md](tasks/todo.md). The isolated `fix/native-runtime` branch now has verified host clean-source builds of both APKs, packaging/audit and a compiled test-only harness. Physical S25 version-command and child-cleanup evidence now passes, but Gradle test-tool cleanup removed the packages and may have removed private data. Owner data-impact/retest review and Checkpoint C remain pending; module completion is not declared. Original-checkout architecture deviations are preserved separately, not approved or included here.
 
 Parent: [Approved capability map](CAPABILITY-MAP.md)
 
@@ -82,9 +82,12 @@ adb shell getprop ro.build.version.oneui
 adb shell getprop ro.build.fingerprint
 adb shell grep MemTotal /proc/meminfo
 
-# Install and run app-context native smoke tests with only the target S25 connected.
+# Owner-approved retained-installation test with only the target S25 connected.
+# WARNING: the originally prescribed Gradle connected task removed both packages
+# after testing and may delete app data; prefer direct instrumentation.
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-./gradlew --no-daemon :app:connectedDebugAndroidTest
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r io.github.greprohan.llamadroid.test/androidx.test.runner.AndroidJUnitRunner
 adb logcat -d -s llama.droid
 ```
 
