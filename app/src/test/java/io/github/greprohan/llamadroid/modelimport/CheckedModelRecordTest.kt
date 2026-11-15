@@ -183,6 +183,34 @@ class CheckedModelRecordTest {
         assertEquals(listOf("write", "flush", "sync", "close-write", "rename"), stages)
     }
 
+    @Test fun readAndReadCloseFaultsNeverAuthorizeMutation() {
+        for (event in listOf("stat:selection", "open:selection", "info-read", "read:selection", "close-read", "closed-read")) {
+            val files = FakeModelFiles().apply { put("selection", old) }
+            files.hook = { if (it == event) throw IOException(event) }
+            val record = CheckedModelRecord(files)
+            try {
+                assertEquals(event, CheckedModelRecord.State.AMBIGUOUS, record.replace(old, new).state)
+                assertFalse(files.events.any { it.startsWith("create:") || it.startsWith("remove:") || it == "rename" })
+                assertEquals(old, ModelRecordCodec.decode(files.nodes.getValue("selection").bytes))
+            } finally { files.hook = {}; record.close() }
+            assertTrue(files.handles.all { it.closed })
+        }
+    }
+
+    @Test fun staleOwnedSidecarIsRemovedBeforeExclusiveCreation() {
+        val files = FakeModelFiles().apply { put("selection", old); put("selection.next", new) }
+        assertEquals(CheckedModelRecord.State.NEW, CheckedModelRecord(files).replace(old, new).state)
+        assertTrue(files.events.indexOf("remove:selection.next") < files.events.indexOf("create:selection.next"))
+    }
+
+    @Test fun missingBaseNeverPromotesAnInspectedSidecar() {
+        val files = FakeModelFiles().apply { put("selection.next", new) }
+        assertNull(CheckedModelRecord(files).read())
+        assertTrue(files.nodes.containsKey("selection.next"))
+        assertFalse(files.nodes.containsKey("selection"))
+        assertFalse(files.events.any { it.startsWith("remove:") || it == "rename" })
+    }
+
     @Test fun replacementPublishesNewRecordWithoutDeletingOldFirst() {
         val files = FakeModelFiles().apply { put("selection", old) }
         val result = CheckedModelRecord(files).replace(old, new)
