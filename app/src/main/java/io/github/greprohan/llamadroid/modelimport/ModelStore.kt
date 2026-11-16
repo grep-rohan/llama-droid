@@ -131,6 +131,43 @@ internal class ModelStore(private val root: ModelRoot,
         }
     }
 
+    data class PickerUpdate(val state: State, val accepted: Boolean = false,
+                            val token: PickerToken? = null, val outcome: CheckedModelRecord.State? = null,
+                            val failure: Exception? = null)
+
+    /** Worker-serialized, explicit user action; supersession is controlled by PickerCoordinator. */
+    fun reservePicker(nonce: String): PickerUpdate {
+        require(PickerToken.validId(nonce)) { "Invalid picker identity" }
+        val state = recover()
+        val current = state.selection
+        if (!state.canWrite || current == null || current.pendingPickerNonce == nonce) return PickerUpdate(state)
+        val token = PickerToken(current.epoch, nonce)
+        return pickerChange(current, current.copy(pendingPickerNonce = nonce), token)
+    }
+
+    /** Matching durable token is cleared and confirmed before any provider open. */
+    fun consumePicker(token: PickerToken): PickerUpdate {
+        val state = recover()
+        val current = state.selection
+        if (!state.canWrite || current == null || current.epoch != token.epoch ||
+            current.pendingPickerNonce != token.nonce) return PickerUpdate(state)
+        return pickerChange(current, current.copy(pendingPickerNonce = null), token)
+    }
+
+    private fun pickerChange(expected: ModelRecord.Selection, next: ModelRecord.Selection, token: PickerToken): PickerUpdate {
+        return try {
+            root.validate()
+            val result = checkNotNull(selection).replace(expected, next)
+            val state = if (result.state == CheckedModelRecord.State.AMBIGUOUS) {
+                State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING)
+            } else recover()
+            val accepted = result.state == CheckedModelRecord.State.NEW && state.canWrite && state.selection == next
+            PickerUpdate(state, accepted, token.takeIf { accepted }, result.state, result.failure)
+        } catch (failure: Exception) {
+            PickerUpdate(State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING), failure = failure)
+        }
+    }
+
     override fun close() {
         if (closed) return
         var failure: Exception? = null

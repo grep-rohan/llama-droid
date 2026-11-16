@@ -13,6 +13,40 @@ class ModelStoreTest {
     private val epoch = "a".repeat(32)
     private val id = "b".repeat(32)
 
+    @Test fun pickerReservationAndSingleConsumptionPreserveActivePayloadBytesAndEpoch() {
+        val root = activeRoot(); val sourceBytes = byteArrayOf(9, 8, 7)
+        root.files.putBytes("source-unrelated.gguf", sourceBytes)
+        val oldPayload = root.files.nodes.getValue("model-$id.gguf").bytes.copyOf()
+        ModelStore(root).use { store ->
+            val reserved = store.reservePicker("c".repeat(32))
+            assertTrue(reserved.accepted); val token = checkNotNull(reserved.token)
+            assertEquals(PickerToken(epoch, "c".repeat(32)), token)
+            assertEquals(token.nonce, reserved.state.selection!!.pendingPickerNonce)
+            assertTrue(store.consumePicker(token).accepted)
+            assertNull(store.recover().selection!!.pendingPickerNonce)
+            val before = root.files.events.count { it.startsWith("create:") }
+            assertFalse(store.consumePicker(token).accepted)
+            assertEquals(before, root.files.events.count { it.startsWith("create:") })
+            assertEquals(epoch, store.recover().selection!!.epoch)
+            assertEquals(id, store.recover().active!!.model.id)
+        }
+        assertArrayEquals(oldPayload, root.files.nodes.getValue("model-$id.gguf").bytes)
+        assertArrayEquals(sourceBytes, root.files.nodes.getValue("source-unrelated.gguf").bytes)
+    }
+
+    @Test fun pickerOldResultCannotConsumeNewerOutstandingRequestOrAnotherEpoch() {
+        val root = FakeModelRoot()
+        ModelStore(root) { epoch }.use { store ->
+            val first = checkNotNull(store.reservePicker("c".repeat(32)).token)
+            val second = checkNotNull(store.reservePicker("d".repeat(32)).token)
+            assertFalse(store.consumePicker(first).accepted)
+            assertEquals(second.nonce, store.recover().selection!!.pendingPickerNonce)
+            assertFalse(store.consumePicker(second.copy(epoch = id)).accepted)
+            assertTrue(store.consumePicker(second).accepted)
+            assertFalse(store.consumePicker(first).accepted)
+        }
+    }
+
     @Test fun emptyRootPublishesExplicitEmptySelectionAndKeepsItsEpochOnReopen() {
         val root = FakeModelRoot()
         ModelStore(root) { epoch }.use { store ->
