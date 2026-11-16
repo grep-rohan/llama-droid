@@ -1,5 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">llama.droid</string>
-    <string name="hello">llama.droid — native runtime verification scaffold (no server started)</string>
+    <string name="import_explanation">Import one GGUF document into private storage. The source is not changed. Imported does not mean structurally valid or compatible with inference.</string>
+    <string name="import_limits">Copying may stop when you leave or lock the phone. Retry starts from the beginning. No model is downloaded or run here.</string>
+    <string name="import_active_heading">Active private model</string>
+    <string name="import_pending_heading">New copy — not active yet</string>
+    <string name="import_no_model">No model imported</string>
+    <string name="import_unavailable_model">Model selection unavailable</string>
+    <plurals name="import_size">
+        <item quantity="one">%1$d byte</item>
+        <item quantity="other">%1$d bytes</item>
+    </plurals>
+    <string name="import_choose">Import GGUF</string>
+    <string name="import_replace">Replace imported model</string>
+    <string name="import_cancel">Cancel</string>
+    <string name="import_reset">Reset import state</string>
+    <string name="import_preparing">Preparing import storage…</string>
+    <string name="import_waiting_picker">Waiting for a document selection…</string>
+    <string name="import_copying">Copying a new private model…</string>
+    <string name="import_cancelling">Cancelling — waiting for resources to stop…</string>
+    <string name="import_finishing">Finishing the saved selection. Cancellation is no longer available.</string>
+    <string name="import_stopping">Waiting for resource release. No new copy can start yet.</string>
+    <string name="import_complete">Imported. Compatibility has not been checked; no inference was started.</string>
+    <string name="import_cancelled">Import cancelled. The previous selection is unchanged.</string>
+    <string name="import_ready">Ready to import one GGUF. Replacement needs room for both copies plus 64 MiB.</string>
+    <plurals name="import_progress_unknown">
+        <item quantity="one">%1$d byte copied — total unknown</item>
+        <item quantity="other">%1$d bytes copied — total unknown</item>
+    </plurals>
+    <plurals name="import_progress_known">
+        <item quantity="one">%1$d of %2$d byte (%3$d%%)</item>
+        <item quantity="other">%1$d of %2$d bytes (%3$d%%)</item>
+    </plurals>
+    <string name="import_error_source">Cannot read this document. Choose it again, check read access, or try a local copy/provider.</string>
+    <string name="import_error_header">The file is empty or lacks a supported 24-byte GGUF header. Choose a single-file GGUF.</string>
+    <string name="import_error_version">Unsupported GGUF version or byte order. Choose little-endian v2 or little-/big-endian v3.</string>
+    <string name="import_error_size">Delivered bytes disagree with the reported size. Try a local copy or another document provider.</string>
+    <string name="import_error_space_check">Cannot measure available destination storage. Check storage availability and retry.</string>
+    <string name="import_error_space">Not enough available storage for the new copy plus 64 MiB. Free other space; the old model is not deleted.</string>
+    <string name="import_error_io">Copy or close failed. Check document access and storage, then retry; this does not necessarily mean storage is full.</string>
+    <string name="import_error_selection">The saved selection update was not confirmed. Retry only when recovery is ready.</string>
+    <string name="import_error_recovery">Import state is unavailable. No unchecked model is exposed. Recovery controls are not connected yet.</string>
+    <string name="import_error_stale">This picker result is no longer current. Start a fresh document selection.</string>
+    <string name="import_warning_debt">Some unreferenced private files still occupy storage. Safe cleanup will be retried; the selected model remains usable.</string>
+    <string name="import_warning_cleanup">An earlier cleanup step failed. Any remaining allocated files are reported separately; the source is unchanged.</string>
 </resources>
