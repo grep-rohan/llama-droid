@@ -1,12 +1,12 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-11 implemented/compiled; Android runtime unverified
+## Current status — MI-12 / F3 technically host-verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**219 JVM tests pass**. MI-11 adds **six Android route test methods,
-compiled but not executed**; the four screen and seven adapter methods also remain
-unexecuted, including the gated unknown-size provider case. Lint reports
+**223 JVM tests pass**. Nine route, four screen and seven adapter Android methods
+are **compiled but not executed**, including the gated unknown-size provider case.
+MI-12 and the F3 technical review are complete in host scope. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -14,8 +14,8 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-09 and checkpoint A technical review are complete; MI-11 host scope is complete.
-MI-12 lifecycle routing is next. Phone work is not authorized.**
+MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
+screen/routes. MI-13 reset storage is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1182,3 +1182,51 @@ fourteen JVM reports/lint, decoded declarations/tool provenance and source/artif
 hashes. Production APK `88b7669755b1ac40a0f5ebab373abbb3a669472147b1b92e2d92c1286c4efa51`;
 test APK `8a7eb4f0fb49e849abd7d7b48346036ded6a08b69c9083fd13c5a57169a32e11`
 (975,121 bytes). Five-file scope and excluded owner work preserved. No phone access.
+
+## MI-12 — Recreation ownership and transient result handoff
+
+Commits `a6f05b9`, `2c401db`; four of the planned five files changed:
+`MainActivity.kt`, `AndroidPickerRoute.kt`, `AndroidPickerRouteTest.kt`,
+`ModelImportControllerTest.kt`. Existing `PickerCoordinator` phase guards are reused
+unchanged. One route/result object is retained only through Android in-process
+non-configuration retention, with **no Activity/View/callback** references. It can
+hold one token-bound URI while recovery is busy; handoff clears only that exact
+result when a controller command reserves ownership. Bundle saving excludes the
+URI; process restoration never reopens a dead copy. Destroying a non-configuration
+route retires it and drops transient data. Duplicate UI actions cannot create a
+second command/launch; stopped/destroyed observers detach.
+
+Four new JVM controller regressions pass: replacing an observer mid-copy without
+another writer/old delivery, passive reattachment before/after launch claim, a new
+fake file-image/store owner recovering an outstanding request before a delivered
+result can start, and old-A/wrong-epoch callbacks before/after B consumption.
+These are **not actual Android rotation or process-death tests**. Three additional
+Android memory contracts compile: retained-vs-saved transient result, stale handoff/
+retirement, and an adversarial malformed Intent getter. F3 review found the last
+parser exception could escape, so it now becomes a fixed Invalid result without
+raw exception/URI diagnostics. No instrumentation is executed here.
+
+Final current-source command `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 25s**, 80 tasks / 20 executed: **223 JVM tests**, zero failures/errors/
+skips; lint **0 errors / 4 baseline warnings**, both APKs pass. Twenty model-import
+Android methods compile only. Evidence `.cache/model-import/mi-12-20261116T163622Z/`
+retains focused/final logs, fourteen JVM reports/lint, decoded APK manifests, source/
+artifact identities and preservation review. Production APK
+`caf3826dd85a24e00d634c29bd74aa5c90f4b79dfb99762cf1cfc5e07f562796`;
+test APK `0e89543ba3185181f52a05040cf6ebb45760bf285e8e3d9db3aa0cf5a1a908c3`
+(976,319 bytes). Native hashes and all excluded owner inputs unchanged. No phone
+access or Android runtime/human/ship completion claim.
+
+## F3 technical review — 2026-11-16
+
+Actually reviewed 14 exact Activity/route/screen/controller/provider/test/resource/
+manifest files, current reports/APK hashes and declarations. Audit:
+`.cache/model-import/f3-20261116T164425Z/review-audit.json`. The malformed-result
+getter exception was fixed and recompiled/regression-tested, not waived. Reviewed
+observer detachment, in-process-only transient URI ownership, no saved/dead-copy
+resume, stale callback/code/epoch rejection, separated active/pending display and
+test-only gated producer/isolated-root cleanup. Reset UI is still hidden/unwired;
+no owner selection reset/replacement was executed by these host checks. No
+unresolved host-contract blocker for MI-13. Actual Android SAF, visual/lifecycle,
+provider/process-death and physical fixtures remain unverified until approved
+MI-20/MI-21 batches. This is assistant technical review, not invented human approval.
