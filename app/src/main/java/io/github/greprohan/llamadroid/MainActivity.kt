@@ -25,7 +25,8 @@ class MainActivity : Activity() {
         screen = ModelImportScreen(findViewById<View>(android.R.id.content))
         imports = ModelImports.get(applicationContext)
         route = lastNonConfigurationInstance as? AndroidPickerRoute ?: AndroidPickerRoute.restore(savedInstanceState)
-        screen.bind(ModelImportScreen.Actions(choose = ::choose, cancel = { imports.controller.requestCancel() }))
+        screen.bind(ModelImportScreen.Actions(choose = ::choose, cancel = { imports.controller.requestCancel() },
+            reset = { revision -> imports.controller.confirmReset(revision) }))
     }
     override fun onStart() {
         super.onStart(); visible = true
