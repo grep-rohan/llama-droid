@@ -37,9 +37,10 @@ class Parser(argparse.ArgumentParser):
 def run_suite(session, mode):
     report = {"mode": mode, "passed": False, "tests": 0, "errors": []}
     try:
-        baseline = session.identity(Budget(120))
+        flight = Budget(120)
+        baseline = session.identity(flight)
         report["baseline"] = baseline
-        if session.processes(baseline, Budget(15)): raise Failure("test packages are already active")
+        if session.processes(baseline, flight): raise Failure("test packages are already active")
     except Failure as error:
         report["errors"].append(str(error)); return report
     budget = Budget(300 if mode == "isolated" else 150, reserve=30)

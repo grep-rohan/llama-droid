@@ -108,7 +108,7 @@ class Device:
             if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
                 raise Failure("local APK changed")
             uid_text = self.call(["shell", "cmd", "package", "list", "packages", "-U", package], budget)
-            match = re.fullmatch(rb"package:" + package.encode() + rb" uid:([0-9]+)\r?\n?", uid_text)
+            match = re.fullmatch(rb"package:" + re.escape(package.encode()) + rb" uid:([0-9]+)\r?\n?", uid_text)
             if not match or not 10000 <= int(match[1]) <= 2147483647: raise Failure("installed package UID mismatch")
             location = self.call(["shell", "pm", "path", package], budget)
             match_path = re.fullmatch(rb"package:(/data/app/[-A-Za-z0-9_~+=./]+/base\.apk)\r?\n?", location)
@@ -208,7 +208,7 @@ class Instrumentation:
                 raise Failure("invalid instrumentation status") from None
             fields, self.fields = self.fields, {}
             case = (fields.get("class"), fields.get("test"))
-            if case not in self.expected or fields.get("numtests", str(len(self.expected))) != str(len(self.expected)):
+            if case not in self.expected or fields.get("numtests") != str(len(self.expected)):
                 raise Failure("unexpected test identity or count")
             if code == 1 and self.active is None and case not in self.started:
                 self.active = case; self.started.add(case)
@@ -223,7 +223,7 @@ class Instrumentation:
         elif line.startswith("INSTRUMENTATION_FAILED") or line.startswith("FAILURES!!!") or line.startswith("INSTRUMENTATION_RESULT: shortMsg="):
             raise Failure("instrumentation failed")
         elif re.fullmatch(r"OK \(\d+ tests?\)", line):
-            if self.ok or line not in {f"OK ({len(self.expected)} tests)", f"OK ({len(self.expected)} test)"}:
+            if self.ok or self.active is not None or self.finished != self.expected or line not in {f"OK ({len(self.expected)} tests)", f"OK ({len(self.expected)} test)"}:
                 raise Failure("unexpected JUnit result count")
             self.ok = True
 

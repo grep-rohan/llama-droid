@@ -51,6 +51,12 @@ class InstrumentationTests(unittest.TestCase):
         with self.assertRaises(device.Failure):
             p = device.Instrumentation({("Example", "testOne")}); p.feed(b"secret-content://provider/" * 10000)
 
+    def test_premature_result_and_missing_count_are_rejected(self):
+        fields = {"class": "Example", "test": "testOne"}
+        for output in [b"OK (1 tests)\n" + passed(), frame(1, **fields) + frame(0, **fields) + b"OK (1 tests)\nINSTRUMENTATION_CODE: -1\n"]:
+            with self.subTest(output=output), self.assertRaises(device.Failure):
+                p = device.Instrumentation({("Example", "testOne")}); p.feed(output); p.complete()
+
     def test_operation_budget_reserves_teardown_and_caps_each_phase(self):
         now = [10.0]; b = device.Budget(180, 30, lambda: now[0])
         self.assertEqual(25, b.deadline(15)); now[0] = 155
@@ -147,6 +153,7 @@ class IdentityTests(unittest.TestCase):
 
     def test_wrong_package_uid_apk_split_or_transport_failure_cannot_be_accepted(self):
         changes = [lambda r: r.__setitem__(0, (r[0][0], b"package:wrong uid:10001\n", 0)),
+                   lambda r: r.__setitem__(0, (r[0][0], f"package:{self.package.replace('.', 'X')} uid:10001\n".encode(), 0)),
                    lambda r: r.__setitem__(0, (r[0][0], f"package:{self.package} uid:0\n".encode(), 0)),
                    lambda r: r.__setitem__(1, (r[1][0], b"package:/data/app/secret/base.apk\npackage:/data/app/secret/split.apk\n", 0)),
                    lambda r: r.__setitem__(2, (r[2][0], b"bad", 0)),
@@ -227,6 +234,40 @@ class DriverTests(unittest.TestCase):
                 session, fake = self.fake_session(tmp, "native", **options)
                 result = driver.run_suite(session, "native")
                 self.assertFalse(result["passed"]); self.assertFalse(fake.replies)
+
+    def test_fixed_roster_matches_compiled_source_and_excludes_crash_hang_native(self):
+        import re
+        base = SCRIPTS.parent / "app/src/androidTest/java/io/github/greprohan/llamadroid/modelimport"
+        self.assertEqual(4, len(driver.METHODS))
+        for cls, methods in driver.METHODS.items():
+            self.assertEqual(set(methods), set(re.findall(r"@Test fun (\w+)\(", (base / (cls + ".kt")).read_text())))
+        self.assertIn((driver.MODEL + "ModelImportScreenTest", "unknownSizeProviderRendersCopiedBytesWithoutPercent"), driver.ROSTERS["isolated"])
+        self.assertFalse(any("Crash" in cls or "CancellationDevice" in cls or "Native" in cls for cls, method in driver.ROSTERS["isolated"]))
+
+    def test_phase_and_teardown_expiry_remain_failures_without_extra_commands(self):
+        fake = FakeAdb([]); session = device.Device("PRIVATE_SERIAL", {}, fake)
+        baseline = {driver.TARGET: {"uid": 10001}, driver.TEST: {"uid": 10002}}
+        b = device.Budget(-1)
+        with self.assertRaises(device.Failure): session.teardown(baseline, b)
+        self.assertFalse(fake.calls)
+        for pkg in baseline:
+            self.assertNotIn(pkg, str(b))
+
+    def test_success_cannot_mask_failed_control_teardown_or_postflight_apk(self):
+        for mutate in ["stop", "hash", "transport"]:
+            with tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fake_session(tmp, "native")
+                if mutate == "stop":
+                    index = next(i for i, r in enumerate(fake.replies) if "force-stop" in r[0])
+                    args, data, status = fake.replies[index]; fake.replies[index] = (args, b"private failure", 1)
+                elif mutate == "hash":
+                    args, data, status = fake.replies[-1]; fake.replies[-1] = (args, b"bad", 0)
+                else:
+                    index = next(i for i, r in enumerate(fake.replies) if "instrument" in r[0])
+                    args, data, status = fake.replies[index]; fake.replies[index] = (args, data, 1)
+                result = driver.run_suite(session, "native")
+                self.assertFalse(result["passed"]); self.assertFalse(fake.replies)
+                self.assertNotIn("private failure", str(result))
 
     def test_existing_evidence_directory_cannot_be_overwritten(self):
         with tempfile.TemporaryDirectory() as tmp:
