@@ -1,6 +1,6 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-17 host driver verified; Android runtime unverified
+## Current status — MI-17A / H1 host-verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
@@ -17,7 +17,7 @@ directed **“don't stop until phoen required”**: continue host-only implement
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
 MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13–MI-17 and checkpoints B/H0 are host-verified; MI-17A's crash orchestration is next. Phone work is not authorized.**
+screen/routes. MI-13–MI-17A and checkpoints B/H0/H1 are host-verified; MI-18's non-cooperative fixtures are next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1278,3 +1278,15 @@ Three planned Python files only plus this evidence: commits `f951be4`, `a680c67`
 `--help` has no ADB calls. Actual execution requires both explicit write flag and private `ANDROID_SERIAL`; no arbitrary class/package/path/root input, installation/uninstall/clear/downgrade or server-kill command. Existing/linked evidence directories are refused and reports use exclusive creation. Preflight verifies both installed base-APK byte streams against fixed local APKs and literal package UIDs (including a reproduced/fixed regex-dot identity gap); initially active test packages are refused before test mutation. Pre/postflight caps are 120 seconds; short controls <=15 seconds. Suite budgets reserve the final 30 seconds for local transport reaping, independently stopping both packages and checking all their UID processes gone; changed APK/UID or failed cleanup cannot become a pass. The baseline is post-install/pre-test, not an old pre-update package hash.
 
 Meaningful RED parser/transport/identity/suite/hardening assertions retained, then GREEN. Final `python -m unittest discover -s scripts/tests -p 'test_model_import_recovery.py' -v`: **22 host tests pass**, zero failures/errors/skips, 0.488s. Python subprocess fixtures/fake ADB only; **no ADB/device contact**. `python scripts/check_model_import_recovery.py --help` passes without device selection. Evidence `.cache/model-import/mi-17-current-path.txt` retains RED/GREEN/final logs/help/source hashes/`results.json`. 242 JVM and latest APK/Android compilation remain applicable (their inputs unchanged, no redundant Gradle rerun). Crash-marker orchestration is still MI-17A; no actual retained-installation or instrumentation result claimed. Git commit succeeded despite a non-fatal auto-maintenance pack-index permission warning; no unrelated Git pack cleanup/config change was attempted.
+
+## MI-17A — Retained process-death orchestration / H1 review
+
+Commits `53272d9`, `edd8464`, `c0e1113`, `ba18f80`, three Python files plus evidence only. CLI now supports exact first/replace/reset pairs or per-scenario/all matrices; suite/checkpoint modes are mutually exclusive. `--scenario all` requires `--checkpoint all` (no silently filtered subset); explicit inapplicable pairs fail before even creating evidence/contacting a device. Fresh generated run ids correlate fixed test-only setup/verification filters; neither arbitrary root nor external run id is accepted.
+
+Ready status 1001 requires a complete <=1,024-byte, exact-key/schema/type/correlation/UID frame after the exact setup method starts. Duplicate/stale/noisy/unframed/wrong-type markers and premature setup completion fail. Review additionally reproduced/fixed incomplete extra output after ready. The setup must still be live and its PID/UID/name match the sole target-UID process. Controlled stop independently stops both packages and proves all their UID processes gone *within work budget*, before separately filtered verification starts. Verification needs exact 1002 plus complete successful nonzero method reporting and a distinct `(pid, startedElapsedMs)` pair (PID reuse alone is allowed, same process is not).
+
+Each case reserves its final 30 seconds within 180 seconds; setup cap30, verification90, control<=15, independent final transport/provider/target teardown, and separate pre/postflight120 caps remain enforced. Every row compares against the original matrix post-install/pre-test APK/UID baseline. Failures stop further mutation and list later requested rows explicitly `not_run`; no skipped pair is represented as success. If interruption/marker/verification fails, `fixture_cleanup=false` stays truthful: process teardown is separately proved, but isolated fixture bytes may remain for reviewed follow-up. There is no owner-root/app-data deletion fallback and no claim that cleanup turned the failed case into a pass.
+
+Final `python -m unittest discover -s scripts/tests -p 'test_model_import_recovery.py' -v`: **33 host fake/transport tests pass**, no failures/errors/skips, 0.610s; all **23 first/replace/reset pairs** pass fake orchestration. Marker RED 16 assertions, pair RED23 assertions and partial-ready regression RED retained. Fault coverage includes each setup/stop/verification/final-teardown transition, missing/stale/wrong UID/start frames, incomplete/skipped verification, transport timeout, retained identity and explicit matrix halt. `--help` passes with no ADB. Evidence `.cache/model-import/mi-17a-current-path.txt`; unchanged Android/APK/JVM evidence applies, no redundant build. **No actual process death, phone contact or retained-installation test has occurred.**
+
+**Actual H1 technical review:** eleven exact Python/fixture/provider/suite/manifest files and fixed-roster/checkpoint correspondence reviewed; `.cache/model-import/h1-current-path.txt` points to source hashes/results/`review-audit.json`. Reviewed bounded nonblocking transport/reaping, source roster exclusions, private output, reset/cancel safety boundaries, original APK/UID baseline, complete framing and separate stop/restart identity. Partial-ready finding fixed/tested, not waived. No unresolved host-contract blocker for MI-18. Assistant technical review only; explicit device-write consent remains absent. The physical-phone gate is still MI-20, not bypassed by fake ADB.
