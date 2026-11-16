@@ -42,9 +42,9 @@ internal class ModelReset(private val root: ModelRoot) : AutoCloseable {
             check(quiescent); null // Fresh consent may replace a corrupt/unreadable regular marker.
         }
         if (previous != null) return@attempt finish(previous)
-        remove("reset.next")
-        remove("reset")
-        val result = marker.replace(null, authorization)
+        val unreadable = regular("reset")
+        val result = if (unreadable == null) marker.replace(null, authorization)
+            else marker.repairReset(unreadable, authorization)
         check(result.state == CheckedModelRecord.State.NEW && marker.read() == authorization)
         finish(authorization)
     }

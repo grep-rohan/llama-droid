@@ -108,6 +108,19 @@ class ModelResetTest {
         ModelReset(root).use { assertEquals(ModelReset.Result.COMPLETE, it.resume()) }
     }
 
+    @Test fun failedFreshRepairPreservesCorruptAuthorizationUntilAtomicReplacement() {
+        for (event in listOf("create:reset.next", "write", "flush", "sync", "rename")) {
+            val root = root().apply { files.putBytes("reset", byteArrayOf(1)) }
+            root.files.hook = { if (it == event) throw java.io.IOException(event) }
+            ModelReset(root).use { assertEquals(ModelReset.Result.BLOCKED, it.confirm(authorization)) }
+            assertTrue("Corrupt committed marker must survive failed repair", root.files.nodes.containsKey("reset"))
+            assertArrayEquals(byteArrayOf(1), root.files.nodes.getValue("reset").bytes)
+            assertEquals(old, read(root, "selection"))
+            root.files.hook = {}
+            ModelReset(root).use { assertEquals(ModelReset.Result.BLOCKED, it.resume()) }
+        }
+    }
+
     @Test fun alreadyEmptyRecordedEpochIsKeptBeforeMarkerRemoval() {
         val root = FakeModelRoot().apply {
             files.put("selection", ModelRecord.Selection(authorization.newEpoch)); files.put("reset", authorization)
