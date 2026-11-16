@@ -11,9 +11,10 @@ internal class FakeModelFiles : ModelFileOps {
     val handles = mutableListOf<ModelFileOps.Handle>()
     var hook: (String) -> Unit = {}
     private var nextInode = 1L
-    private fun step(event: String): Boolean { events += event; hook(event); return event !in silent }
+    fun step(event: String): Boolean { events += event; hook(event); return event !in silent }
     private fun info(node: Node) = ModelFileOps.Entry(1, node.inode, node.bytes.size.toLong(), node.kind, node.links)
-    fun put(name: String, record: ModelRecord) { nodes[name] = Node(ModelRecordCodec.encode(record), nextInode++) }
+    fun put(name: String, record: ModelRecord) { putBytes(name, ModelRecordCodec.encode(record)) }
+    fun putBytes(name: String, bytes: ByteArray) { nodes[name] = Node(bytes.copyOf(), nextInode++) }
     override fun stat(name: String): ModelFileOps.Entry? {
         step("stat:$name")
         return nodes[name]?.let { info(it) }
@@ -67,5 +68,28 @@ internal class FakeModelFiles : ModelFileOps {
     }
     override fun remove(name: String) {
         if (step("remove:$name")) check(nodes.remove(name) != null)
+    }
+}
+
+internal class FakeModelRoot(override val key: String = java.util.UUID.randomUUID().toString(),
+                             override val files: FakeModelFiles = FakeModelFiles()) : ModelRoot {
+    var valid = true
+    val inventories = mutableListOf<ModelRoot.Inventory>()
+    override fun prepare() { files.step("root-prepare"); validate() }
+    override fun validate() { files.step("root-validate"); check(valid) }
+    override fun payloadPath(name: String): String {
+        validate(); require(ModelOwnership.isPayload(name))
+        return "/isolated/$key/models/$name"
+    }
+    override fun entries(): ModelRoot.Inventory {
+        validate(); files.step("list-open")
+        val names = files.nodes.keys.toList() // Bounded fake fixtures, not the production iterator.
+        return object : ModelRoot.Inventory {
+            override var closed = false
+            override fun iterator(): Iterator<String> = names.iterator()
+            override fun close() {
+                if (!closed && files.step("list-close")) closed = true
+            }
+        }.also { inventories += it }
     }
 }
