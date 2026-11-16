@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-07 host-verified; host progression authorized
+## Current status — MI-08 host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**170 JVM tests pass**, including **15 new MI-07 tests**. Lint reports
+**188 JVM tests pass**, including **18 new MI-08 tests**. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -12,7 +12,7 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-07 is complete; MI-08 is next. Phone work is not authorized.**
+MI-08 is complete; MI-09 is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -931,3 +931,44 @@ skips. Lint **0 errors / 4 existing warnings**, both APKs pass. Evidence:
 `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
 All pre-existing app/test/native/excluded owner inputs unchanged. No phone access,
 Activity wiring, Android execution or fabricated checkpoint/human result. MI-08 next.
+
+## MI-08 — Durable picker identity and bounded launch/result routes
+
+Commits `713d6c2`, `df4f406`, `115b005`; five planned files added/modified:
+`PickerRequest.kt`, `PickerCoordinator.kt`, `ModelStore.kt`, `PickerRequestTest.kt`,
+`ModelStoreTest.kt`. Reservation/consumption uses checked record replacement with
+fresh opaque epoch/nonce identity, preserving active id/name/size and old payload
+bytes. Only a confirmed matching durable token clears before source opening.
+Old/ambiguous/descriptor-pending outcomes cannot authorize launch/import; actual
+post-rename errors are reconciled as confirmed new rather than rolled back.
+Failures retain their primary cause internally, not in rendered diagnostics.
+
+The coordinator separates RESERVING, RESERVED, LAUNCH_CLAIMED, AWAITING_RESULT,
+CONSUMING, restored-uncertain and blocked states. Only a same-process unclaimed
+reservation can be passively claimed once. Disk calls run outside its memory gate;
+duplicates cannot queue a second reservation/consume. Process restoration never
+auto-launches. Explicit retired-route supersession writes a new token; an old A
+result cannot consume B before or after B consumption. Dismissal/launch failure
+clears only its own token. Worker reconciliation cannot overwrite a live transition.
+The saved logical Activity route has one binding and monotonically allocates
+`0x0001..0xFFFE`, never wraps/reuses codes, rejects malformed state, and refuses
+new launch until its binding returns or the entire route is retired. No URI/path
+is persisted. Actual Android picker/lifecycle wiring remains MI-11/MI-12.
+
+RED: store **2/19 failed**, route **3/4 failed**, coordinator **3/7 failed**, then
+GREEN (no missing/zero/skipped tests). Final full command:
+`./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 23s**, 80 tasks / 17 executed. **188 JVM tests**, zero failures/errors/
+skips; lint **0 errors / 4 existing warnings**; both APKs pass. Eighteen new tests
+cover preserved active/source bytes, single consumption, epoch/stale results,
+record write/rename/ambiguous/close failures, bounded restored routes, explicit
+abandonment and a latch-blocked reservation proving memory claims remain usable.
+The test reservation worker is released/joined with no survivor.
+
+Evidence `.cache/model-import/mi-08-20261116T120826Z/`: preflight, exact logs/exit
+codes, RED/GREEN XML, final thirteen reports/lint and source/artifact hashes in
+`results.json`. Production APK `d6fafad25f964c5925b83701162db650d0f80694bc2b3e45c8cbd4300851043e`
+(79,482,963 bytes); test APK unchanged
+`3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
+Only planned store/test edits plus three additions; native and excluded owner
+work unchanged. No Android/device run or phone access. MI-09 controller next.
