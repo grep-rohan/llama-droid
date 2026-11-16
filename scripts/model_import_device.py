@@ -1,6 +1,7 @@
 """Bounded transport/protocol primitives; never run ADB merely by importing this module."""
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import subprocess
@@ -74,6 +75,85 @@ class Command:
             raise Failure("transport teardown failed") from None
         finally:
             self.proc.stdout.close()
+
+
+class Device:
+    def __init__(self, serial, apks, command=Command):
+        if not serial or not re.fullmatch(r"[A-Za-z0-9.:_-]{1,128}", serial):
+            raise Failure("private device selection required")
+        self.prefix = ["adb", "-s", serial]
+        self.apks = apks
+        self.command = command
+
+    def call(self, args, budget, cap=15, limit=4096, teardown=False, consume=None):
+        deadline = budget.deadline(cap, teardown)
+        output = bytearray()
+        cmd = self.command(self.prefix + args, limit)
+        try:
+            status = cmd.run(deadline, consume or output.extend)
+            if status != 0: raise Failure("device command failed")
+            return bytes(output)
+        finally: cmd.close(min(budget.end, time.monotonic() + 2))
+
+    def identity(self, budget):
+        result = {}
+        for package, path in self.apks.items():
+            if path.is_symlink() or not path.is_file(): raise Failure("audited local APK missing")
+            digest = hashlib.sha256()
+            with path.open("rb") as source:
+                before = os.fstat(source.fileno())
+                while chunk := source.read(1024 * 1024):
+                    budget.deadline(1); digest.update(chunk)
+                after = os.fstat(source.fileno())
+            if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                raise Failure("local APK changed")
+            uid_text = self.call(["shell", "cmd", "package", "list", "packages", "-U", package], budget)
+            match = re.fullmatch(rb"package:" + package.encode() + rb" uid:([0-9]+)\r?\n?", uid_text)
+            if not match or not 10000 <= int(match[1]) <= 2147483647: raise Failure("installed package UID mismatch")
+            location = self.call(["shell", "pm", "path", package], budget)
+            match_path = re.fullmatch(rb"package:(/data/app/[-A-Za-z0-9_~+=./]+/base\.apk)\r?\n?", location)
+            if not match_path: raise Failure("installed APK path mismatch")
+            remote = match_path[1].decode("ascii")
+            if any(part in {".", "..", ""} for part in remote.split("/")[1:]): raise Failure("unsafe installed APK path")
+            installed = hashlib.sha256(); size = [0]
+            def absorb(chunk): installed.update(chunk); size[0] += len(chunk)
+            self.call(["exec-out", "cat", remote], budget, cap=120, limit=before.st_size, consume=absorb)
+            if size[0] != before.st_size or installed.digest() != digest.digest(): raise Failure("installed APK bytes mismatch")
+            result[package] = {"uid": int(match[1]), "sha256": digest.hexdigest(), "bytes": size[0]}
+        if len({p["uid"] for p in result.values()}) != len(result): raise Failure("package UIDs overlap")
+        return result
+
+    def processes(self, baseline, budget, teardown=False):
+        output = self.call(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], budget,
+                           cap=8 if teardown else 15, limit=32768, teardown=teardown)
+        try: lines = output.decode("ascii").splitlines()
+        except UnicodeError: raise Failure("invalid process inventory") from None
+        if not lines or lines[0].split() != ["PID", "UID", "NAME"]: raise Failure("invalid process header")
+        found = []
+        for line in lines[1:]:
+            match = re.fullmatch(r"\s*([0-9]+)\s+([0-9]+)\s+(\S+)\s*", line)
+            if not match: raise Failure("invalid process inventory")
+            pid, uid, name = int(match[1]), int(match[2]), match[3]
+            if not 0 < pid <= 2147483647: raise Failure("invalid process identity")
+            for package, identity in baseline.items():
+                if (name == package or name.startswith(package + ":")) and uid != identity["uid"]:
+                    raise Failure("process UID mismatch")
+            if uid in {p["uid"] for p in baseline.values()}:
+                found.append((pid, uid, name))
+                if len(found) > 16: raise Failure("test process count limit")
+        return found
+
+    def teardown(self, baseline, budget):
+        failed = False
+        for package in baseline:
+            try:
+                if self.call(["shell", "am", "force-stop", package], budget, cap=8, teardown=True).strip():
+                    failed = True
+            except Failure: failed = True
+        try:
+            if self.processes(baseline, budget, teardown=True): failed = True
+        except Failure: failed = True
+        if failed: raise Failure("device teardown incomplete")
 
 
 class Instrumentation:

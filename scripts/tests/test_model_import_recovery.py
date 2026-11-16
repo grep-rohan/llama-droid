@@ -6,6 +6,8 @@ import unittest
 import os
 import time
 import subprocess
+import tempfile
+import hashlib
 from unittest import mock
 from types import SimpleNamespace
 
@@ -102,6 +104,73 @@ class TransportTests(unittest.TestCase):
             with self.assertRaises(device.Failure): cmd.run(time.monotonic() + 1, reject)
         finally: cmd.close(time.monotonic() + 3)
         self.assertIsNotNone(cmd.proc.poll())
+
+
+class FakeAdb:
+    def __init__(self, replies):
+        self.replies = list(replies); self.calls = []; self.closed = 0
+    def __call__(self, argv, limit):
+        self.calls.append(argv)
+        expected, output, status = self.replies.pop(0)
+        if argv[3:] != expected: raise AssertionError("Unexpected fake-ADB command")
+        owner = self
+        class Reply:
+            proc = SimpleNamespace(poll=lambda: 0)
+            def run(self, deadline, consume, until=lambda: False):
+                if len(output) > limit: raise device.Failure("transport output limit")
+                consume(output); return status
+            def close(self, deadline): owner.closed += 1
+        return Reply()
+
+
+class IdentityTests(unittest.TestCase):
+    package = "io.github.greprohan.llamadroid"
+    def fixture(self, directory, change=None):
+        path = Path(directory) / "app.apk"; path.write_bytes(b"apk")
+        replies = [(["shell", "cmd", "package", "list", "packages", "-U", self.package], f"package:{self.package} uid:10001\n".encode(), 0),
+                   (["shell", "pm", "path", self.package], b"package:/data/app/safe/base.apk\n", 0),
+                   (["exec-out", "cat", "/data/app/safe/base.apk"], b"apk", 0)]
+        if change: change(replies)
+        fake = FakeAdb(replies)
+        return device.Device("PRIVATE_SERIAL", {self.package: path}, fake), fake
+
+    def test_installed_bytes_uid_and_local_apk_form_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d, fake = self.fixture(tmp)
+            result = d.identity(device.Budget(120))
+            self.assertEqual({self.package: {"uid": 10001, "sha256": hashlib.sha256(b"apk").hexdigest(), "bytes": 3}}, result)
+            self.assertEqual(3, fake.closed); self.assertEqual([], fake.replies)
+            self.assertNotIn("PRIVATE_SERIAL", str(result))
+
+    def test_wrong_package_uid_apk_split_or_transport_failure_cannot_be_accepted(self):
+        changes = [lambda r: r.__setitem__(0, (r[0][0], b"package:wrong uid:10001\n", 0)),
+                   lambda r: r.__setitem__(0, (r[0][0], f"package:{self.package} uid:0\n".encode(), 0)),
+                   lambda r: r.__setitem__(1, (r[1][0], b"package:/data/app/secret/base.apk\npackage:/data/app/secret/split.apk\n", 0)),
+                   lambda r: r.__setitem__(2, (r[2][0], b"bad", 0)),
+                   lambda r: r.__setitem__(0, (r[0][0], b"private output", 1))]
+        for change in changes:
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as tmp:
+                d, fake = self.fixture(tmp, change)
+                with self.assertRaises(device.Failure) as caught: d.identity(device.Budget(120))
+                self.assertNotIn("secret", str(caught.exception)); self.assertNotIn("PRIVATE", str(caught.exception))
+
+    def test_process_and_independent_package_teardown_are_checked(self):
+        baseline = {self.package: {"uid": 10001}}
+        replies = [(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], f"PID UID NAME\n42 10001 {self.package}\n".encode(), 0),
+                   (["shell", "am", "force-stop", self.package], b"", 0),
+                   (["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], b"PID UID NAME\n", 0)]
+        fake = FakeAdb(replies); d = device.Device("PRIVATE_SERIAL", {}, fake)
+        self.assertEqual([(42, 10001, self.package)], d.processes(baseline, device.Budget(20)))
+        d.teardown(baseline, device.Budget(30)); self.assertFalse(fake.replies)
+
+    def test_wrong_uid_and_surviving_uid_process_fail_closed(self):
+        baseline = {self.package: {"uid": 10001}}
+        for uid, name in [(10002, self.package), (10001, "libllama-server.so")]:
+            fake = FakeAdb([(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], f"PID UID NAME\n42 {uid} {name}\n".encode(), 0)])
+            d = device.Device("PRIVATE_SERIAL", {}, fake)
+            if uid == 10002:
+                with self.assertRaises(device.Failure): d.processes(baseline, device.Budget(15))
+            else: self.assertEqual([(42, uid, name)], d.processes(baseline, device.Budget(15)))
 
 
 if __name__ == "__main__":
