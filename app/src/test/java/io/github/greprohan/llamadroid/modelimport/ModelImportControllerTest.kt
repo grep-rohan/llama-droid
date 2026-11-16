@@ -299,6 +299,86 @@ class ModelImportControllerTest {
         }
     }
 
+    @Test fun replacementObserverAttachesToTheSameLiveCopyWithoutASecondCommandOrOldDelivery() {
+        Fixture().use { f ->
+            val old = mutableListOf<ModelImportSnapshot>(); val replacement = mutableListOf<ModelImportSnapshot>()
+            val detach = f.controller.observe(old::add)
+            val token = f.pick(); f.main.deliver()
+            val source = FakeModelSource(60); var attached = false; var oldCount = 0
+            source.fault = { if (it == "read" && source.consumed >= 24 && !attached) {
+                attached = true; detach(); oldCount = old.size
+                f.controller.observe(replacement::add)
+                assertFalse(f.controller.initialize()); assertTrue(f.work.isEmpty())
+                f.main.deliver()
+            } }
+            f.controller.importResult(token, f.request(source)); f.runWork(); f.main.deliver()
+            assertTrue(attached); assertEquals(oldCount, old.size)
+            assertEquals(ImportOutcome.IMPORTED, replacement.last().outcome)
+            assertEquals(1, source.closes); assertEquals(60L, source.consumed)
+            assertEquals(1, f.root.files.nodes.keys.count { ModelOwnership.isPayload(it) })
+            assertEquals(1, f.constructions)
+        }
+    }
+
+    @Test fun passiveReattachmentCannotReclaimALaunchOrRelaunchAnAwaitingPicker() {
+        Fixture().use { f ->
+            f.controller.beginPicker(); f.runWork()
+            val token = checkNotNull(f.controller.claimLaunch())
+            assertTrue(f.controller.initialize()); f.runWork()
+            assertEquals(PickerCoordinator.Phase.LAUNCH_CLAIMED, f.controller.snapshot().picker.phase)
+            assertNull(f.controller.claimLaunch()); assertTrue(f.controller.markLaunched(token))
+            assertTrue(f.controller.initialize()); f.runWork()
+            assertEquals(PickerCoordinator.Phase.AWAITING_RESULT, f.controller.snapshot().picker.phase)
+            assertNull(f.controller.claimLaunch()); assertEquals(token.nonce, f.controller.snapshot().store.selection!!.pendingPickerNonce)
+            assertEquals(1, f.constructions)
+        }
+    }
+
+    @Test fun restoredPendingRequestAcceptsDeliveredResultOnlyAfterExplicitStoreRecovery() {
+        Fixture().use { f ->
+            val token = f.pick()
+            f.store!!.close(); f.store = null // A new fake owner/file-image recovery, not an Android process-death result.
+            val restored = ModelImportController({ ModelStore(f.root).also { f.store = it } },
+                { ModelImportEngine(ImportPolicy { Long.MAX_VALUE }) }, f.work::add, f.aborts::add, f.main) { f.now }
+            val source = FakeModelSource(50); var opens = 0
+            val request = ModelImportController.SourceRequest { op ->
+                opens++
+                assertNull(restored.snapshot().store.selection!!.pendingPickerNonce)
+                f.request(source).acquire(op)
+            }
+            assertTrue(restored.initialize())
+            assertFalse(restored.importResult(token, request)); assertEquals(1, f.work.size); assertEquals(0, opens)
+            f.runWork()
+            assertEquals(PickerCoordinator.Phase.RESTORED_UNCERTAIN, restored.snapshot().picker.phase)
+            assertNull(restored.claimLaunch()); assertEquals(token.nonce, restored.snapshot().store.selection!!.pendingPickerNonce)
+            assertTrue(restored.importResult(token, request)); f.runWork()
+            assertEquals(1, opens); assertEquals(ImportOutcome.IMPORTED, restored.snapshot().outcome)
+            assertEquals(1, source.closes); assertNull(restored.snapshot().store.selection!!.pendingPickerNonce)
+        }
+    }
+
+    @Test fun abandonedOldRouteAndWrongEpochNeverBecomeTheNewRequestsSourceBeforeOrAfterConsumption() {
+        Fixture().use { f ->
+            val a = f.pick(); f.controller.abandonRoute(a)
+            val b = f.pick(); var wrongOpens = 0
+            val wrong = ModelImportController.SourceRequest { wrongOpens++; error("Never open a stale source") }
+            for (stale in listOf(a, b.copy(epoch = "0".repeat(32)))) {
+                assertTrue(f.controller.importResult(stale, wrong)); f.runWork()
+                assertEquals(ImportIssue.STALE_RESULT, f.controller.snapshot().issue)
+                assertEquals(b.nonce, f.controller.snapshot().store.selection!!.pendingPickerNonce)
+                assertNull(f.controller.claimLaunch())
+            }
+            val source = FakeModelSource(60)
+            f.controller.importResult(b, f.request(source)); f.runWork()
+            val selected = f.controller.snapshot().store.active!!.model
+            f.controller.importResult(a, wrong); f.runWork()
+            assertEquals(0, wrongOpens); assertEquals(ImportIssue.STALE_RESULT, f.controller.snapshot().issue)
+            assertEquals(selected, f.controller.snapshot().store.active!!.model)
+            assertNull(f.controller.snapshot().store.selection!!.pendingPickerNonce)
+            assertEquals(1, source.closes)
+        }
+    }
+
     @Test fun pickerLaunchClaimIsMemoryOnlyAndMatchingDismissIsSerialized() {
         Fixture().use { f ->
             assertTrue(f.controller.beginPicker()); f.runWork()

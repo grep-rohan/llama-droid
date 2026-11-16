@@ -18,15 +18,13 @@ class MainActivity : Activity() {
     private lateinit var route: AndroidPickerRoute
     private var detach: (() -> Unit)? = null
     private var visible = false
-    // One token-bound transient result while serialized store recovery is busy. Never saved as a URI.
-    private var result: AndroidPickerRoute.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_activity)
         screen = ModelImportScreen(findViewById<View>(android.R.id.content))
         imports = ModelImports.get(applicationContext)
-        route = AndroidPickerRoute.restore(savedInstanceState)
+        route = lastNonConfigurationInstance as? AndroidPickerRoute ?: AndroidPickerRoute.restore(savedInstanceState)
         screen.bind(ModelImportScreen.Actions(choose = ::choose, cancel = { imports.controller.requestCancel() }))
     }
     override fun onStart() {
@@ -45,15 +43,25 @@ class MainActivity : Activity() {
     }
     override fun onDestroy() {
         detach?.invoke(); detach = null; screen.close()
+        if (!isChangingConfigurations) {
+            val token = route.pendingResult()?.token ?: route.state().binding?.token
+            route.retire()
+            token?.let { imports.controller.abandonRoute(it) }
+        }
         super.onDestroy()
     }
+    override fun onRetainNonConfigurationInstance(): Any = route // No Activity/View/callback references.
     override fun onSaveInstanceState(outState: Bundle) {
         route.save(outState) // Epoch/nonce/request code only, never result URI or an operation resume.
         super.onSaveInstanceState(outState)
     }
     private fun message(resource: Int) { Toast.makeText(this, resource, Toast.LENGTH_LONG).show() }
     private fun choose() {
-        if (result != null || route.state().binding != null) { message(R.string.import_picker_busy); return }
+        val state = imports.controller.snapshot()
+        if (state.busy || route.pendingResult() != null || route.state().binding != null ||
+            state.picker.phase !in setOf(PickerCoordinator.Phase.IDLE, PickerCoordinator.Phase.RESTORED_UNCERTAIN)) {
+            message(R.string.import_picker_busy); return
+        }
         if (route.needsFreshActivity()) {
             imports.controller.snapshot().picker.token?.let { imports.controller.abandonRoute(it) }
             route.retire()
@@ -75,20 +83,18 @@ class MainActivity : Activity() {
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        val reply = route.result(requestCode, resultCode, data) ?: return
-        if (result != null) return
-        result = reply
+        val reply = route.receive(requestCode, resultCode, data) ?: return
         if (reply is AndroidPickerRoute.Result.Invalid) message(R.string.import_picker_invalid)
         deliverResult(imports.controller.snapshot())
     }
     private fun deliverResult(state: ModelImportSnapshot) {
         if (!visible || state.busy || state.store.selection == null && state.store.problem == null) return
-        val reply = result ?: return
+        val reply = route.pendingResult() ?: return
         val accepted = when (reply) {
             is AndroidPickerRoute.Result.Document -> imports.importResult(reply.token, reply.uri)
             is AndroidPickerRoute.Result.Dismissed -> imports.controller.dismissPicker(reply.token)
             is AndroidPickerRoute.Result.Invalid -> imports.controller.dismissPicker(reply.token)
         }
-        if (accepted) result = null // The one reserved controller command now owns the transient URI.
+        if (accepted) route.handOff(reply) // One reserved command owns the URI; config replacement cannot replay it.
     }
 }

@@ -95,6 +95,33 @@ class AndroidPickerRouteTest {
         route.retire(); assertNull(route.result(0xFFFE, Activity.RESULT_OK, result()))
     }
 
+    @Test fun retainedTransientResultSurvivesInProcessButIsNeverRestoredFromBundle() {
+        val route = AndroidPickerRoute.restore(null); val code = launch(route)
+        val reply = route.receive(code, Activity.RESULT_OK, result()) as AndroidPickerRoute.Result.Document
+        val retained = route // The object returned by Activity non-configuration retention, not a new Activity launch.
+        assertSame(reply, retained.pendingResult()); assertEquals(uri, reply.uri)
+        assertNull(retained.receive(code, Activity.RESULT_OK, result()))
+        assertEquals(AndroidPickerRoute.LaunchStatus.NO_ROUTE, retained.dispatch(second) { _, _ -> error("One transient result only") })
+        val saved = Bundle(); retained.save(saved)
+        val data = checkNotNull(saved.getBundle(AndroidPickerRoute.STATE_KEY))
+        assertEquals(setOf("version", "id", "next", "retired"), data.keySet())
+        val afterProcessRestart = AndroidPickerRoute.restore(saved)
+        assertNull(afterProcessRestart.pendingResult()); assertNull(afterProcessRestart.result(code, Activity.RESULT_OK, result()))
+        retained.handOff(reply); assertNull(retained.pendingResult())
+        assertEquals(code + 1, launch(retained, second))
+    }
+
+    @Test fun oldActivityHandoffCannotConsumeANewerResultAndRetirementDropsTransientUri() {
+        val route = AndroidPickerRoute.restore(null); val firstCode = launch(route)
+        val old = checkNotNull(route.receive(firstCode, Activity.RESULT_OK, result()))
+        route.handOff(old)
+        val secondCode = launch(route, second)
+        val newer = checkNotNull(route.receive(secondCode, Activity.RESULT_OK, result()))
+        route.handOff(old); assertSame(newer, route.pendingResult())
+        route.retire(); assertNull(route.pendingResult()); assertTrue(route.needsFreshActivity())
+        assertNull(route.receive(secondCode, Activity.RESULT_OK, result()))
+    }
+
     @Test fun malformedMultipleNonContentAndUngrantedResultsNeverBecomeDocuments() {
         val multiple = ClipData.newRawUri("fixture", uri).also { it.addItem(ClipData.Item(uri)) }
         val conflicting = ClipData.newRawUri("fixture", Uri.parse("content://generated.fixture/other"))

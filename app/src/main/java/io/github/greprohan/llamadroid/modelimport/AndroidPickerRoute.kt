@@ -38,6 +38,14 @@ internal class AndroidPickerRoute private constructor(private val route: PickerR
             return AndroidPickerRoute(PickerRoute(state))
         }
     }
+    // Main-thread Activity route state; retained only in-process, never serialized as a URI.
+    private var waitingResult: Result? = null
+    fun pendingResult(): Result? = waitingResult
+    fun receive(code: Int, resultCode: Int, data: Intent?): Result? {
+        if (waitingResult != null) return null
+        return result(code, resultCode, data)?.also { waitingResult = it }
+    }
+    fun handOff(expected: Result) { if (waitingResult === expected) waitingResult = null }
     enum class LaunchStatus { LAUNCHED, NO_ROUTE, UNAVAILABLE, DENIED }
     sealed interface Result {
         val token: PickerToken
@@ -47,7 +55,7 @@ internal class AndroidPickerRoute private constructor(private val route: PickerR
     }
     fun state(): PickerRouteState = route.state()
     fun needsFreshActivity(): Boolean = state().let { it.retired || (it.binding == null && it.nextCode > 0xFFFE) }
-    fun retire() = route.retire()
+    fun retire() { route.retire(); waitingResult = null }
     fun save(out: Bundle) {
         val state = state()
         val data = Bundle().apply {
@@ -58,6 +66,7 @@ internal class AndroidPickerRoute private constructor(private val route: PickerR
     }
     /** Testable dispatch port; production supplies only startActivityForResult, never a source path. */
     fun dispatch(token: PickerToken, launch: (Intent, Int) -> Unit): LaunchStatus {
+        if (waitingResult != null) return LaunchStatus.NO_ROUTE
         val binding = route.bind(token) ?: return LaunchStatus.NO_ROUTE
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
