@@ -36,22 +36,24 @@ internal class ModelImportScreen(private val root: View,
     private var detached = false
     private var prompt: AutoCloseable? = null
     private var promptRevision: Long? = null
+    private var promptIdentity: Any? = null
     private fun dismissPrompt() {
         val previous = prompt
-        prompt = null; promptRevision = null
+        prompt = null; promptRevision = null; promptIdentity = null
         previous?.close()
     }
     private fun requestReset() {
         if (detached || !reset.isEnabled || promptRevision != null) return
         val revision = latest.revision
         val action = actions.reset ?: return
-        promptRevision = revision
+        val identity = Any()
+        promptIdentity = identity; promptRevision = revision
         try {
             prompt = confirmation.show({
-                if (!detached && promptRevision == revision && latest.revision == revision && reset.isEnabled) {
+                if (!detached && promptIdentity === identity && latest.revision == revision && reset.isEnabled) {
                     dismissPrompt(); action(revision)
                 }
-            }, { prompt = null; promptRevision = null })
+            }, { if (promptIdentity === identity) { prompt = null; promptRevision = null; promptIdentity = null } })
         } catch (_: android.view.WindowManager.BadTokenException) { dismissPrompt() }
     }
     private fun main() { check(Looper.myLooper() == Looper.getMainLooper()) { "Screen access off main thread" } }

@@ -72,7 +72,13 @@ class ModelImportScreenTest {
             val stale = prompt.yes
             screen.render(failed.copy(revision = 10)); stale(); assertTrue(confirmations.isEmpty())
             root.findViewById<Button>(R.id.import_reset).performClick()
-            val current = prompt.yes; current(); current()
+            val declinedYes = prompt.yes; val declinedDismiss = prompt.dismissed
+            declinedDismiss()
+            root.findViewById<Button>(R.id.import_reset).performClick()
+            val current = prompt.yes
+            declinedDismiss(); declinedYes() // Delayed callbacks from the prior dialog, same revision.
+            assertTrue(confirmations.isEmpty())
+            current(); current()
             assertEquals(listOf(10L), confirmations)
             screen.render(failed.copy(revision = 11, resourcesPending = true))
             assertEquals(View.GONE, root.findViewById<View>(R.id.import_reset).visibility)
