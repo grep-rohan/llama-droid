@@ -124,6 +124,38 @@ class ModelRecoveryTest {
         }
     }
 
+    @Test fun committedEmptySelectionSurvivesDeadCopyAndUnselectedPayloadWithoutPromotion() {
+        for (pending in listOf(null, "c".repeat(32))) {
+            val empty = ModelRecord.Selection(epoch, pending)
+            val root = FakeModelRoot().apply {
+                files.put("selection", empty); files.put("selection.next", new)
+                files.putBytes("model-$b.gguf", ByteArray(24))
+                files.putBytes("candidate-$a.part", byteArrayOf(1))
+                files.putBytes("source.gguf", source)
+            }
+            ModelStore(root) { error("Committed epoch must survive") }.use {
+                val state = it.recover()
+                assertTrue(state.canWrite)
+                assertEquals(empty, state.selection)
+                assertNull(state.active)
+            }
+            assertEquals(setOf("selection", "source.gguf"), root.files.nodes.keys)
+            assertArrayEquals(source, root.files.nodes.getValue("source.gguf").bytes)
+        }
+    }
+
+    @Test fun rootReplacementAfterRecoveryCannotTriggerCleanupOnTheNextCall() {
+        val root = root()
+        ModelStore(root).use { store ->
+            assertTrue(store.recover().available)
+            root.files.putBytes("candidate-$b.part", byteArrayOf(1))
+            root.valid = false
+            assertFalse(store.recover().available)
+            assertTrue(root.files.nodes.containsKey("candidate-$b.part"))
+            assertFalse(root.files.events.any { it.startsWith("remove:") })
+        }
+    }
+
     @Test fun interruptedInitializationDiscardsNextInsteadOfPromotingItsEpochOrPayload() {
         for (bytes in listOf(byteArrayOf(), byteArrayOf(1), ModelRecordCodec.encode(new))) {
             val root = FakeModelRoot().apply { files.putBytes("selection.next", bytes) }
