@@ -9,6 +9,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ModelImportEngineTest {
+    private fun ModelImportEngine() = ModelImportEngine(ImportPolicy { Long.MAX_VALUE })
     private fun bytes(size: Int = 24) = ByteArray(size) { (it * 17).toByte() }.also {
         ByteBuffer.wrap(it).order(ByteOrder.LITTLE_ENDIAN).put("GGUF".toByteArray()).putInt(3).putLong(-1).putLong(-1)
     }
