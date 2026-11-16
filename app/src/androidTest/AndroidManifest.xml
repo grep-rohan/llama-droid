@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="io.github.greprohan.llamadroid" />
+    </queries>
+    <application>
+        <provider
+            android:name="io.github.greprohan.llamadroid.modelimport.FixtureModelProvider"
+            android:authorities="${applicationId}.modelimport.fixture"
+            android:exported="true"
+            android:process=":model_import_fixture" />
+    </application>
+</manifest>

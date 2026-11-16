@@ -2,6 +2,7 @@ package io.github.greprohan.llamadroid.modelimport
 
 import android.content.ContentResolver
 import android.content.res.AssetFileDescriptor
+import android.database.Cursor
 import android.net.Uri
 import android.os.CancellationSignal
 import android.os.Looper
@@ -20,15 +21,26 @@ internal class AndroidImportIo(private val resolver: ContentResolver) {
     fun metadata(uri: Uri, signal: CancellationSignal): ModelMetadata {
         worker(); document(uri); signal.throwIfCanceled()
         val projection = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
-        val value = resolver.query(uri, projection, null, null, null, signal)?.use { cursor ->
+        val cursor = resolver.query(uri, projection, null, null, null, signal) ?: run {
             signal.throwIfCanceled()
-            if (!cursor.moveToFirst()) ModelMetadata(null, null) else {
+            return ModelMetadata(null, null)
+        }
+        val owner = CursorOwner(cursor)
+        var primary: Exception? = null
+        var value = ModelMetadata(null, null)
+        try {
+            signal.throwIfCanceled()
+            value = if (!cursor.moveToFirst()) ModelMetadata(null, null) else {
                 val name = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 val size = cursor.getColumnIndex(OpenableColumns.SIZE)
                 ModelMetadata(if (name < 0 || cursor.isNull(name)) null else ModelName.sanitize(cursor.getString(name)),
                     if (size < 0 || cursor.isNull(size)) null else cursor.getString(size)?.toLongOrNull()?.takeIf { it > 0 })
             }
-        } ?: ModelMetadata(null, null)
+        } catch (failure: Exception) { primary = failure }
+        try { owner.close() } catch (close: Exception) {
+            if (primary == null) primary = close else if (primary !== close) primary.addSuppressed(close)
+        }
+        primary?.let { if (!owner.closed) throw AcquisitionFailure(owner, it) else throw it }
         signal.throwIfCanceled()
         return value
     }
@@ -53,6 +65,19 @@ internal class AndroidImportIo(private val resolver: ContentResolver) {
         } catch (failure: Exception) {
             try { source.close() } catch (close: Exception) { if (close !== failure) failure.addSuppressed(close) }
             throw AcquisitionFailure(source.takeUnless { it.closed }, failure)
+        }
+    }
+
+    /** Retains ownership if a cursor close fails; it can never be mistaken for document input. */
+    private class CursorOwner(private val cursor: Cursor) : ModelSource {
+        override val metadata = ModelMetadata(null, null)
+        override val input: InputStream get() = error("Metadata cursor is not document input")
+        override val closed: Boolean get() = cursor.isClosed
+        private var attempted = false
+        @Synchronized override fun close() {
+            if (closed) return
+            if (!attempted) { attempted = true; cursor.close() }
+            check(closed) { "Metadata close remains pending" }
         }
     }
 
