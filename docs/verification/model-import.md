@@ -1,11 +1,13 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-14 / B technically host-verified; Android runtime unverified
+## Current status — MI-16 / H0 technically host-verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**242 JVM tests pass**. Nine route, six screen and seven adapter Android methods
+**242 JVM tests pass**. Nine route, six screen, seven adapter and four store methods
 are **compiled but not executed**, including the gated unknown-size provider case.
+Two separate crash setup/verification methods also compile only; they are excluded
+from the 26-method ordinary suite.
 MI-12 and the F3 technical review are complete in host scope. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
@@ -15,7 +17,7 @@ directed **“don't stop until phoen required”**: continue host-only implement
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
 MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13/MI-14 and checkpoint B are host-verified; MI-15 adversarial fixtures are next. Phone work is not authorized.**
+screen/routes. MI-13–MI-16 and checkpoints B/H0 are host-verified; MI-17's bounded host driver is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1256,3 +1258,15 @@ Final current-source full Gradle command passes **in 25s**, 80 tasks / 20 execut
 Commit `7d1e7f1` adds four `AndroidModelStoreTest` methods and the explicit four-class `ModelImportIsolatedTestSuite` (adapter, screen, route, store only). Real-adapter cases cover exclusive creation/sync/rename/descriptor closure, no-follow link refusal without truncating old bytes, authoritative-selection versus sidecar recovery, and committed-versus-uncommitted reset. Every mutation uses `ModelImportTestStore`'s fresh generated no-backup root and root lease; the one explicit fixed test-created link is removed in `finally`, never through production recursive cleanup. No adapter fix or helper change was needed. Native/crash/hang fixtures are excluded from the ordinary suite.
 
 Host command `./gradlew --no-daemon :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`: **BUILD SUCCESSFUL in 18s**, 75 tasks / 8 executed; lint remains 0 errors / 4 baseline warnings. `.cache/model-import/mi-15-current-path.txt` retains the exact build log. **26 model-import Android methods compile, none run.** The 242 JVM results remain applicable (no JVM/production input change); no unchanged JVM rerun. This is not evidence of actual Android filesystem/provider/process-death behavior. No phone access. MI-16 next.
+
+## MI-16 — Two-phase process-death fixtures compiled / H0 review
+
+Four planned instrumentation files only, commits `06e1bb4`, `5d426e1`, `c0e4579`, `fbfdbd8`. Validated 32-hex run ids map exclusively to generated `noBackupFilesDir/model-import-tests/<id>/models`; setup refuses an existing run, verification requires it. Reopening acquires the same root lease. Optional file-operation decoration exists only in the instrumentation helper, never the production store/Activity. Missing/bad orchestration/scenario/checkpoint arguments fail before fixture creation.
+
+Setup uses real Android file operations with test-only wrappers at all 23 first/replace/reset pairs. Synced-temp checkpoints occur after actual descriptor close before rename; committed checkpoints occur immediately after real rename; retired/reset deletion checkpoints occur after real unlink; source/candidate closure precedes the streams-closed marker. Markers use complete custom status frames 1001/1002 and exactly seven bounded fields, including PID/UID/process-start identity. Setup pauses with a finite 120-second failure fallback; it must be externally terminated, NEVER counted as a passing test. Request reservation/consumption is checked before source opening.
+
+Separate verification establishes authoritative old/new/empty selection, full fixture bytes/metadata, pending-request state with no automatic claim/restarted copy, intended reset epoch, no dangling candidate/debt, and then removes its own files/lease *before* emitting verified. Uncommitted `reset.next` preserves complete old metadata/bytes and blocks reset until explicit consent; it is never promoted. Host MI-17A must prove actual old-target termination and a distinct restarted process identity; these test classes alone do not prove process death. Setup/verify are excluded from the fixed ordinary suite. Failed/interrupted setup roots remain isolated and require the host's separately filtered verification/cleanup, never owner-root deletion.
+
+Initial setup compilation found a wrong metadata type name, fixed to the existing `ModelMetadata` without changing production. Final command `./gradlew --no-daemon :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` passes **in 18s**, 75 tasks / 8 executed; lint 0 errors / 4 baseline warnings. 26 ordinary + 2 crash methods compile, **none run**, 23 scenario pairs NOT executed. Unchanged 242 JVM results remain applicable. Evidence `.cache/model-import/mi-16-current-path.txt`, including failed/corrected/final logs and `results.json`. Production APK remains `247b5f6f1a1d9613de732871d988049bd3c15124df0bb476edd117487f0b29ec`; test APK `72124e88ffc35a7b203219211bde1c83aaf704a229421f500061e63bc8ee4ef7`.
+
+**Actual H0 technical review:** seven exact fixture/provider/suite files, source/APK identities and exclusion checks retained via `.cache/model-import/h0-current-path.txt` (`review-audit.json`). Reviewed no-backup namespace/lease/reopen semantics, separate provider package, bounded fixture creation, marker ordering, complete old metadata/length assertions, finite pause fallback and setup-vs-expected-pass exclusions. No unresolved host-contract blocker for MI-17. Assistant technical review only; no human/device result fabricated, no phone inventory or writes. Real platform/process termination, retained-installation and provider behavior remain blocked on MI-20/MI-22 consent.
