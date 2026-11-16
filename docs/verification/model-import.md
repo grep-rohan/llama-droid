@@ -1,27 +1,23 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-18 host-verified; Android runtime unverified
+## Current status — MI-19 / H2 host-ready; STOP at MI-20 phone-consent gate
 
-**MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
-recovery, root ownership, validation and safe cleanup are implemented.
-**242 JVM tests pass**. Nine route, six screen, seven adapter and four store methods
-are **compiled but not executed**, including the gated unknown-size provider case.
-Four separate crash/cancellation setup/verification methods also compile only;
-they are excluded from the 26-method ordinary suite.
-MI-12 and the F3 technical review are complete in host scope. Lint reports
-**0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
-fixed-header/sequential-copy path with closed-resource handoff, not selection
-publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
-found no host-contract blocker. The owner then
-directed **“don't stop until phoen required”**: continue host-only implementation
-and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
-without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13–MI-18 and checkpoints B/H0/H1 are host-verified; MI-19's complete clean-output regression/audit is next. Phone work is not authorized.**
-Reviews are assistant technical reviews under this standing instruction, not
-invented human sign-offs. Distinct human/device results remain explicitly pending
-where required. No Android filesystem, process-death, backup, end-user import or
-phone result is inferred from these JVM tests/compilation.
+**MI-00–MI-19, including MI-17A and reviewed integration splits, are complete only
+in their host implementation/verification or Android compilation scope.** Actual
+assistant technical reviews F1/F2/A/F3/B/H0/H1/H2 are recorded below; no separate
+human acceptance is invented. Final clean-output checks pass: **242 JVM tests,
+128 Python tests, 12 disposable-project packaging tests**, lint **0 errors /
+4 baseline warnings**, both APKs built. Thirty model-import Android methods
+(26 ordinary + four crash/cancellation) and all 27 interruption pairs remain
+**compiled, NOT executed**. Native smoke is a separate fixed one-method filter.
+
+The owner's **“don't stop until phoen required”** direction has reached its exact
+host-only endpoint: **MI-20 is BLOCKED pending separate phone/data/package-stop
+consent. No ADB, device inventory, installation, test or phone write occurred.**
+The next action is owner approval of the precise MI-20 scope below, not another
+host implementation task. Runtime, real SAF/lifecycle, >2 GiB physical import,
+process-death/cancellation, backup transport and module/ship completion remain
+unverified. No inference, model compatibility or WebUI result is claimed.
 
 ### Baseline reconciliation
 
@@ -1298,3 +1294,37 @@ Exactly five planned substantive files, commits `80e18d9`, `5e5ae8d`, `23bda5b`,
 Separate `ModelImportCancellationDeviceTest` setup uses an isolated root, actual Android adapter/engine/controller, one I/O worker and <=2 captured helpers. Compiled assertions check main-Looper responsiveness, repeated Cancel/helper bounds, no second command/reset while busy, complete cancellation or truthful pending work, unchanged old bytes, and late open lease closure. A kernel may leave a read syscall in flight after descriptor close; the test requires continued command exclusion rather than inventing source-helper nonquiescence. Separate post-restart verification checks full old selection/bytes, no dead-copy/picker restart, no candidate/debt, and closes fixture storage before verified status. The ordinary four-class/26-method suite excludes both cancellation methods.
 
 Host tables now contain **27 exact pairs** (23 prior + four cancel-hang); the latter use only the separate cancellation setup/verify filters and the same checked stop/restart, provider-UID teardown, retained APK/UID baseline and budgets. Meaningful host RED 1/34 assertion, then final **34 Python fake/transport passes**, zero failures/errors/skips, 0.643s; all 27 pairs simulate successfully and provider-process teardown is explicitly checked. `--help` passes without ADB. Latest Android lint/both APK build **19s**, 75 tasks / 8 executed, 0 errors / 4 baseline warnings. **26 ordinary + 4 crash/cancellation methods compile, none run.** 242 JVM results still apply (production unchanged). Evidence `.cache/model-import/mi-18-current-path.txt` retains logs/help/source/APK identities/`results.json`; production APK unchanged `247b5f6f1a1d9613de732871d988049bd3c15124df0bb476edd117487f0b29ec`, test APK `d4c0c1b94c305470537b12b4c20a42fef92071a12821655dffed672b7feec659`. No ADB/phone contact, no actual provider cancellation/process termination claim. MI-19 next under standing authorization.
+
+## MI-19 — Clean-output host regression and H2 device gate
+
+Verified implementation source HEAD `78a7004b242c5b9edca355e59ca8e0c49a433e5b` in the accepted existing worktree, **not a clean-checkout reproduction**. JDK Adoptium17.0.21.9, Gradle8.10.2, Python3.14.7, SDK `D:/softwares/android-sdk`, command-line tools12.0 and build-tools35.0.0; no toolchain/dependency/native changes. The native packaging subprocess alone received scoped `ANDROID_HOME`/`ANDROID_SDK_ROOT` for its disposable copy (the main checkout uses existing `local.properties`). Exact versions, commands/logs/source identities are retained via `.cache/model-import/mi-19-current-path.txt`.
+
+| Executed host check | Actual result |
+|---|---|
+| `python scripts/import_llama_release.py --verify-only` | Exact pinned native payload/ELF/receipt/transaction state passes. |
+| `python -m unittest discover -s scripts/tests -p 'test_*.py' -v` | **128 tests pass**, 0 failures/errors/skips, 2.603s; includes 34 new driver/protocol/transport tests. |
+| `./gradlew --no-daemon clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` | **BUILD SUCCESSFUL in 38s; all 81 tasks executed**. 242 JVM passes, 0 failures/errors/skips; lint0 errors/4 baseline warnings; both clean-output APKs built. |
+| `python scripts/verify_apk.py app/build/outputs/apk/debug/app-debug.apk` | ZIP/native bytes/attribution audit passes; no weights/unrelated native payloads. |
+| `python scripts/tests/check_native_packaging.py -v` | **12 integration tests pass**, 0 failures/errors/skips, 103.109s; only its disposable host project is mutated. Previous `.cache/blocker3` logs were copied before overwrite; current logs also retained with MI-19 evidence. |
+| SDK12.0 `apkanalyzer.bat manifest print` on both APKs | Decoded declarations independently audited as below; no device contact. |
+| build-tools35.0.0 `apksigner.bat verify --verbose --print-certs` on both APKs | Both debug signatures verify and their public signer digests match; no claim that an existing phone installation accepts this key. |
+
+Current clean-output artifacts (these **supersede, and are not byte-identical to,
+earlier incremental APKs**; all 14 pinned native members/attribution are unchanged):
+
+| APK | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,332,034 | `76284abdf487403266e26114a24246638b4422a1dee3e0d84f6dd7ec2069f291` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 993,738 | `3867922538ccec2a1abe25b9c6496440e69dee7dc41b7e3ee89cce3850abbddc` |
+
+Decoded production manifest: one exported MAIN/LAUNCHER Activity only; no new permission, service, provider, receiver or external import/reset route. Test manifest alone contains the separately processed validated fixture provider and fixed runner/target package. Seven fixture/suite/crash/helper class names and checkpoint/hang controls are absent from production DEX and present in test DEX. Production assets are exactly upstream license/notices; no bundled GGUF. The ordinary suite still has exactly four classes / 26 expected methods, native smoke one separate method; 27 crash/cancel pairs and 30 model-import Android methods are compiled **not run**. All payload/selection/picker/reset files are designed under `noBackupFilesDir/models`; static placement does not prove OEM backup/transfer behavior. Native smoke only uses `--version`, not a model/server/listener.
+
+Preservation audit: **41 excluded owner files** (including all 36 `app/.cxx` files and dirty planning/ignore/spec inputs) and **94 source/stage/tool inputs** match preflight hashes after clean build, full tests and packaging integration. No stash/reset/owner cleanup, generated weights/native commit, production model-root access or phone operation. Tracker bookkeeping remains mixed with owner planning changes and is deliberately not staged wholesale.
+
+### H2 technical review — host-ready, not runtime-ready
+
+`.cache/model-import/h2-current-path.txt` points to `review-audit.json`; MI-19 retains JUnit/lint, full logs, decoded manifests, signature checks, source/tool/artifact identities and `results.json`. Focused source/changes across reset/controller/UI, Android adapters, namespace/provider/cancellation fixtures, Python driver/parser/transport, manifests and native smoke were actually reviewed (27 files); the 48-source inventory was separately rehashed against unchanged foundation evidence, **not described as a fresh full reread of every source**. Reviewed consent lifetime, atomic marker repair/ordering, helper/writer exclusion, genuine stopped-process identity, bounded transport/teardown, privacy, fixed filters and test-only controls. No unresolved host-contract blocker for the phone gate. This is assistant technical review, not human approval or Android behavioral evidence.
+
+**STOP: MI-20 requires a phone and separate explicit approval.** Approval must cover private S25/package/storage inventory; retained updates of the two exact audited APKs (including test package presence/signature handling); isolated 26-method suite and separate native `--version` smoke; bounded force-stop/fixture-provider teardown for **both** fixed packages; and the intended existing-selection/data impact. No uninstall, downgrade, data clear, disk filling, owner-model/source deletion or automatic reset is authorized. Signature/update failure blocks rather than permits uninstall. Establish the **post-install/pre-test** APK/UID baseline before suites; pre-update hashes are intentionally not that baseline.
+
+MI-21 needs separately approved real SAF/lifecycle and >2 GiB test-owned fixtures; MI-22 needs controlled interruption/cancel matrix approval and cannot overlap manual import. Physical results, phone/OEM compatibility, actual disk-full/backup transport/low-memory/power-loss behavior, inference/WebUI and full module/ship readiness remain explicitly unverified. The standing Definition of Done's runtime/human gates are not waived by these host results.
