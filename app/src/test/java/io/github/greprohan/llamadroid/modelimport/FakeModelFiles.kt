@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream
 
 internal class FakeModelFiles : ModelFileOps {
     data class Node(var bytes: ByteArray, val inode: Long,
-                    var kind: ModelFileOps.Kind = ModelFileOps.Kind.REGULAR, var links: Long = 1)
+                    var kind: ModelFileOps.Kind = ModelFileOps.Kind.REGULAR, var links: Long = 1, var reportedSize: Long? = null)
     val nodes = mutableMapOf<String, Node>()
     val events = mutableListOf<String>()
     val silent = mutableSetOf<String>()
@@ -12,7 +12,7 @@ internal class FakeModelFiles : ModelFileOps {
     var hook: (String) -> Unit = {}
     private var nextInode = 1L
     fun step(event: String): Boolean { events += event; hook(event); return event !in silent }
-    private fun info(node: Node) = ModelFileOps.Entry(1, node.inode, node.bytes.size.toLong(), node.kind, node.links)
+    private fun info(node: Node) = ModelFileOps.Entry(1, node.inode, node.reportedSize ?: node.bytes.size.toLong(), node.kind, node.links)
     fun put(name: String, record: ModelRecord) { putBytes(name, ModelRecordCodec.encode(record)) }
     fun putBytes(name: String, bytes: ByteArray) { nodes[name] = Node(bytes.copyOf(), nextInode++) }
     override fun stat(name: String): ModelFileOps.Entry? {
@@ -25,6 +25,7 @@ internal class FakeModelFiles : ModelFileOps {
         return object : ModelFileOps.Reader {
             override val info get(): ModelFileOps.Entry { step("info-read"); return info(node) }
             override val input = object : ByteArrayInputStream(node.bytes) {
+                override fun read(): Int { step("read:$name"); return super.read() }
                 override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
                     step("read:$name")
                     return super.read(bytes, offset, length)
@@ -33,7 +34,7 @@ internal class FakeModelFiles : ModelFileOps {
             override var closed = false
             override fun close() {
                 if (closed) return
-                if (step("close-read")) closed = true
+                if (step("close-read:$name") && step("close-read")) closed = true
                 step("closed-read")
             }
         }.also { handles += it }
@@ -86,7 +87,14 @@ internal class FakeModelRoot(override val key: String = java.util.UUID.randomUUI
         val names = files.nodes.keys.toList() // Bounded fake fixtures, not the production iterator.
         return object : ModelRoot.Inventory {
             override var closed = false
-            override fun iterator(): Iterator<String> = names.iterator()
+            override fun iterator(): Iterator<String> {
+                files.step("list-iterator")
+                val source = names.iterator()
+                return object : Iterator<String> {
+                    override fun hasNext(): Boolean = source.hasNext()
+                    override fun next(): String { files.step("list-next"); return source.next() }
+                }
+            }
             override fun close() {
                 if (!closed && files.step("list-close")) closed = true
             }

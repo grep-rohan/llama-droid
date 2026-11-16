@@ -1,6 +1,11 @@
 package io.github.greprohan.llamadroid.modelimport
 
+import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -99,6 +104,107 @@ class ModelStoreTest {
             assertThrows(IllegalStateException::class.java) { first.recover() }
             assertThrows(IllegalStateException::class.java) { ModelStore(root) }
         }
+    }
+
+    private fun activeRoot(size: Long = 24) = FakeModelRoot().apply {
+        files.put("selection", ModelRecord.Selection(epoch, active = ActiveModel(id, size, "model")))
+        files.putBytes("model-$id.gguf", ByteArray(24))
+        files.nodes.getValue("model-$id.gguf").reportedSize = size
+    }
+
+    @Test fun payloadReadFailureDoesNotDeletePossiblyReferencedFiles() {
+        val root = activeRoot()
+        root.files.hook = { if (it == "read:model-$id.gguf") throw IOException("fixture read failure") }
+        ModelStore(root).use { assertFalse(it.recover().available) }
+        assertFalse(root.files.events.any { it.startsWith("remove:") })
+        assertTrue(root.files.handles.all { it.closed })
+    }
+
+    @Test fun pendingPayloadCloseRetainsOwnershipUntilExplicitDisposal() {
+        val root = activeRoot().apply { files.silent += "close-read:model-$id.gguf" }
+        val store = ModelStore(root)
+        try {
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.recover().problem)
+            assertThrows(IllegalStateException::class.java) { store.close() }
+            assertThrows(IllegalStateException::class.java) { ModelStore(root) }
+            assertFalse(root.files.events.any { it.startsWith("remove:") })
+        } finally { root.files.silent.clear(); store.close() }
+        assertTrue(root.files.handles.all { it.closed })
+        ModelStore(root).close()
+    }
+
+    @Test fun longStatLengthsAreComparedWithoutAllocatingPayloadSizedBuffers() {
+        for (size in listOf(2_147_483_649L, Long.MAX_VALUE)) {
+            val root = activeRoot(size) // A fake stat contract, not a real multi-GB fixture.
+            ModelStore(root).use { assertEquals(size, it.recover().active!!.model.sizeBytes) }
+        }
+    }
+
+    @Test fun simultaneousLeaseAttemptsHaveOneWinnerAndNoSurvivingWorkers() {
+        val key = UUID.randomUUID().toString()
+        val start = CountDownLatch(1)
+        val attempted = CountDownLatch(2)
+        val release = CountDownLatch(1)
+        val wins = AtomicInteger()
+        val failures = ConcurrentLinkedQueue<Throwable>()
+        val workers = List(2) {
+            Thread {
+                var owner: ModelOwnership? = null
+                try {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    owner = try { ModelOwnership.acquire(key) } catch (_: IllegalStateException) { null }
+                    if (owner != null) wins.incrementAndGet()
+                } catch (error: Throwable) { failures += error }
+                finally { attempted.countDown() }
+                try {
+                    if (owner != null) check(release.await(5, TimeUnit.SECONDS))
+                } catch (error: Throwable) { failures += error }
+                finally { owner?.close() }
+            }.apply { start() }
+        }
+        start.countDown()
+        try {
+            assertTrue(attempted.await(2, TimeUnit.SECONDS))
+            assertEquals(1, wins.get())
+        } finally {
+            release.countDown()
+            workers.forEach { it.join(5000); if (it.isAlive) { it.interrupt(); it.join(2000) }; assertFalse(it.isAlive) }
+        }
+        assertTrue(failures.toString(), failures.isEmpty())
+        ModelOwnership.acquire(key).close()
+    }
+
+    @Test fun pendingRecordWriterCloseCannotReleaseTheRootLease() {
+        val root = FakeModelRoot().apply { files.silent += "close-write" }
+        val store = ModelStore(root) { epoch }
+        try {
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.recover().problem)
+            assertThrows(IllegalStateException::class.java) { store.close() }
+            assertThrows(IllegalStateException::class.java) { ModelStore(root) }
+            assertFalse(root.files.nodes.containsKey("selection"))
+        } finally { root.files.silent.clear(); store.close() }
+        assertTrue(root.files.handles.all { it.closed })
+        ModelStore(root) { id }.use { assertEquals(id, it.recover().selection!!.epoch) }
+    }
+
+    @Test fun payloadIdentityChangesBetweenStatAndOpenFailClosed() {
+        val root = activeRoot()
+        root.files.hook = { if (it == "open:model-$id.gguf") root.files.putBytes("model-$id.gguf", ByteArray(24)) }
+        ModelStore(root).use { assertFalse(it.recover().available) }
+        assertTrue(root.files.handles.all { it.closed })
+        assertFalse(root.files.events.any { it.startsWith("remove:") })
+    }
+
+    @Test fun displayMetadataNeverBecomesAFilePath() {
+        val root = activeRoot()
+        val model = ActiveModel(id, 24, "../../provider-source.gguf")
+        root.files.put("selection", ModelRecord.Selection(epoch, active = model))
+        ModelStore(root).use {
+            val active = it.recover().active!!
+            assertEquals(model.name, active.model.name)
+            assertEquals("/isolated/${root.key}/models/model-$id.gguf", active.path)
+        }
+        assertThrows(IllegalArgumentException::class.java) { root.payloadPath("../model-$id.gguf") }
     }
 
     @Test fun oneRootCannotHaveTwoLiveOwners() {

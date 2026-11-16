@@ -42,6 +42,88 @@ class ModelRecoveryTest {
         }
     }
 
+    @Test fun unsafeOwnedTypesAndHardlinksBlockAllCleanupBeforeAnyUnlink() {
+        for (name in listOf("selection", "selection.next", "reset", "reset.next", "model-$a.gguf",
+                            "model-$b.gguf", "candidate-$b.part")) {
+            for (kind in ModelFileOps.Kind.entries) {
+                val root = root().apply {
+                    files.putBytes("candidate-${"d".repeat(32)}.part", byteArrayOf(1))
+                    if (name != "selection" && name != "model-$a.gguf") files.putBytes(name, byteArrayOf(1))
+                }
+                root.files.nodes.getValue(name).apply { this.kind = kind; if (kind == ModelFileOps.Kind.REGULAR) links = 2 }
+                val before = root.files.nodes.mapValues { it.value.bytes.copyOf() }
+                ModelStore(root).use { assertFalse(it.recover().available) }
+                assertEquals(before.keys, root.files.nodes.keys)
+                before.forEach { (path, bytes) -> assertArrayEquals(bytes, root.files.nodes.getValue(path).bytes) }
+                assertFalse(root.files.events.any { it.startsWith("remove:") || it.startsWith("create:") })
+            }
+        }
+    }
+
+    @Test fun unknownNamesLinksAndDirectoriesArePreservedWithoutBeingOpened() {
+        val names = listOf("unrelated-link", "unrelated-dir", "model-${"B".repeat(32)}.gguf", "candidate-invalid.part")
+        val root = root().apply {
+            names.forEach { files.putBytes(it, byteArrayOf(5)) }
+            files.nodes.getValue(names[0]).kind = ModelFileOps.Kind.LINK
+            files.nodes.getValue(names[1]).kind = ModelFileOps.Kind.DIRECTORY
+        }
+        ModelStore(root).use { assertTrue(it.recover().canWrite) }
+        names.forEach {
+            assertTrue(root.files.nodes.containsKey(it))
+            assertFalse(root.files.events.contains("open:$it"))
+            assertFalse(root.files.events.contains("remove:$it"))
+        }
+        assertArrayEquals(source, root.files.nodes.getValue("source.gguf").bytes)
+    }
+
+    @Test fun corruptSelectionNeverPromotesNextOrDeletesEitherPayload() {
+        for (bytes in listOf(byteArrayOf(), byteArrayOf(1), ByteArray(2049),
+                             ModelRecordCodec.encode(ModelRecord.ResetAuthorization(a, b)))) {
+            val root = root().apply {
+                files.putBytes("selection", bytes); files.put("selection.next", new)
+                files.putBytes("model-$b.gguf", ByteArray(24) { 9 })
+            }
+            val before = root.files.nodes.mapValues { it.value.bytes.copyOf() }
+            ModelStore(root).use { assertFalse(it.recover().available) }
+            assertEquals(before.keys, root.files.nodes.keys)
+            before.forEach { (name, value) -> assertArrayEquals(value, root.files.nodes.getValue(name).bytes) }
+            assertFalse(root.files.events.any { it.startsWith("remove:") || it.startsWith("create:") })
+        }
+    }
+
+    @Test fun inventoryOpenAndIterationFailuresCannotTriggerPartialSweeping() {
+        for (event in listOf("list-open", "list-iterator", "list-next")) {
+            val root = root().apply { files.putBytes("model-$b.gguf", ByteArray(24)) }
+            root.files.hook = { if (it == event) throw java.io.IOException("fixture inventory failure") }
+            ModelStore(root).use { assertFalse(it.recover().available) }
+            assertFalse(root.files.events.any { it.startsWith("remove:") })
+            assertTrue(root.inventories.all { it.closed })
+        }
+    }
+
+    @Test fun initialPublicationFailuresAreRetryableWithoutGuessingASelection() {
+        for (event in listOf("create:selection.next", "info-write", "write", "flush", "sync", "closed-write", "rename")) {
+            val root = FakeModelRoot()
+            root.files.hook = { if (it == event) throw java.io.IOException(event) }
+            ModelStore(root) { epoch }.use { assertFalse(it.recover().available) }
+            assertFalse(root.files.nodes.containsKey("selection"))
+            assertTrue(root.files.handles.all { it.closed })
+            root.files.hook = {}
+            ModelStore(root) { epoch }.use { assertEquals(ModelRecord.Selection(epoch), it.recover().selection) }
+        }
+    }
+
+    @Test fun initializationAfterRenameExceptionRetainsTheConfirmedEpoch() {
+        val root = FakeModelRoot()
+        var generated = 0
+        root.files.hook = { if (it == "renamed") throw java.io.IOException("ack lost") }
+        ModelStore(root) { generated++; epoch }.use { store ->
+            assertEquals(epoch, store.recover().selection!!.epoch)
+            assertEquals(epoch, store.recover().selection!!.epoch)
+            assertEquals(1, generated)
+        }
+    }
+
     @Test fun interruptedInitializationDiscardsNextInsteadOfPromotingItsEpochOrPayload() {
         for (bytes in listOf(byteArrayOf(), byteArrayOf(1), ModelRecordCodec.encode(new))) {
             val root = FakeModelRoot().apply { files.putBytes("selection.next", bytes) }
