@@ -15,6 +15,9 @@
     <string name="import_replace">Replace imported model</string>
     <string name="import_cancel">Cancel</string>
     <string name="import_reset">Reset import state</string>
+    <string name="import_reset_confirmation">Remove private imported model copies and their saved selection? Source documents are not changed. This cannot be undone. Nothing is removed unless you confirm.</string>
+    <string name="import_reset_decline">Keep private copies</string>
+    <string name="import_reset_confirm">Remove private copies</string>
     <string name="import_preparing">Preparing import storage…</string>
     <string name="import_waiting_picker">Waiting for a document selection…</string>
     <string name="import_copying">Copying a new private model…</string>
@@ -40,7 +43,7 @@
     <string name="import_error_space">Not enough available storage for the new copy plus 64 MiB. Free other space; the old model is not deleted.</string>
     <string name="import_error_io">Copy or close failed. Check document access and storage, then retry; this does not necessarily mean storage is full.</string>
     <string name="import_error_selection">The saved selection update was not confirmed. Retry only when recovery is ready.</string>
-    <string name="import_error_recovery">Import state is unavailable. No unchecked model is exposed. Recovery controls are not connected yet.</string>
+    <string name="import_error_recovery">Import state is unavailable. No unchecked model is exposed. When all resources have stopped, you can explicitly confirm a reset of private import copies and selection.</string>
     <string name="import_error_stale">This picker result is no longer current. Start a fresh document selection.</string>
     <string name="import_warning_debt">Some unreferenced private files still occupy storage. Safe cleanup will be retried; the selected model remains usable.</string>
     <string name="import_warning_cleanup">An earlier cleanup step failed. Any remaining allocated files are reported separately; the source is unchanged.</string>

@@ -17,12 +17,12 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ModelImportScreenTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
-    private fun screen(): Pair<View, ModelImportScreen> {
+    private fun screen(confirmation: ModelImportScreen.Confirmation? = null): Pair<View, ModelImportScreen> {
         lateinit var result: Pair<View, ModelImportScreen>
         instrumentation.runOnMainSync {
             val context = ContextThemeWrapper(instrumentation.targetContext, android.R.style.Theme_Material_Light_NoActionBar)
             val root = LayoutInflater.from(context).inflate(R.layout.main_activity, null)
-            result = root to ModelImportScreen(root)
+            result = root to if (confirmation == null) ModelImportScreen(root) else ModelImportScreen(root, confirmation)
         }
         return result
     }
@@ -35,6 +35,48 @@ class ModelImportScreenTest {
             latest = action; handler.removeCallbacks(delivery); check(handler.postDelayed(delivery, delayMillis))
         }
         override fun close() = synchronized(lock) { handler.removeCallbacks(delivery); latest = null }
+    }
+
+    private class Confirmation : ModelImportScreen.Confirmation {
+        var yes: () -> Unit = {}; var dismissed: () -> Unit = {}; var shown = 0; var closed = 0
+        override fun show(yes: () -> Unit, dismissed: () -> Unit): AutoCloseable {
+            shown++; this.yes = yes; this.dismissed = dismissed
+            return AutoCloseable { closed++; dismissed() }
+        }
+    }
+
+    @Test fun resetDeclineDismissAndRecreationNeverPersistConsent() {
+        val prompt = Confirmation(); val (root, screen) = screen(prompt)
+        instrumentation.runOnMainSync { try {
+            var confirmations = 0
+            screen.bind(ModelImportScreen.Actions(reset = { confirmations++ }))
+            val failed = ModelImportSnapshot(revision = 9, store = ModelStore.State(problem = ModelStore.Problem.RECOVERY_REQUIRED))
+            screen.render(failed)
+            root.findViewById<Button>(R.id.import_reset).performClick()
+            assertEquals(1, prompt.shown); assertEquals(0, confirmations)
+            prompt.dismissed() // Decline/back/outside; no command.
+            root.findViewById<Button>(R.id.import_reset).performClick()
+            val staleYes = prompt.yes
+            screen.close() // Rotation destroys the old dialog; no restore/autoconfirm state.
+            staleYes(); assertEquals(0, confirmations); assertEquals(1, prompt.closed)
+        } finally { screen.close() } }
+    }
+
+    @Test fun resetConfirmationIsSingleUseAndBoundToCurrentRecoveryRevision() {
+        val prompt = Confirmation(); val (root, screen) = screen(prompt)
+        instrumentation.runOnMainSync { try {
+            val confirmations = mutableListOf<Long>()
+            screen.bind(ModelImportScreen.Actions(reset = { confirmations += it }))
+            val failed = ModelImportSnapshot(revision = 9, store = ModelStore.State(problem = ModelStore.Problem.RESET_PENDING))
+            screen.render(failed); root.findViewById<Button>(R.id.import_reset).performClick()
+            val stale = prompt.yes
+            screen.render(failed.copy(revision = 10)); stale(); assertTrue(confirmations.isEmpty())
+            root.findViewById<Button>(R.id.import_reset).performClick()
+            val current = prompt.yes; current(); current()
+            assertEquals(listOf(10L), confirmations)
+            screen.render(failed.copy(revision = 11, resourcesPending = true))
+            assertEquals(View.GONE, root.findViewById<View>(R.id.import_reset).visibility)
+        } finally { screen.close() } }
     }
 
     @Test fun unknownSizeProviderRendersCopiedBytesWithoutPercent() {

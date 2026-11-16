@@ -1,5 +1,6 @@
 package io.github.greprohan.llamadroid.modelimport
 
+import android.app.AlertDialog
 import android.os.Looper
 import android.view.View
 import android.widget.Button
@@ -8,8 +9,17 @@ import android.widget.TextView
 import io.github.greprohan.llamadroid.R
 
 /** Views only. No singleton, URI, storage, native launch or worker is constructed here. */
-internal class ModelImportScreen(private val root: View) : AutoCloseable {
-    data class Actions(val choose: (() -> Unit)? = null, val cancel: (() -> Unit)? = null, val reset: (() -> Unit)? = null)
+internal class ModelImportScreen(private val root: View,
+    private val confirmation: Confirmation = Confirmation { yes, dismissed ->
+        val dialog = AlertDialog.Builder(root.context).setTitle(R.string.import_reset)
+            .setMessage(R.string.import_reset_confirmation)
+            .setNegativeButton(R.string.import_reset_decline, null)
+            .setPositiveButton(R.string.import_reset_confirm) { _, _ -> yes() }
+            .setOnDismissListener { dismissed() }.show()
+        AutoCloseable { dialog.dismiss() }
+    }) : AutoCloseable {
+    fun interface Confirmation { fun show(yes: () -> Unit, dismissed: () -> Unit): AutoCloseable }
+    data class Actions(val choose: (() -> Unit)? = null, val cancel: (() -> Unit)? = null, val reset: ((Long) -> Unit)? = null)
     private val name: TextView = root.findViewById(R.id.active_model_name)
     private val size: TextView = root.findViewById(R.id.active_model_size)
     private val status: TextView = root.findViewById(R.id.import_status)
@@ -24,6 +34,26 @@ internal class ModelImportScreen(private val root: View) : AutoCloseable {
     private var actions = Actions()
     private var latest = ModelImportSnapshot()
     private var detached = false
+    private var prompt: AutoCloseable? = null
+    private var promptRevision: Long? = null
+    private fun dismissPrompt() {
+        val previous = prompt
+        prompt = null; promptRevision = null
+        previous?.close()
+    }
+    private fun requestReset() {
+        if (detached || !reset.isEnabled || promptRevision != null) return
+        val revision = latest.revision
+        val action = actions.reset ?: return
+        promptRevision = revision
+        try {
+            prompt = confirmation.show({
+                if (!detached && promptRevision == revision && latest.revision == revision && reset.isEnabled) {
+                    dismissPrompt(); action(revision)
+                }
+            }, { prompt = null; promptRevision = null })
+        } catch (_: android.view.WindowManager.BadTokenException) { dismissPrompt() }
+    }
     private fun main() { check(Looper.myLooper() == Looper.getMainLooper()) { "Screen access off main thread" } }
     // Only selects singular/plural; the displayed count remains signed-Long, never truncated to Int.
     private fun quantity(bytes: Long) = if (bytes == 1L) 1 else 2
@@ -32,11 +62,12 @@ internal class ModelImportScreen(private val root: View) : AutoCloseable {
         main(); check(!detached); this.actions = actions
         choose.setOnClickListener { this.actions.choose?.invoke() }
         cancel.setOnClickListener { this.actions.cancel?.invoke() }
-        reset.setOnClickListener { this.actions.reset?.invoke() }
+        reset.setOnClickListener { requestReset() }
         render(latest)
     }
     fun render(state: ModelImportSnapshot) {
         main(); if (detached) return
+        if (promptRevision != null && promptRevision != state.revision) dismissPrompt()
         latest = state
         val context = root.context
         val active = state.store.active.takeIf { state.store.available }
@@ -57,7 +88,7 @@ internal class ModelImportScreen(private val root: View) : AutoCloseable {
         cancel.visibility = if (running) View.VISIBLE else View.GONE
         cancel.isEnabled = running && actions.cancel != null && state.operation?.phase != ImportPhase.COMMITTING &&
             state.operation?.cancelAccepted != true
-        val recoverable = !state.busy && state.store.problem in setOf(ModelStore.Problem.RECOVERY_REQUIRED, ModelStore.Problem.RESET_PENDING)
+        val recoverable = !state.busy && !state.resourcesPending && state.store.problem in setOf(ModelStore.Problem.RECOVERY_REQUIRED, ModelStore.Problem.RESET_PENDING)
         reset.visibility = if (recoverable && actions.reset != null) View.VISIBLE else View.GONE
         reset.isEnabled = reset.visibility == View.VISIBLE
         val lines = state.warnings.map { context.getString(when (it) {
@@ -95,7 +126,7 @@ internal class ModelImportScreen(private val root: View) : AutoCloseable {
     }
     override fun close() {
         main(); if (detached) return
-        detached = true; actions = Actions()
+        detached = true; dismissPrompt(); actions = Actions()
         for (button in listOf(choose, cancel, reset)) { button.setOnClickListener(null); button.isEnabled = false }
         cancel.visibility = View.GONE; reset.visibility = View.GONE
     }
