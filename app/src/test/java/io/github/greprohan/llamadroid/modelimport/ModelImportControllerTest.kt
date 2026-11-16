@@ -28,6 +28,73 @@ class ModelImportControllerTest {
         override fun close() { store?.close() }
     }
 
+    @Test fun recoveryResetRequiresCurrentExplicitConfirmationAndYieldsVerifiedEmptyState() {
+        Fixture().use { f ->
+            f.root.files.putBytes("selection", byteArrayOf(1))
+            f.root.files.putBytes("model-${"a".repeat(32)}.gguf", ByteArray(24))
+            f.controller.initialize(); f.runWork()
+            val recovery = f.controller.snapshot()
+            assertEquals(ModelStore.Problem.RECOVERY_REQUIRED, recovery.store.problem)
+            assertFalse(f.root.files.nodes.containsKey("reset")) // Rendering/declining is read-only.
+            assertTrue(f.controller.confirmReset(recovery.revision))
+            assertTrue(f.controller.snapshot().busy)
+            assertFalse(f.controller.confirmReset(recovery.revision))
+            assertEquals(1, f.work.size); f.runWork()
+            val empty = f.controller.snapshot()
+            assertFalse(empty.busy); assertTrue(empty.store.canWrite); assertNull(empty.store.active)
+            assertNull(empty.issue); assertNull(empty.outcome)
+            assertEquals(PickerCoordinator.Phase.IDLE, empty.picker.phase)
+            assertEquals(setOf("selection"), f.root.files.nodes.keys)
+            assertFalse(f.controller.confirmReset(recovery.revision))
+        }
+    }
+
+    @Test fun healthyOrStaleRecoverySnapshotsCannotAuthorizeDeletion() {
+        Fixture().use { f ->
+            f.controller.initialize(); f.runWork()
+            assertFalse(f.controller.confirmReset(f.controller.snapshot().revision))
+            assertTrue(f.work.isEmpty()); assertFalse(f.root.files.nodes.containsKey("reset"))
+        }
+        Fixture().use { f ->
+            f.root.files.putBytes("selection", byteArrayOf(1))
+            f.controller.initialize(); f.runWork()
+            val stale = f.controller.snapshot().revision
+            f.controller.abandonRoute(PickerToken("a".repeat(32), "b".repeat(32)))
+            assertFalse(f.controller.confirmReset(stale)); assertTrue(f.work.isEmpty())
+            assertFalse(f.root.files.nodes.containsKey("reset"))
+        }
+    }
+
+    @Test fun failedResetStaysUnavailableAndFreshConfirmationSafelyRetries() {
+        Fixture().use { f ->
+            val payload = "model-${"a".repeat(32)}.gguf"
+            f.root.files.putBytes("selection", byteArrayOf(1)); f.root.files.putBytes(payload, ByteArray(24))
+            f.controller.initialize(); f.runWork()
+            f.root.files.silent += "remove:$payload"
+            assertTrue(f.controller.confirmReset(f.controller.snapshot().revision)); f.runWork()
+            val failed = f.controller.snapshot()
+            assertFalse(failed.busy); assertFalse(failed.store.available)
+            assertEquals(ImportIssue.RECOVERY_REQUIRED, failed.issue)
+            assertTrue(f.root.files.nodes.containsKey(payload)); assertTrue(f.root.files.nodes.containsKey("reset"))
+            f.root.files.silent.clear()
+            assertTrue(f.controller.confirmReset(failed.revision)); f.runWork()
+            assertTrue(f.controller.snapshot().store.canWrite); assertNull(f.controller.snapshot().issue)
+        }
+    }
+
+    @Test fun pendingAbortHelpersCannotBeBypassedByResetConfirmation() {
+        Fixture().use { f ->
+            val source = FakeModelSource(50)
+            source.fault = { if (it == "read") f.controller.requestCancel() }
+            f.controller.importResult(f.pick(), f.request(source)); f.runWork()
+            assertTrue(f.controller.snapshot().resourcesPending)
+            assertFalse(f.controller.confirmReset(f.controller.snapshot().revision))
+            assertFalse(f.root.files.nodes.containsKey("reset")); assertTrue(f.work.isEmpty())
+            f.aborts.toList().forEach { it() }; f.runWork()
+            assertFalse(f.controller.snapshot().busy)
+        }
+    }
+
     @Test fun firstImportAndReplacementUseOneSourceAndPreserveOldBytesUntilConfirmed() {
         Fixture().use { f ->
             val first = FakeModelSource(50)

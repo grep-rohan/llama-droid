@@ -216,6 +216,22 @@ internal class ModelImportController(private val createStore: () -> ModelStore,
                 else if (publication != null) ImportIssue.SELECTION_SAVE else issue(finished.primary), warnings = warnings) }
     }
 
+    /** Consent is single-use and bound to the exact rendered recovery snapshot. */
+    fun confirmReset(revision: Long): Boolean = synchronized(gate) {
+        if (latest.revision != revision || latest.busy || latest.resourcesPending || pending != null || operation != null ||
+            latest.store.problem !in setOf(ModelStore.Problem.RECOVERY_REQUIRED, ModelStore.Problem.RESET_PENDING)) return false
+        command {
+            val state = readyStore().confirmReset()
+            val recovered = PickerCoordinator(checkNotNull(store)).also { it.restore(state) }
+            picker = recovered // Reset epoch invalidates all pre-reset tokens, never relaunches one.
+            change { it.copy(store = state, picker = recovered.snapshot(),
+                issue = if (state.available) null else ImportIssue.RECOVERY_REQUIRED,
+                outcome = if (state.available) null else ImportOutcome.FAILED,
+                resourcesPending = state.problem == ModelStore.Problem.RESOURCES_PENDING,
+                warnings = if (state.payloadDebt || state.recordDebt) setOf(ImportWarning.CLEANUP_DEBT) else emptySet()) }
+        }
+    }
+
     fun initialize(): Boolean = command { readyStore() }
     fun beginPicker(): Boolean = command {
         readyStore()
