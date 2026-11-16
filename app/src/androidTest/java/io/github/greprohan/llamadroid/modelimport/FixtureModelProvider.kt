@@ -12,14 +12,11 @@ import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import java.io.File
-import java.io.FileNotFoundException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.concurrent.Semaphore
 
 /** Standalone test-APK process: no target classes, owner paths or production controls. */
 class FixtureModelProvider : ContentProvider() {
-    private val writers = Semaphore(1)
     private val ids = setOf("regular", "slice", "pipe", "pipe-error", "null-open", "missing", "empty", "null-query", "overflow", "unknown", "denied")
     private fun fixture(uri: Uri): String {
         val ctx = checkNotNull(context)
@@ -59,19 +56,20 @@ class FixtureModelProvider : ContentProvider() {
         val id = fixture(uri); require(mode == "r")
         if (id == "null-open") return null
         if (id == "pipe" || id == "pipe-error") {
-            if (!writers.tryAcquire()) throw FileNotFoundException("Fixture writer busy")
-            val pipe = try { ParcelFileDescriptor.createReliablePipe() } catch (failure: Exception) { writers.release(); throw failure }
-            val writer = Thread({
-                try {
-                    val output = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
-                    try {
-                        for (part in payload().asList().chunked(3)) output.write(part.toByteArray())
-                        if (id == "pipe-error") pipe[1].closeWithError("Generated fixture error")
-                    } finally { output.close() }
-                } finally { writers.release() }
-            }, "model-fixture-writer")
-            try { writer.start() } catch (failure: Exception) { pipe.forEach { it.close() }; writers.release(); throw failure }
-            return AssetFileDescriptor(pipe[0], 0, AssetFileDescriptor.UNKNOWN_LENGTH)
+            val pipe = ParcelFileDescriptor.createReliablePipe()
+            try {
+                // Fifty bytes fit below even POSIX's minimum pipe capacity. Populate before
+                // returning: no producer thread, EOF/release race, queue or surviving helper.
+                ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
+                    val bytes = payload()
+                    for (offset in bytes.indices step 3) output.write(bytes, offset, minOf(3, bytes.size - offset))
+                    if (id == "pipe-error") pipe[1].closeWithError("Generated fixture error")
+                }
+                return AssetFileDescriptor(pipe[0], 0, AssetFileDescriptor.UNKNOWN_LENGTH)
+            } catch (failure: Exception) {
+                for (descriptor in pipe) try { descriptor.close() } catch (close: Exception) { if (close !== failure) failure.addSuppressed(close) }
+                throw failure
+            }
         }
         val file = File.createTempFile("model-import-fixture-", ".bin", checkNotNull(context).cacheDir)
         var descriptor: ParcelFileDescriptor? = null
