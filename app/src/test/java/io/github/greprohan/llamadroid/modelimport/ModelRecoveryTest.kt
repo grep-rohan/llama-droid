@@ -16,6 +16,45 @@ class ModelRecoveryTest {
         files.putBytes("source.gguf", source)
     }
 
+    @Test fun committedResetWithOwnedNamespaceResumesBeforeCorruptSelectionIsRead() {
+        val targetEpoch = "d".repeat(32)
+        val root = FakeModelRoot().apply {
+            files.put("reset", ModelRecord.ResetAuthorization(a, targetEpoch))
+            files.putBytes("selection", byteArrayOf(1))
+            files.putBytes("model-$a.gguf", ByteArray(24) { 7 })
+        }
+        ModelStore(root) { error("Must use authorized epoch") }.use {
+            assertEquals(ModelRecord.Selection(targetEpoch), it.recover().selection)
+            assertTrue(it.recover().canWrite)
+        }
+        assertEquals(setOf("selection"), root.files.nodes.keys)
+    }
+
+    @Test fun freshConfirmationRejectsLiveCandidateAndInvalidatesStoppedCandidateOwnership() {
+        val root = FakeModelRoot()
+        ModelStore(root) { epoch }.use { store ->
+            assertTrue(store.recover().canWrite)
+            val candidate = store.createCandidate(a)
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.confirmReset().problem)
+            assertFalse(root.files.nodes.containsKey("reset"))
+            candidate.close()
+            assertTrue(store.confirmReset().canWrite)
+            assertEquals(setOf("selection"), root.files.nodes.keys)
+            try { candidate.discard(); fail("Expired ownership") } catch (_: IllegalStateException) { }
+        }
+    }
+
+    @Test fun freshConfirmationCanRecoverCorruptSelectionWithoutRecursiveOrSourceDeletion() {
+        val root = FakeModelRoot().apply {
+            files.putBytes("selection", byteArrayOf(1)); files.putBytes("model-$a.gguf", ByteArray(24))
+        }
+        ModelStore(root) { epoch }.use {
+            assertFalse(it.recover().available)
+            assertEquals(ModelRecord.Selection(epoch), it.confirmReset().selection)
+        }
+        assertEquals(setOf("selection"), root.files.nodes.keys)
+    }
+
     @Test fun committedResetIsReportedBeforeReadingOrMutatingTheSelection() {
         val root = root().apply {
             files.put("reset", ModelRecord.ResetAuthorization(a, "d".repeat(32)))

@@ -3,7 +3,7 @@ package io.github.greprohan.llamadroid.modelimport
 import java.io.File
 import java.util.UUID
 
-/** Recovery/cleanup owner, not an importer, reset executor, or process-wide singleton. */
+/** Exclusive recovery/cleanup/reset owner, not a process-wide singleton. */
 internal class ModelStore(private val root: ModelRoot,
                          private val newEpoch: () -> String = { UUID.randomUUID().toString().replace("-", "") }) : AutoCloseable {
     companion object {
@@ -20,11 +20,12 @@ internal class ModelStore(private val root: ModelRoot,
     private var closed = false
     private var selection: CheckedModelRecord? = null
     private var reset: CheckedModelRecord? = null
+    private var resetWork: ModelReset? = null
     private var reader: ModelFileOps.Reader? = null
     private var directory: ModelRoot.Inventory? = null
     private var candidate: OwnedCandidate? = null
     private val quiescent: Boolean get() = selection?.quiescent != false && reset?.quiescent != false &&
-        reader?.closed != false && directory?.closed != false && candidate?.closed != false
+        reader?.closed != false && directory?.closed != false && candidate?.closed != false && resetWork?.quiescent != false
 
     private fun closeReader() {
         reader?.let { if (!it.closed) it.close(); check(it.closed); reader = null }
@@ -95,17 +96,25 @@ internal class ModelStore(private val root: ModelRoot,
         return recordDebt to payloadDebt
     }
 
+    private fun prepareRecords() {
+        if (selection != null) return
+        root.prepare()
+        selection = CheckedModelRecord(root.files)
+        reset = CheckedModelRecord(root.files, ModelRecordFile.RESET)
+        resetWork = ModelReset(root)
+    }
+
     fun recover(): State {
         check(!closed) { "Model store is closed" }
         if (!quiescent || candidate != null) return State(problem = Problem.RESOURCES_PENDING)
         return try {
-            if (selection == null) {
-                root.prepare()
-                selection = CheckedModelRecord(root.files)
-                reset = CheckedModelRecord(root.files, ModelRecordFile.RESET)
-            }
+            prepareRecords()
             root.validate()
-            if (checkNotNull(reset).read() != null) return State(problem = Problem.RESET_PENDING)
+            when (checkNotNull(resetWork).resume()) {
+                ModelReset.Result.BLOCKED -> return State(problem = Problem.RESET_PENDING)
+                ModelReset.Result.RESOURCES_PENDING -> return State(problem = Problem.RESOURCES_PENDING)
+                else -> Unit
+            }
             val record = checkNotNull(selection)
             var current = record.read() as ModelRecord.Selection?
             val before = scan(current?.active?.let { "model-${it.id}.gguf" })
@@ -127,6 +136,26 @@ internal class ModelStore(private val root: ModelRoot,
             val active = selected.active?.let { resolve(it) }
             root.validate()
             State(selected, active, recordDebt = after.next || debt.first, payloadDebt = after.orphans || debt.second)
+        } catch (_: Exception) {
+            State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING)
+        }
+    }
+
+    /** Explicit confirmation; the caller must also exclude live source/cancellation helpers. */
+    fun confirmReset(): State {
+        check(!closed)
+        if (!quiescent) return State(problem = Problem.RESOURCES_PENDING)
+        return try {
+            prepareRecords()
+            root.validate()
+            // Explicit consent retires only stopped logical ownership, never a live descriptor.
+            candidate = null
+            val authorization = ModelRecord.ResetAuthorization(UUID.randomUUID().toString().replace("-", ""), newEpoch())
+            when (checkNotNull(resetWork).confirm(authorization)) {
+                ModelReset.Result.COMPLETE -> recover()
+                ModelReset.Result.RESOURCES_PENDING -> State(problem = Problem.RESOURCES_PENDING)
+                else -> State(problem = Problem.RESET_PENDING)
+            }
         } catch (_: Exception) {
             State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING)
         }
@@ -350,6 +379,7 @@ internal class ModelStore(private val root: ModelRoot,
         attempt { candidate?.close() }
         attempt { selection?.close() }
         attempt { reset?.close() }
+        attempt { resetWork?.close() }
         attempt { closeReader() }
         attempt { closeDirectory() }
         if (quiescent) { lease.close(); closed = true }
