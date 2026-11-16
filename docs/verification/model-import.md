@@ -972,3 +972,18 @@ codes, RED/GREEN XML, final thirteen reports/lint and source/artifact hashes in
 `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
 Only planned store/test edits plus three additions; native and excluded owner
 work unchanged. No Android/device run or phone access. MI-09 controller next.
+
+### MI-09 storage-integration split review
+
+Before controller implementation, reviewed the actual `ModelStore`/file-operation
+ports: recovery and picker updates exist, but candidate creation/promotion/active
+publication do not. The writer only accepts a whole byte array, which would force
+extra production copy buffers for partial chunks. The approved normal-import
+protocol therefore needs a small **MI-09S** storage prerequisite, separately limited
+to five files (`ModelFileOps`, `AndroidModelFileOps`, `ModelStore`, `FakeModelFiles`,
+`ModelStoreTest`). The original five controller deliverables remain separate.
+This technical split implements already-approved behavior under standing host
+scope; it does not invent owner/human approval or permit device access. Acceptance
+requires checked exclusive candidate ownership, no live-candidate cleanup, bounded
+subsection writes, closed promotion, checked old/new/ambiguous publication and safe
+cleanup debt, with tests/lint/both APKs before the next slice.
