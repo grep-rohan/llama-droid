@@ -64,6 +64,30 @@ class ModelImportCancellationDeviceTest {
                 if (!state.busy && state.outcome != null) finished.countDown()
             } }
         }
+        fun acquire(operation: ImportOperation): ModelSource {
+            val signal = CancellationSignal()
+            operation.registerSignal { signal.cancel() }; operation.beginAcquisition()
+            var owned: ModelSource? = null
+            try {
+                val adapter = AndroidImportIo(resolver)
+                val metadata = adapter.metadata(uri, signal); adapter.policy(f.path).preflight(metadata.size)
+                adapter.open(uri, metadata, signal) { source ->
+                    val captured = if (protocol.checkpoint != "close-hung") source else object : ModelSource by source {
+                        // SIMULATED blocked close, not evidence of every OEM's descriptor-close behavior.
+                        override fun close() {
+                            closeEntered.countDown()
+                            try { check(closeRelease.await(120, TimeUnit.SECONDS)) }
+                            finally { source.close() }
+                        }
+                    }
+                    owned = operation.publish(captured); lease.set(owned); published.countDown(); operation.check()
+                }
+                return checkNotNull(owned)
+            } catch (failure: AndroidImportIo.AcquisitionFailure) {
+                if (owned == null && failure.pending != null) owned = operation.publish(failure.pending)
+                throw failure
+            } finally { operation.endAcquisition(); operation.refreshResource() }
+        }
         override fun close() {
             closeRelease.countDown()
             try {
@@ -75,6 +99,51 @@ class ModelImportCancellationDeviceTest {
                 resolver.call(uri, "finish-hang", token, null)
                 f.close() // Only after workers/producers stop. Never touches the production owner.
             } finally { main { detach?.invoke(); notification.set(null); handler.removeCallbacks(delivery) } }
+        }
+    }
+
+    @Test fun stageUntilCheckpoint() {
+        val protocol = ModelImportCrashProtocol()
+        require(protocol.scenario == "cancel-hang")
+        Session(protocol).use { s ->
+            s.seed(); assertTrue(s.controller.initialize()); s.awaitWork()
+            assertTrue(s.controller.beginPicker()); s.awaitWork()
+            val picker = checkNotNull(s.controller.claimLaunch()); assertTrue(s.controller.markLaunched(picker))
+            assertTrue(s.controller.importResult(picker, s::acquire))
+            s.resolver.call(s.uri, "await-hang", s.token, null)
+            if (protocol.checkpoint in setOf("read-hung", "close-hung")) assertTrue(s.copied.await(5, TimeUnit.SECONDS))
+            s.main {
+                assertEquals(ImportOperation.CancelResult.ACCEPTED, s.controller.requestCancel())
+                repeat(20) { s.controller.requestCancel() }
+                val state = s.controller.snapshot()
+                if (state.busy) assertFalse(s.controller.beginPicker())
+                assertFalse(s.controller.confirmReset(state.revision))
+            } // Completion of this future proves the main Looper is responsive while I/O is blocked.
+            if (protocol.checkpoint == "close-hung") {
+                assertTrue(s.closeEntered.await(5, TimeUnit.SECONDS))
+                assertTrue(s.controller.snapshot().busy)
+            }
+            if (protocol.checkpoint == "open-hung") {
+                s.resolver.call(s.uri, "release-hang", s.token, null) // Deliver the late descriptor after accepted Cancel.
+                assertTrue(s.finished.await(8, TimeUnit.SECONDS)); s.awaitWork()
+                assertEquals(0L, s.published.count); assertTrue(checkNotNull(s.lease.get()).closed)
+                assertEquals(ImportOutcome.CANCELLED, s.controller.snapshot().outcome)
+            }
+            val state = s.controller.snapshot()
+            assertNotEquals(ImportOutcome.IMPORTED, state.outcome)
+            assertEquals(ModelImportCrashProtocol.oldId, state.store.active!!.model.id)
+            assertTrue(s.aborts.get() in 1..2); assertTrue(s.helpers.largestPoolSize <= 2)
+            if (state.busy) {
+                val op = checkNotNull(state.operation)
+                assertTrue(op.cancelAccepted); assertFalse(op.quiescent)
+            } else {
+                assertEquals(ImportOutcome.CANCELLED, state.outcome); assertTrue(checkNotNull(state.operation).quiescent)
+            }
+            s.f.root.files.openRead("model-${ModelImportCrashProtocol.oldId}.gguf").use {
+                assertArrayEquals(ModelImportCrashProtocol.bytes(true), it.input.readBytes())
+            }
+            protocol.armed = true; protocol.hit(protocol.checkpoint)
+            fail("Controlled cancellation checkpoint was not paused")
         }
     }
 }
