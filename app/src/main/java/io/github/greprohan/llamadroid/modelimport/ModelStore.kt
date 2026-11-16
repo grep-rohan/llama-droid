@@ -156,7 +156,7 @@ internal class ModelStore(private val root: ModelRoot,
     private fun candidateFor(copied: CopiedCandidate): OwnedCandidate {
         check(!closed && quiescent)
         val owned = checkNotNull(candidate)
-        check(copied.candidate === owned && owned.closed && !owned.ambiguous && copied.bytes >= GgufHeader.SIZE)
+        check(copied.candidate === owned && owned.closed && owned.completed && !owned.ambiguous && copied.bytes >= GgufHeader.SIZE)
         root.validate()
         check(checkNotNull(selection).read() == owned.base) { "Selection changed during copy" }
         check(checkNotNull(reset).read() == null && root.files.stat("reset.next") == null)
@@ -190,6 +190,64 @@ internal class ModelStore(private val root: ModelRoot,
         check(owned.fileName == to) { "Promotion not confirmed" }
     }
 
+    data class Publication(val state: State, val outcome: CheckedModelRecord.State, val failure: Exception? = null)
+    /** Caller must win ImportOperation.tryCommit first; no helper owns a source at this point. */
+    fun publishCandidate(copied: CopiedCandidate): Publication {
+        val owned = candidateFor(copied)
+        check(owned.fileName == "model-${owned.id}.gguf" && owned.proposed == null)
+        val active = ActiveModel(owned.id, copied.bytes, ModelName.sanitize(copied.name))
+        resolve(active) // Verify readability/length before the metadata commit attempt.
+        candidateFor(copied)
+        val next = owned.base.copy(active = active)
+        owned.proposed = next
+        val result = checkNotNull(selection).replace(owned.base, next)
+        owned.publicationFailure = result.failure
+        return when (result.state) {
+            CheckedModelRecord.State.NEW -> {
+                candidate = null // Only confirmed publication permits recovery/retired-file cleanup.
+                Publication(recover(), result.state, result.failure)
+            }
+            CheckedModelRecord.State.OLD -> Publication(
+                State(selection = owned.base, problem = Problem.RESOURCES_PENDING, recordDebt = result.sidecarDebt),
+                result.state, result.failure)
+            CheckedModelRecord.State.AMBIGUOUS -> {
+                owned.ambiguous = true // Neither payload may be removed before reconciliation.
+                Publication(State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING),
+                    result.state, result.failure)
+            }
+        }
+    }
+
+    /** Only a stopped operation may retry authoritative reads; never promote a .next record. */
+    fun reconcilePublication(): Publication {
+        check(!closed)
+        val owned = checkNotNull(candidate)
+        val next = owned.proposed
+        fun unresolved(cause: Exception? = owned.publicationFailure) = Publication(
+            State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING),
+            CheckedModelRecord.State.AMBIGUOUS, owned.publicationFailure ?: cause)
+        if (!owned.ambiguous || next == null || !quiescent) return unresolved()
+        return try {
+            root.validate()
+            when (checkNotNull(selection).read()) {
+                next -> {
+                    val entry = checkNotNull(root.files.stat(owned.fileName))
+                    check(owned.sameOwned(entry) && entry.size == next.active!!.sizeBytes)
+                    resolve(checkNotNull(next.active))
+                    candidate = null
+                    Publication(recover(), CheckedModelRecord.State.NEW, owned.publicationFailure)
+                }
+                owned.base -> {
+                    owned.base.active?.let { resolve(it) }
+                    owned.ambiguous = false
+                    Publication(State(selection = owned.base, problem = Problem.RESOURCES_PENDING),
+                        CheckedModelRecord.State.OLD, owned.publicationFailure)
+                }
+                else -> unresolved()
+            }
+        } catch (failure: Exception) { unresolved(failure) }
+    }
+
     /** Caller first proves source/helpers stopped; this never closes an active writer. */
     fun discardPendingCandidate() { candidate?.discard() }
 
@@ -198,15 +256,21 @@ internal class ModelStore(private val root: ModelRoot,
         var identity: ModelFileOps.Entry? = null
         var fileName = "candidate-$id.part"
         var ambiguous = false
+        var proposed: ModelRecord.Selection? = null
+        var publicationFailure: Exception? = null
         private var closeAttempted = false
+        private var flushed = false
+        var completed = false
+            private set
         override val closed: Boolean get() = writer.closed
         private fun owned() { check(!this@ModelStore.closed && candidate === this) { "Candidate ownership expired" } }
         override fun write(bytes: ByteArray, offset: Int, count: Int) {
             owned(); check(!closed && !ambiguous && fileName.startsWith("candidate-"))
+            flushed = false; completed = false
             writer.write(bytes, offset, count)
         }
-        override fun flush() { owned(); check(!closed); writer.flush() }
-        override fun sync() { owned(); check(!closed); writer.sync() }
+        override fun flush() { owned(); check(!closed); writer.flush(); flushed = true }
+        override fun sync() { owned(); check(!closed && flushed); writer.sync(); completed = true }
         override fun close() {
             if (closed) return
             if (!closeAttempted) { closeAttempted = true; writer.close() }

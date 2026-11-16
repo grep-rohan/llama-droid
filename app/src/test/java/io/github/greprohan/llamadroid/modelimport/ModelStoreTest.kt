@@ -191,6 +191,178 @@ class ModelStoreTest {
         }
     }
 
+    @Test fun firstImportAndReplacementPublishExactCompletedBytesThenRetireOnlyOldPayload() {
+        for (replacement in listOf(false, true)) {
+            val root = if (replacement) activeRoot() else FakeModelRoot()
+            val nextId = "c".repeat(32)
+            ModelStore(root) { epoch }.use { store ->
+                val copied = copyCandidate(store, nextId)
+                val expected = root.files.nodes.getValue("candidate-$nextId.part").bytes.copyOf()
+                store.promote(copied)
+                val result = store.publishCandidate(copied)
+                assertEquals(CheckedModelRecord.State.NEW, result.outcome)
+                assertTrue(result.state.canWrite); assertEquals(nextId, result.state.active!!.model.id)
+                assertEquals(50L, result.state.active.model.sizeBytes); assertEquals("fixture", result.state.active.model.name)
+                assertEquals(epoch, result.state.selection!!.epoch)
+                assertArrayEquals(expected, root.files.nodes.getValue("model-$nextId.gguf").bytes)
+                assertFalse(root.files.nodes.containsKey("model-$id.gguf"))
+                assertThrows(IllegalStateException::class.java) { copied.candidate.discard() }
+                assertTrue(root.files.nodes.containsKey("model-$nextId.gguf"))
+            }
+        }
+    }
+
+    @Test fun publicationFailureBeforeRenamePreservesOldSelectionAndPromotedCandidateMayBeDiscarded() {
+        val root = activeRoot(); val nextId = "c".repeat(32); val primary = IOException("selection sync")
+        ModelStore(root).use { store ->
+            val copied = copyCandidate(store, nextId); store.promote(copied)
+            val oldRecord = root.files.nodes.getValue("selection").bytes.copyOf()
+            root.files.hook = { if (it == "sync") throw primary }
+            val result = store.publishCandidate(copied)
+            assertEquals(CheckedModelRecord.State.OLD, result.outcome); assertSame(primary, result.failure)
+            assertArrayEquals(oldRecord, root.files.nodes.getValue("selection").bytes)
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+            root.files.hook = {}; copied.candidate.discard()
+            assertEquals(id, store.recover().active!!.model.id)
+            assertFalse(root.files.nodes.containsKey("model-$nextId.gguf"))
+        }
+    }
+
+    @Test fun confirmedPublicationWithRetiredPayloadCleanupFailureIsSuccessWithSeparateDebt() {
+        val root = activeRoot(); val nextId = "c".repeat(32)
+        ModelStore(root).use { store ->
+            val copied = copyCandidate(store, nextId); store.promote(copied)
+            root.files.hook = { if (it == "remove:model-$id.gguf") throw IOException("cleanup") }
+            val result = store.publishCandidate(copied)
+            assertEquals(CheckedModelRecord.State.NEW, result.outcome)
+            assertTrue(result.state.payloadDebt && result.state.canWrite)
+            assertEquals(nextId, result.state.active!!.model.id)
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+            root.files.hook = {}; assertFalse(store.recover().payloadDebt)
+            assertFalse(root.files.nodes.containsKey("model-$id.gguf"))
+        }
+    }
+
+    @Test fun ambiguousPublicationRetainsBothPayloadsUntilAuthoritativeOldOrNewCanBeRead() {
+        for (committed in listOf(false, true)) {
+            val root = activeRoot(); val nextId = "c".repeat(32)
+            ModelStore(root).use { store ->
+                val copied = copyCandidate(store, nextId); store.promote(copied)
+                var unavailable = false
+                root.files.hook = {
+                    if (!committed && it == "rename") { unavailable = true; throw IOException("rename failed") }
+                    if (committed && it == "renamed") unavailable = true
+                    if (unavailable && it == "read:selection") throw IOException("record unavailable")
+                }
+                val result = store.publishCandidate(copied)
+                assertEquals(CheckedModelRecord.State.AMBIGUOUS, result.outcome)
+                assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+                assertTrue(root.files.nodes.containsKey("model-$nextId.gguf"))
+                assertThrows(IllegalStateException::class.java) { copied.candidate.discard() }
+                assertEquals(CheckedModelRecord.State.AMBIGUOUS, store.reconcilePublication().outcome)
+                root.files.hook = {}
+                val resolved = store.reconcilePublication()
+                assertEquals(if (committed) CheckedModelRecord.State.NEW else CheckedModelRecord.State.OLD, resolved.outcome)
+                if (!committed) copied.candidate.discard()
+                val state = store.recover()
+                assertEquals(if (committed) nextId else id, state.active!!.model.id)
+                assertFalse(root.files.nodes.containsKey("model-${if (committed) id else nextId}.gguf"))
+                assertFalse(root.files.nodes.containsKey("selection.next")) // Never promoted by its contents.
+            }
+        }
+    }
+
+    @Test fun copyFailureAndFailedDiscardKeepPrimaryOldBytesAndNonblockingCleanupDebt() {
+        val root = activeRoot(); val nextId = "c".repeat(32); val primary = IOException("read failed")
+        val oldPayload = root.files.nodes.getValue("model-$id.gguf").bytes.copyOf()
+        ModelStore(root).use { store ->
+            val source = FakeModelSource(50).also { s -> s.fault = { if (it == "read" && s.consumed >= 24) throw primary } }
+            root.files.hook = { if (it == "remove:candidate-$nextId.part") throw IOException("discard failed") }
+            val failure = assertThrows(ModelImportEngine.Failure::class.java) {
+                ModelImportEngine(ImportPolicy { Long.MAX_VALUE }).copy(source, { store.createCandidate(nextId) })
+            }
+            assertSame(primary, failure.primary); assertTrue(source.closed)
+            assertTrue(failure.cleanupPending); assertFalse(failure.resourcesPending)
+            assertEquals(ModelImportEngine.Phase.DISCARD, failure.secondary.single().phase)
+            val state = store.recover()
+            assertTrue(state.canWrite && state.payloadDebt); assertEquals(id, state.active!!.model.id)
+            assertArrayEquals(oldPayload, root.files.nodes.getValue("model-$id.gguf").bytes)
+            root.files.hook = {}; assertFalse(store.recover().payloadDebt)
+        }
+    }
+
+    @Test fun candidateAcquisitionValidationFailureClosesHandleButPreservesUnprovenIdentityForRecovery() {
+        val root = activeRoot(); val nextId = "c".repeat(32); val primary = IOException("descriptor validation")
+        ModelStore(root).use { store ->
+            root.files.hook = { if (it == "info-write") throw primary }
+            assertSame(primary, assertThrows(IOException::class.java) { store.createCandidate(nextId) })
+            assertTrue(root.files.handles.all { it.closed })
+            assertTrue(root.files.nodes.containsKey("candidate-$nextId.part"))
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.recover().problem)
+        }
+        root.files.hook = {}
+        ModelStore(root).use { store ->
+            assertEquals(id, store.recover().active!!.model.id)
+            assertFalse(root.files.nodes.containsKey("candidate-$nextId.part"))
+        }
+    }
+
+    @Test fun unconfirmedCandidateCloseBlocksDeletionAndStoreLeaseReleaseWithoutBlindRetry() {
+        val root = activeRoot(); val nextId = "c".repeat(32); val store = ModelStore(root)
+        try {
+            val candidate = store.createCandidate(nextId); candidate.write(ByteArray(24), 0, 24)
+            root.files.silent += "close-write"
+            assertThrows(IllegalStateException::class.java) { candidate.close() }
+            val closes = root.files.events.count { it == "close-write" }
+            assertThrows(IllegalStateException::class.java) { candidate.close() }
+            assertEquals(closes, root.files.events.count { it == "close-write" })
+            assertThrows(IllegalStateException::class.java) { candidate.discard() }
+            assertThrows(IllegalStateException::class.java) { store.close() }
+            assertThrows(IllegalStateException::class.java) { ModelStore(root) }
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+        } finally {
+            root.files.silent.clear(); root.files.handles.forEach { if (!it.closed) it.close() }; store.close()
+        }
+    }
+
+    @Test fun publicationErrorAfterRealRenameIsSuccessNeverFalseOldAndSilentPromotionIsNotSuccess() {
+        for (afterRename in listOf(false, true)) {
+            val root = activeRoot(); val nextId = "c".repeat(32)
+            ModelStore(root).use { store ->
+                val copied = copyCandidate(store, nextId)
+                if (!afterRename) {
+                    root.files.silent += "rename"
+                    assertThrows(IllegalStateException::class.java) { store.promote(copied) }
+                    root.files.silent.clear(); copied.candidate.discard()
+                    assertEquals(id, store.recover().active!!.model.id)
+                } else {
+                    store.promote(copied)
+                    val primary = IOException("already renamed")
+                    root.files.hook = { if (it == "renamed") throw primary }
+                    val result = store.publishCandidate(copied)
+                    assertEquals(CheckedModelRecord.State.NEW, result.outcome); assertSame(primary, result.failure)
+                    assertEquals(nextId, result.state.active!!.model.id)
+                    assertFalse(root.files.nodes.containsKey("model-$id.gguf"))
+                }
+            }
+        }
+    }
+
+    @Test fun aClosedButUnsyncedCandidateCannotForgeACompletedHandoff() {
+        for (flushOnly in listOf(false, true)) {
+            val root = activeRoot()
+            ModelStore(root).use { store ->
+                val candidate = store.createCandidate("c".repeat(32))
+                candidate.write(ByteArray(24), 0, 24)
+                if (flushOnly) candidate.flush()
+                candidate.close()
+                assertThrows(IllegalStateException::class.java) { store.promote(CopiedCandidate(candidate, 24, "model")) }
+                candidate.discard()
+                assertEquals(id, store.recover().active!!.model.id)
+            }
+        }
+    }
+
     @Test fun emptyRootPublishesExplicitEmptySelectionAndKeepsItsEpochOnReopen() {
         val root = FakeModelRoot()
         ModelStore(root) { epoch }.use { store ->
