@@ -269,6 +269,23 @@ class DriverTests(unittest.TestCase):
                 self.assertFalse(result["passed"]); self.assertFalse(fake.replies)
                 self.assertNotIn("private failure", str(result))
 
+    def test_cli_retains_only_bounded_parsed_private_evidence(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            session, fake = self.fake_session(tmp, "native")
+            destination = Path(tmp) / "fresh-evidence"
+            stdout = io.StringIO(); stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                result = driver.main(["--suite", "native", "--evidence-dir", str(destination), "--allow-device-writes"],
+                    {"ANDROID_SERIAL": "PRIVATE_SERIAL"}, lambda serial, paths: session)
+            self.assertEqual(0, result)
+            text = (destination / "report.json").read_text()
+            self.assertTrue(json.loads(text)["passed"]); self.assertLessEqual(len(text.encode()), 65536)
+            self.assertNotIn("PRIVATE_SERIAL", text + stdout.getvalue() + stderr.getvalue())
+            self.assertFalse(fake.replies)
+            for args in fake.calls:
+                self.assertFalse({"install", "uninstall", "clear", "kill-server"}.intersection(args))
+
     def test_existing_evidence_directory_cannot_be_overwritten(self):
         with tempfile.TemporaryDirectory() as tmp:
             keep = Path(tmp) / "report.json"; keep.write_text("owner")
