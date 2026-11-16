@@ -1,6 +1,6 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-05 host-verified; host progression authorized
+## Current status — MI-06 / F2 host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
@@ -11,7 +11,8 @@ publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evi
 found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
-without per-task approval pauses. **MI-06 is next; phone work is not authorized.**
+without per-task approval pauses. **MI-06 and F2 technical review are complete;
+MI-07 is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -827,3 +828,64 @@ exit codes, RED/GREEN XML, final ten reports/lint and source/artifact hashes in
 (927,596 bytes). Preservation audit confirms all other preflight app/test sources,
 native stage/receipt, `.cxx`, `.gitignore` and unrelated planning/spec files unchanged.
 No phone access; next MI-06 and an actual F2 technical review.
+
+## MI-06 — Android provider adapter and isolated fixtures
+
+Commits `59e6a7a`, `632be2e`, `6e6eab6`; exactly five approved deliverables:
+`AndroidImportIo.kt`, and test-only `FixtureModelProvider.kt`, `AndroidImportIoTest.kt`,
+`ModelImportTestStore.kt`, `app/src/androidTest/AndroidManifest.xml`.
+
+The adapter rejects main-thread/non-content access, queries only name/size with
+cancellation, bounds/sanitizes accepted names and treats null/empty/missing/
+unparseable sizes as unknown. Cancellation/read/revocation errors do not become
+successful metadata fallbacks. Cursor-close failure retains an explicit pending
+owner. Read-only `openAssetFileDescriptor` and `createInputStream` retain selected
+slice offsets/lengths and pipes; EOF checks reliable-pipe errors. Descriptor
+acquisition is published before stream construction, and a source-local lock
+serializes construction/close without using a future cancellation/commit lock.
+Acquisition failures attempt close once, retaining any pending resource and the
+primary cause. `StatFs.availableBytes` measures the supplied destination directory.
+Controller registration of the signal **before** metadata/open and immutable
+source ownership remain explicit MI-07/MI-09 integration obligations.
+
+The fixture provider is in the **test APK only**, separate `:model_import_fixture`
+process, with bounded fixed ids, generated 50-byte documents, UID/signature caller
+validation, no owner paths and no target production-class dependency. Slices have
+unselected prefix/suffix bytes; pipes include reliable-error delivery. Tiny pipe
+contents are populated synchronously, below minimum pipe capacity, with **no
+producer thread**. Shared test-store construction uses fresh generated no-backup
+containers, root leases and checked no-follow cleanup of known regular files;
+it never uses the production `models/` root or recursive/app-data deletion.
+
+Commands: `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passed **in 24s**, 80 tasks / 20 executed, **155 JVM tests, zero failures/errors/skips**,
+lint **0 errors / 4 unchanged warnings**. After the fixture-only review correction,
+`:app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` passed **in 15s**;
+unchanged JVM inputs were not pointlessly rerun. **Seven Android adapter test
+methods compile; none was executed.** There is no Android RED/GREEN/runtime claim.
+
+Evidence `.cache/model-import/mi-06-20261116T114504Z/`: preflight/command logs,
+exit codes, ten passing JUnit reports, lint, source/artifact hashes, decoded
+production/test manifests and apkanalyzer version. Actual SDK tool:
+`D:/softwares/android-sdk/cmdline-tools/latest/bin/apkanalyzer.bat` (JDK 17).
+Production has **no provider**; test authority is
+`io.github.greprohan.llamadroid.test.modelimport.fixture`, separate process as
+above. All 14 packaged ARM64 native-library hashes match the unchanged stage.
+Production APK `dc2e6ad8103fb56cba978697ef0720fc82428a5e06eaee566cf89b6300d266e3`
+(79,482,963 bytes), test APK `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`
+(954,174 bytes). Existing sources/native/excluded owner work unchanged; no phone access.
+
+## F2 technical review — 2026-11-16
+
+Actually reviewed 13 exact source/test/manifest files across MI-04–MI-06, retained
+passing reports and decoded APK declarations. Review audit:
+`.cache/model-import/f2-20261116T115422Z/review-audit.json` with exact hashes.
+Reviewed fixed-prefix/byte-order limits, bounded read/count/space/percentage logic,
+size mismatches, original/secondary failure retention and stopped-resource-only
+deletion. Reviewed adapter acquisition/close ownership, provider caller/process
+isolation and generated-root-only mutation. A fixture pipe EOF/semaphore-release
+race was identified and **removed**, not waived (`6e6eab6`); pending cursor-close
+ownership was also retained during implementation. No unresolved host-contract
+blocker found for MI-07. Android/provider descriptor behavior, process death,
+physical >2 GiB import and backup/transfer remain unverified until approved device
+batches. This is an assistant technical review, not invented owner/human sign-off.
