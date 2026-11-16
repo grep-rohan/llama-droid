@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-08 host-verified; host progression authorized
+## Current status — MI-08 / MI-09S host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**188 JVM tests pass**, including **18 new MI-08 tests**. Lint reports
+**202 JVM tests pass**, including **14 new MI-09S tests**. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -987,3 +987,38 @@ scope; it does not invent owner/human approval or permit device access. Acceptan
 requires checked exclusive candidate ownership, no live-candidate cleanup, bounded
 subsection writes, closed promotion, checked old/new/ambiguous publication and safe
 cleanup debt, with tests/lint/both APKs before the next slice.
+
+## MI-09S — Checked store integration
+
+Reviewed five-file split completed in `e1c2318`, `1c61538`, `93d625e`:
+`ModelFileOps.kt`, `AndroidModelFileOps.kt`, `ModelStore.kt`, `FakeModelFiles.kt`,
+`ModelStoreTest.kt`. Unbuffered production writes accept array offset/count directly,
+without per-chunk copies. Exclusive candidate ownership blocks recovery/second
+writers even after close until discard/publication. Acquisition validation captures
+handles before fallible checks; unknown identity is preserved for later recovery,
+not guessed safe to delete. Unconfirmed close is not blindly retried. Promotion
+requires successful flush/sync/close, checked inode/length, unchanged selection and
+absent final path; old/new/ambiguous rename outcomes never overwrite another payload.
+
+Checked selection publication confirms new before retiring old; failures preserve
+old bytes, unresolved records preserve both payloads, and authoritative-read
+reconciliation never promotes `.next`. Source/helper quiescence and the operation's
+commit gate are explicit caller obligations. Proven unreferenced cleanup debt is
+nonblocking and distinct from a successful new selection; stale candidate handles
+cannot delete an active payload or affect a later owner.
+
+RED stages: candidate **2/25 failed**, promotion **3/28**, publication **3/31**,
+reconciliation **1/32**, unsynced handoff **1/37**, then GREEN. Fourteen new tests
+exercise sequential fake-source/store paths, first import/replacement, exact bytes,
+all those transaction outcomes, close/ownership guards, cleanup debt and recovery.
+Final full command `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 42s**, 80 tasks / 17 executed: **202 JVM tests**, no failures/errors/skips;
+lint **0 errors / 4 existing warnings**, both APKs pass. No Android/device run.
+
+Evidence `.cache/model-import/mi-09s-20261116T122004Z/` retains exact command logs,
+RED/GREEN/final XML, thirteen reports/lint, source/artifact identities and preservation
+review in `results.json`. Production APK
+`3d99bbec6b2edbbfb8823d461eb61afb84775ce1da07968fe48ff86e3d4b0ada`;
+test APK unchanged `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
+Exactly the reviewed five files changed; other source/native/excluded owner work
+is preserved. Controller/singleton/notifications and checkpoint A remain next.
