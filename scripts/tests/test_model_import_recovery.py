@@ -8,12 +8,15 @@ import time
 import subprocess
 import tempfile
 import hashlib
+import io
+from contextlib import redirect_stdout, redirect_stderr
 from unittest import mock
 from types import SimpleNamespace
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 import model_import_device as device
+import check_model_import_recovery as driver
 
 
 def frame(code, **values):
@@ -171,6 +174,66 @@ class IdentityTests(unittest.TestCase):
             if uid == 10002:
                 with self.assertRaises(device.Failure): d.processes(baseline, device.Budget(15))
             else: self.assertEqual([(42, uid, name)], d.processes(baseline, device.Budget(15)))
+
+
+class DriverTests(unittest.TestCase):
+    def test_help_and_invalid_or_unconsented_modes_never_contact_adb(self):
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("No ADB")), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as result: driver.main(["--help"], {})
+            self.assertEqual(0, result.exception.code)
+            for args, env in [(["--suite", "isolated", "--evidence-dir", "unused"], {}),
+                              (["--suite", "native", "--evidence-dir", "unused", "--allow-device-writes"], {}),
+                              (["--class", "content://private"], {})]:
+                self.assertEqual(1, driver.main(args, env))
+
+    def fake_session(self, tmp, mode, output=None, post_uid=10001, survivors=b"PID UID NAME\n"):
+        paths = {}; replies = []
+        def identities(uid):
+            for index, pkg in enumerate([driver.TARGET, driver.TEST]):
+                replies.extend([(["shell", "cmd", "package", "list", "packages", "-U", pkg], f"package:{pkg} uid:{uid+index}\n".encode(), 0),
+                    (["shell", "pm", "path", pkg], b"package:/data/app/safe/base.apk\n", 0),
+                    (["exec-out", "cat", "/data/app/safe/base.apk"], b"apk", 0)])
+        for index, pkg in enumerate([driver.TARGET, driver.TEST]):
+            path = Path(tmp) / f"{index}.apk"; path.write_bytes(b"apk"); paths[pkg] = path
+        identities(10001)
+        replies.append((["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], b"PID UID NAME\n", 0))
+        if output is None:
+            total = len(driver.ROSTERS[mode]); output = b""
+            for cls, method in sorted(driver.ROSTERS[mode]):
+                fields = {"class": cls, "test": method, "numtests": str(total)}
+                output += frame(1, **fields) + frame(0, **fields)
+            output += f"OK ({total} tests)\nINSTRUMENTATION_CODE: -1\n".encode()
+        replies.append((["shell", "am", "instrument", "-w", "-r", "-e", "class", driver.FILTERS[mode], driver.RUNNER], output, 0))
+        for pkg in [driver.TARGET, driver.TEST]: replies.append((["shell", "am", "force-stop", pkg], b"", 0))
+        replies.append((["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], survivors, 0))
+        identities(post_uid)
+        fake = FakeAdb(replies)
+        return device.Device("PRIVATE_SERIAL", paths, fake), fake
+
+    def test_fixed_suite_rosters_complete_and_postflight_retained(self):
+        self.assertEqual(26, len(driver.ROSTERS["isolated"]))
+        for mode in ["native", "isolated"]:
+            with tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fake_session(tmp, mode)
+                result = driver.run_suite(session, mode)
+                self.assertTrue(result["passed"]); self.assertEqual(len(driver.ROSTERS[mode]), result["tests"])
+                self.assertFalse(fake.replies); self.assertNotIn("PRIVATE_SERIAL", str(result))
+
+    def test_incomplete_skipped_changed_uid_or_surviving_process_never_passes(self):
+        cases = [{"output": b"OK (0 tests)\nINSTRUMENTATION_CODE: -1\n"}, {"post_uid": 11001},
+                 {"survivors": b"PID UID NAME\n42 10001 libllama-server.so\n"}]
+        for options in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fake_session(tmp, "native", **options)
+                result = driver.run_suite(session, "native")
+                self.assertFalse(result["passed"]); self.assertFalse(fake.replies)
+
+    def test_existing_evidence_directory_cannot_be_overwritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            keep = Path(tmp) / "report.json"; keep.write_text("owner")
+            with redirect_stderr(io.StringIO()), mock.patch.object(driver, "run_suite", side_effect=AssertionError("No execution")):
+                self.assertEqual(1, driver.main(["--suite", "native", "--evidence-dir", tmp, "--allow-device-writes"], {"ANDROID_SERIAL": "PRIVATE_SERIAL"}))
+            self.assertEqual("owner", keep.read_text())
 
 
 if __name__ == "__main__":

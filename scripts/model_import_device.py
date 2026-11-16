@@ -143,6 +143,12 @@ class Device:
                 if len(found) > 16: raise Failure("test process count limit")
         return found
 
+    def instrument_command(self, runner, test_filter, arguments, budget, cap):
+        deadline = budget.deadline(cap)
+        args = ["shell", "am", "instrument", "-w", "-r", "-e", "class", test_filter]
+        for key, value in sorted(arguments.items()): args += ["-e", key, value]
+        return self.command(self.prefix + args + [runner], 1024 * 1024), deadline
+
     def teardown(self, baseline, budget):
         failed = False
         for package in baseline:
