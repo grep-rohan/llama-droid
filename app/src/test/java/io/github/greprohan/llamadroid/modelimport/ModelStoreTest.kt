@@ -140,6 +140,57 @@ class ModelStoreTest {
         }
     }
 
+    private fun copyCandidate(store: ModelStore, candidateId: String, size: Long = 50): CopiedCandidate =
+        ModelImportEngine(ImportPolicy { Long.MAX_VALUE }).copy(FakeModelSource(size), { store.createCandidate(candidateId) })
+
+    @Test fun closedCandidatePromotionPreservesOldSelectionUntilPublicationAndMayStillBeDiscarded() {
+        val root = activeRoot(); val nextId = "c".repeat(32)
+        val oldSelection = root.files.nodes.getValue("selection").bytes.copyOf()
+        ModelStore(root).use { store ->
+            val copied = copyCandidate(store, nextId)
+            assertEquals(50L, root.files.stat("candidate-$nextId.part")!!.size)
+            store.promote(copied)
+            assertFalse(root.files.nodes.containsKey("candidate-$nextId.part"))
+            assertEquals(50L, root.files.stat("model-$nextId.gguf")!!.size)
+            assertArrayEquals(oldSelection, root.files.nodes.getValue("selection").bytes)
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+            copied.candidate.discard() // Accepted cancellation during promotion must remain safe.
+            assertFalse(root.files.nodes.containsKey("model-$nextId.gguf"))
+            assertEquals(id, store.recover().active!!.model.id)
+        }
+    }
+
+    @Test fun promotionReconcilesErrorsBeforeAndAfterRenameWithoutBlindRollback() {
+        for (point in listOf("rename", "renamed")) {
+            val root = activeRoot(); val nextId = "c".repeat(32)
+            ModelStore(root).use { store ->
+                val copied = copyCandidate(store, nextId); val primary = IOException(point)
+                root.files.hook = { if (it == point) throw primary }
+                assertSame(primary, assertThrows(IOException::class.java) { store.promote(copied) })
+                root.files.hook = {}
+                copied.candidate.discard()
+                assertFalse(root.files.nodes.containsKey("model-$nextId.gguf"))
+                assertFalse(root.files.nodes.containsKey("candidate-$nextId.part"))
+                assertEquals(id, store.recover().active!!.model.id)
+            }
+        }
+    }
+
+    @Test fun finalNameCollisionAndChangedCandidateLengthNeverOverwriteAnyPayload() {
+        for (collision in listOf(true, false)) {
+            val root = activeRoot(); val nextId = "c".repeat(32)
+            ModelStore(root).use { store ->
+                val copied = copyCandidate(store, nextId)
+                if (collision) root.files.putBytes("model-$nextId.gguf", byteArrayOf(9))
+                else root.files.nodes.getValue("candidate-$nextId.part").bytes = byteArrayOf(8)
+                assertThrows(IllegalStateException::class.java) { store.promote(copied) }
+                copied.candidate.discard()
+                if (collision) assertArrayEquals(byteArrayOf(9), root.files.nodes.getValue("model-$nextId.gguf").bytes)
+                assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+            }
+        }
+    }
+
     @Test fun emptyRootPublishesExplicitEmptySelectionAndKeepsItsEpochOnReopen() {
         val root = FakeModelRoot()
         ModelStore(root) { epoch }.use { store ->

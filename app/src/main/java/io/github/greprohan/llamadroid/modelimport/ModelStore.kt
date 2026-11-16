@@ -153,6 +153,43 @@ internal class ModelStore(private val root: ModelRoot,
         }
     }
 
+    private fun candidateFor(copied: CopiedCandidate): OwnedCandidate {
+        check(!closed && quiescent)
+        val owned = checkNotNull(candidate)
+        check(copied.candidate === owned && owned.closed && !owned.ambiguous && copied.bytes >= GgufHeader.SIZE)
+        root.validate()
+        check(checkNotNull(selection).read() == owned.base) { "Selection changed during copy" }
+        check(checkNotNull(reset).read() == null && root.files.stat("reset.next") == null)
+        val entry = checkNotNull(root.files.stat(owned.fileName))
+        check(owned.sameOwned(entry) && entry.size == copied.bytes) { "Candidate changed during copy" }
+        return owned
+    }
+
+    /** Still cancellable: the promoted payload is not selected until publishCandidate. */
+    fun promote(copied: CopiedCandidate) {
+        val owned = candidateFor(copied)
+        val from = "candidate-${owned.id}.part"
+        val to = "model-${owned.id}.gguf"
+        check(owned.fileName == from)
+        check(root.files.stat(to) == null) { "Payload identity collision" }
+        var primary: Exception? = null
+        try { root.files.rename(from, to) } catch (failure: Exception) { primary = failure }
+        try {
+            val remaining = root.files.stat(from)
+            val promoted = root.files.stat(to)
+            when {
+                remaining == null && promoted != null && owned.sameOwned(promoted) && promoted.size == copied.bytes -> owned.fileName = to
+                remaining != null && owned.sameOwned(remaining) && promoted == null -> Unit // Confirmed not promoted.
+                else -> { owned.ambiguous = true; error("Promotion outcome unavailable") }
+            }
+        } catch (failure: Exception) {
+            owned.ambiguous = true
+            if (primary == null) primary = failure else if (primary !== failure) primary.addSuppressed(failure)
+        }
+        primary?.let { throw it }
+        check(owned.fileName == to) { "Promotion not confirmed" }
+    }
+
     /** Caller first proves source/helpers stopped; this never closes an active writer. */
     fun discardPendingCandidate() { candidate?.discard() }
 
@@ -175,7 +212,7 @@ internal class ModelStore(private val root: ModelRoot,
             if (!closeAttempted) { closeAttempted = true; writer.close() }
             check(closed) { "Candidate descriptor remains pending" }
         }
-        private fun sameOwned(entry: ModelFileOps.Entry): Boolean = identity?.let {
+        fun sameOwned(entry: ModelFileOps.Entry): Boolean = identity?.let {
             entry.sameFile(it) && entry.kind == ModelFileOps.Kind.REGULAR && entry.links == 1L
         } == true
         override fun discard() {
