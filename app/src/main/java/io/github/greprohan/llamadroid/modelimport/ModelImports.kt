@@ -1,5 +1,6 @@
 package io.github.greprohan.llamadroid.modelimport
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.CancellationSignal
@@ -12,14 +13,13 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /** One application-context owner; construction does not open a store/provider or retain an Activity. */
-internal class ModelImports private constructor(context: Context) {
+internal class ModelImports private constructor(private val app: Application) {
     companion object {
         @Volatile private var instance: ModelImports? = null
         fun get(context: Context): ModelImports = instance ?: synchronized(this) {
-            instance ?: ModelImports(context.applicationContext).also { instance = it }
+            instance ?: ModelImports(context.applicationContext as Application).also { instance = it }
         }
     }
-    private val app = context.applicationContext
     private fun executor(count: Int, queue: Int, name: String) = ThreadPoolExecutor(count, count, 0L,
         TimeUnit.MILLISECONDS, ArrayBlockingQueue(queue), { task -> Thread(task, name) })
     private val worker = executor(1, 1, "model-import-io")
