@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -163,7 +164,11 @@ class Device:
 
 
 class Instrumentation:
-    def __init__(self, expected):
+    def __init__(self, expected, correlation=None, custom_code=None, uid=None):
+        self.correlation = correlation
+        self.custom_code = custom_code
+        self.uid = uid
+        self.markers = {}
         self.expected = set(expected)
         self.started = set()
         self.finished = set()
@@ -207,6 +212,9 @@ class Instrumentation:
             except ValueError:
                 raise Failure("invalid instrumentation status") from None
             fields, self.fields = self.fields, {}
+            if code in {1001, 1002}:
+                self.custom(code, fields); return
+            if self.custom_code == 1001 and code == 0: raise Failure("setup completed before controlled stop")
             case = (fields.get("class"), fields.get("test"))
             if case not in self.expected or fields.get("numtests") != str(len(self.expected)):
                 raise Failure("unexpected test identity or count")
@@ -217,7 +225,7 @@ class Instrumentation:
             else:
                 raise Failure("failed skipped or duplicate test")
         elif line.startswith("INSTRUMENTATION_CODE: "):
-            if line != "INSTRUMENTATION_CODE: -1" or self.result:
+            if self.custom_code == 1001 or line != "INSTRUMENTATION_CODE: -1" or self.result:
                 raise Failure("instrumentation result failed")
             self.result = True
         elif line.startswith("INSTRUMENTATION_FAILED") or line.startswith("FAILURES!!!") or line.startswith("INSTRUMENTATION_RESULT: shortMsg="):
@@ -227,7 +235,33 @@ class Instrumentation:
                 raise Failure("unexpected JUnit result count")
             self.ok = True
 
+    def custom(self, code, fields):
+        field = "model_import_checkpoint" if code == 1001 else "model_import_verified"
+        if code != self.custom_code or self.correlation is None or self.active is None or code in self.markers or set(fields) != {field}:
+            raise Failure("unexpected checkpoint frame")
+        raw = fields[field]
+        if len(raw.encode("utf-8")) > 1024: raise Failure("checkpoint size limit")
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result: raise Failure("duplicate checkpoint key")
+                result[key] = value
+            return result
+        try: value = json.loads(raw, object_pairs_hook=unique)
+        except (ValueError, TypeError): raise Failure("invalid checkpoint JSON") from None
+        keys = {"v", "runId", "scenario", "checkpoint", "pid", "uid", "startedElapsedMs"}
+        if not isinstance(value, dict) or set(value) != keys: raise Failure("checkpoint schema mismatch")
+        if any(type(value[k]) is not int for k in ["v", "pid", "uid", "startedElapsedMs"]):
+            raise Failure("checkpoint numeric grammar")
+        if value["v"] != 1 or not 0 < value["pid"] <= 2147483647 or value["uid"] != self.uid or not 0 <= value["startedElapsedMs"] <= 9223372036854775807:
+            raise Failure("checkpoint process identity mismatch")
+        if any(value[k] != self.correlation[k] for k in ["runId", "scenario", "checkpoint"]):
+            raise Failure("checkpoint correlation mismatch")
+        self.markers[code] = value
+
     def complete(self):
+        if self.custom_code == 1001 or (self.custom_code == 1002 and 1002 not in self.markers):
+            raise Failure("required verification frame missing")
         if self.buffer or self.fields or self.active is not None or not self.result or not self.ok or self.finished != self.expected:
             raise Failure("incomplete test reporting")
         return {"tests": len(self.finished)}

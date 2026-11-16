@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import hashlib
 import io
+import json
 from contextlib import redirect_stdout, redirect_stderr
 from unittest import mock
 from types import SimpleNamespace
@@ -65,6 +66,52 @@ class InstrumentationTests(unittest.TestCase):
         self.assertEqual(175, b.deadline(15, teardown=True))
         now[0] = 190
         with self.assertRaises(device.Failure): b.deadline(1, teardown=True)
+
+
+class CheckpointTests(unittest.TestCase):
+    correlation = {"runId": "a" * 32, "scenario": "first", "checkpoint": "mid-copy"}
+    expected = {("Setup", "stage")}
+    def marker(self, **changes):
+        value = {"v": 1, **self.correlation, "pid": 42, "uid": 10001, "startedElapsedMs": 123}
+        value.update(changes); return value
+    def parser(self, code=1001):
+        return device.Instrumentation(self.expected, self.correlation, code, 10001)
+    def start(self): return frame(1, **{"class": "Setup", "test": "stage", "numtests": "1"})
+    def status(self, value, code=1001):
+        return frame(code, **{("model_import_checkpoint" if code == 1001 else "model_import_verified"): json.dumps(value)})
+
+    def test_ready_is_accepted_only_after_the_complete_correlated_custom_frame(self):
+        p = self.parser(); p.feed(self.start())
+        data = self.status(self.marker())
+        p.feed(data[:-1]); self.assertFalse(p.markers)
+        p.feed(data[-1:]); self.assertEqual({1001: self.marker()}, p.markers)
+        with self.assertRaises(device.Failure): p.complete()
+
+    def test_wrong_identity_schema_duplicate_oversize_and_unframed_markers_fail(self):
+        wrong = [{"runId": "b"*32}, {"scenario": "reset"}, {"checkpoint": "stale"}, {"uid": 10002},
+                 {"pid": True}, {"pid": 0}, {"startedElapsedMs": "123"}, {"startedElapsedMs": -1}, {"v": True}, {"URI": "content://private"}]
+        for changes in wrong:
+            with self.subTest(changes=changes), self.assertRaises(device.Failure):
+                p = self.parser(); p.feed(self.start()); p.feed(self.status(self.marker(**changes)))
+        for output in [self.status(self.marker()) * 2,
+                       frame(1001, model_import_checkpoint="x" * 1025),
+                       frame(1001, model_import_checkpoint='{"v":1,"v":1}')]:
+            with self.subTest(output=output), self.assertRaises(device.Failure):
+                p = self.parser(); p.feed(self.start()); p.feed(output)
+        with self.assertRaises(device.Failure):
+            p = self.parser(); p.feed(self.status(self.marker())) # No started setup.
+
+    def test_ready_setup_must_stay_paused_and_verification_requires_marker_plus_success(self):
+        with self.assertRaises(device.Failure):
+            p = self.parser(); p.feed(self.start() + self.status(self.marker()) + frame(0, **{"class": "Setup", "test": "stage", "numtests": "1"}))
+        p = self.parser(1002)
+        p.feed(self.start() + self.status(self.marker(pid=43, startedElapsedMs=124), 1002) +
+               frame(0, **{"class": "Setup", "test": "stage", "numtests": "1"}) + b"OK (1 tests)\nINSTRUMENTATION_CODE: -1\n")
+        self.assertEqual({"tests": 1}, p.complete())
+        with self.assertRaises(device.Failure):
+            p = self.parser(1002); p.feed(passed("Setup", "stage")); p.complete()
+        with self.assertRaises(device.Failure):
+            p = device.Instrumentation(self.expected); p.feed(self.start() + self.status(self.marker()))
 
 
 class TransportTests(unittest.TestCase):
