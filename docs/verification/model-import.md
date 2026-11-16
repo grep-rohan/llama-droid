@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-08 / MI-09S host-verified; host progression authorized
+## Current status — MI-09 / checkpoint A technically host-verified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**202 JVM tests pass**, including **14 new MI-09S tests**. Lint reports
+**219 JVM tests pass**, including **17 new MI-09 controller tests**. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -12,7 +12,8 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-08 is complete; MI-09 is next. Phone work is not authorized.**
+MI-09 and checkpoint A technical review are complete; MI-10 is next.
+Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1022,3 +1023,57 @@ review in `results.json`. Production APK
 test APK unchanged `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
 Exactly the reviewed five files changed; other source/native/excluded owner work
 is preserved. Controller/singleton/notifications and checkpoint A remain next.
+
+## MI-09 — Serialized controller, bounded cancellation and notifications
+
+Commits `87fa7db`, `bb4e390`, `9796e92`; exactly five approved deliverables:
+`ModelImportController.kt`, `ModelImports.kt`, `ModelImportState.kt`,
+`ImportOperation.kt`, `ModelImportControllerTest.kt`. Lazy singleton ownership is
+constrained to **Application**, not an Activity/generic Context. There is one
+bounded I/O executor and two bounded abort workers; command reservation precedes
+enqueueing. Provider query/open registers cancellation before blocking and publishes
+an immutable owned source before stream construction. Resource-completion callbacks
+run outside the operation gate; pending cleanup retains the command and checks late
+completion at worker exit so it cannot lose a finalization wakeup or launch a writer.
+
+The integrated fake-source flow consumes the matching durable picker first, copies,
+promotes while still cancellable, then wins the atomic commit gate before checked
+publication. Ambiguity preserves both payloads until authoritative reconciliation;
+confirmed old/cancel/error and confirmed new/cleanup-debt remain distinct. Snapshots
+contain typed/sanitized issues, never raw exceptions or provider error text.
+One replaceable main runnable serves all state kinds. Increasing revisions/current
+subscriptions prevent stale delivery; copy progress is eligible within 100 ms and
+capped at 10 Hz, with immediate stage/final supersession. Activity binding is not yet
+wired. Android provider/Handler behavior is **compiled, not device-executed**.
+
+RED: command/notification **2/2 failed**, pipeline **1/4**, pending finalization
+**1/6**, stale classification boundary **1 case** (a separate late-cancel fixture
+initially targeted the earlier consumption rename and was corrected), then GREEN.
+Seventeen controller tests cover first/replacement exact old-byte preservation,
+consumption/stale/cancel failures, late commit, promotion cancellation, transient/
+persistent ambiguity, cleanup debt, pending close, notification ordering/rate and
+real I/O plus two helper workers with a blocked signal/independent source close.
+Latches are released and all executor futures/termination checked; no survivor.
+
+Final current-source command `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 39s** (80 tasks / 18 executed): **219 JVM tests**, zero failures/errors/
+skips, lint **0 errors / 4 baseline warnings**, both APKs pass. An intermediate
+`StaticFieldLeak` warning was fixed by the Application-only type, **not suppressed**.
+Evidence `.cache/model-import/mi-09-20261116T124121Z/` retains logs/exit codes,
+RED/GREEN XML, fourteen final reports/lint, decoded production manifest and all
+source/artifact hashes. Production APK
+`4fa65a918691cf010f401a5d318c7f09777f3888bb0f2a10fa8d831803800c2c`;
+test APK unchanged `3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
+All 14 packaged native hashes and excluded owner inputs preserved. No phone access.
+
+## Checkpoint A technical review — 2026-11-16
+
+Actually reviewed 16 exact production/test files across ownership, picker, controller,
+store, streaming and Android acquisition, current reports/APK identities and decoded
+manifest. Audit `.cache/model-import/checkpoint-a-20261116T155637Z/review-audit.json`
+records exact hashes, checks and resolved findings. No unresolved host-contract blocker
+for MI-10. Production declares no new permission/provider/background component;
+native bytes are unchanged. Android/runtime/SAF/Handler/lifecycle and physical >2 GiB
+results remain unverified. This is **assistant technical review**, not an invented
+human owner review. The tracker keeps that distinct human-only checkbox unclaimed;
+the owner's standing uninterrupted-host-work instruction authorizes progression.
