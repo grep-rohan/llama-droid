@@ -1077,3 +1077,12 @@ native bytes are unchanged. Android/runtime/SAF/Handler/lifecycle and physical >
 results remain unverified. This is **assistant technical review**, not an invented
 human owner review. The tracker keeps that distinct human-only checkbox unclaimed;
 the owner's standing uninterrupted-host-work instruction authorizes progression.
+
+### MI-10 fixture integration review
+
+The required before-EOF unknown-size screen case cannot be established with the
+existing finite/prepopulated 50-byte provider fixtures. Review adds the existing
+**test-only** `FixtureModelProvider.kt` as MI-10's fifth file: one validated token-
+bound producer, release handshake and bounded join. No production command/provider
+or owner-root override is introduced. Original screen/layout/strings/test scope
+is unchanged; all Android cases remain compiled-only until MI-20 consent.
