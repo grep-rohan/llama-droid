@@ -15,6 +15,13 @@ internal class ModelImportController(private val createStore: () -> ModelStore,
     private val deliver: () -> Unit = { deliverNewest() }
     private var store: ModelStore? = null // I/O-worker-only.
     @Volatile private var picker: PickerCoordinator? = null
+    private var operation: ImportOperation? = null // Guarded by gate; immutable capture per command.
+    private var ioRunning = false
+    private class Pending(val operation: ImportOperation, val primary: Exception?,
+                          var publication: ModelStore.Publication? = null, var cleanupFailed: Boolean = false) {
+        @Volatile var waitingForSource = false
+    }
+    @Volatile private var pending: Pending? = null
     fun snapshot(): ModelImportSnapshot = synchronized(gate) { latest }
     fun observe(listener: (ModelImportSnapshot) -> Unit): () -> Unit {
         val key = Any()
@@ -54,25 +61,187 @@ internal class ModelImportController(private val createStore: () -> ModelStore,
         change { it.copy(store = state, picker = coordinator.snapshot()) }
         return opened
     }
-    private fun command(action: () -> Unit): Boolean {
+    private fun command(op: ImportOperation? = null, action: () -> Unit): Boolean {
         synchronized(gate) {
             if (latest.busy) return false
-            change { it.copy(busy = true, issue = null, outcome = null) }
+            operation = op; ioRunning = true
+            change { it.copy(busy = true, issue = null, outcome = null, operation = op?.state(),
+                resourcesPending = false, bytes = 0, total = null, name = null, warnings = emptySet()) }
         }
         try {
             execute {
                 try { action() } catch (_: Exception) {
                     change { it.copy(issue = ImportIssue.RECOVERY_REQUIRED, outcome = ImportOutcome.FAILED) }
-                } finally { change { it.copy(busy = false) } }
+                } finally { finishTurn() }
             }
         } catch (_: Exception) {
-            change { it.copy(busy = false, issue = ImportIssue.RECOVERY_REQUIRED, outcome = ImportOutcome.FAILED) }
+            op?.finish()
+            synchronized(gate) {
+                operation = null; ioRunning = false
+                change { it.copy(busy = false, operation = op?.state(), issue = ImportIssue.RECOVERY_REQUIRED, outcome = ImportOutcome.FAILED) }
+            }
             return false
         }
         return true
     }
-    fun initialize(): Boolean = command {
-        val state = readyStore().recover()
-        change { it.copy(store = state, picker = checkNotNull(picker).snapshot()) }
+    private fun resumeReadyLocked(): Boolean {
+        val current = pending ?: return false
+        if (ioRunning || !current.waitingForSource || !current.operation.state().quiescent) return false
+        ioRunning = true
+        return true
+    }
+    private fun resourcesChanged(op: ImportOperation) {
+        val resume = synchronized(gate) { operation === op && resumeReadyLocked() }
+        if (resume) resumePending()
+    }
+    private fun finishTurn() {
+        val resume = synchronized(gate) {
+            ioRunning = false
+            if (pending == null) {
+                operation = null
+                change { it.copy(busy = false) }
+                false
+            } else resumeReadyLocked()
+        }
+        if (resume) resumePending()
+    }
+    private fun resumePending() {
+        try {
+            execute {
+                try { settlePending() } catch (_: Exception) {
+                    pending?.waitingForSource = false
+                    change { it.copy(issue = ImportIssue.RECOVERY_REQUIRED, resourcesPending = true) }
+                } finally { finishTurn() }
+            }
+        } catch (_: Exception) {
+            synchronized(gate) { ioRunning = false; pending?.waitingForSource = false }
+            change { it.copy(issue = ImportIssue.RECOVERY_REQUIRED, resourcesPending = true) }
+        }
+    }
+    private class StalePickerResult : Exception("Picker result no longer matches")
+    private class SelectionFailure(cause: Exception?) : Exception("Picker consumption not confirmed", cause)
+    fun interface SourceRequest { fun acquire(operation: ImportOperation): ModelSource }
+    fun importResult(token: PickerToken, request: SourceRequest): Boolean {
+        val op = ImportOperation(java.util.UUID.randomUUID().toString(), abort)
+        op.onResourceChange { resourcesChanged(op) }
+        return command(op) {
+            var publication: ModelStore.Publication? = null
+            var primary: Exception? = null
+            try {
+                readyStore()
+                val coordinator = checkNotNull(picker)
+                val consumed = coordinator.consumeResult(token)
+                change { it.copy(store = consumed?.state ?: it.store, picker = coordinator.snapshot()) }
+                if (consumed == null) throw StalePickerResult()
+                if (!consumed.accepted) throw SelectionFailure(consumed.failure)
+                op.check()
+                val source = request.acquire(op)
+                val engine = createEngine()
+                op.phase(ImportPhase.COPYING)
+                change { it.copy(operation = op.state()) }
+                val copied = engine.copy(source, { checkNotNull(store).createCandidate(newPayloadId()) }, op) { count ->
+                    val metadata = source.metadata
+                    change(progress = true) { it.copy(bytes = count, total = metadata.size?.takeIf { n -> n > 0 },
+                        name = ModelName.sanitize(metadata.name), operation = op.state()) }
+                }
+                op.check(); op.phase(ImportPhase.PROMOTING)
+                change { it.copy(operation = op.state()) }
+                checkNotNull(store).promote(copied)
+                op.check()
+                check(op.tryCommit()) { "Commit gate unavailable" }
+                change { it.copy(operation = op.state()) }
+                publication = checkNotNull(store).publishCandidate(copied)
+            } catch (failure: Exception) { primary = failure }
+            var cleanupFailed = (primary as? ModelImportEngine.Failure)?.cleanupPending == true
+            try { op.closeSource() } catch (_: Exception) { cleanupFailed = true }
+            pending = Pending(op, primary, publication, cleanupFailed)
+            settlePending()
+        }
+    }
+    private fun newPayloadId() = java.util.UUID.randomUUID().toString().replace("-", "")
+    fun requestCancel(): ImportOperation.CancelResult {
+        val op = synchronized(gate) { operation } ?: return ImportOperation.CancelResult.FINISHED
+        val result = op.requestCancel()
+        synchronized(gate) { if (operation === op) change { it.copy(operation = op.state()) } }
+        return result
+    }
+    private fun issue(error: Exception?): ImportIssue {
+        val cause = if (error is ModelImportEngine.Failure) error.primary else error
+        return when (cause) {
+            is StalePickerResult -> ImportIssue.STALE_RESULT
+            is SelectionFailure -> ImportIssue.SELECTION_SAVE
+            is GgufHeader.Invalid -> if (cause.reason == GgufHeader.Reason.VERSION) ImportIssue.UNSUPPORTED_HEADER else ImportIssue.INVALID_HEADER
+            is ImportPolicy.Rejected -> when (cause.reason) {
+                ImportPolicy.Reason.SPACE_CHECK -> ImportIssue.SPACE_CHECK
+                ImportPolicy.Reason.INSUFFICIENT_SPACE -> ImportIssue.INSUFFICIENT_SPACE
+                else -> ImportIssue.INCONSISTENT_SIZE
+            }
+            is SecurityException -> ImportIssue.SOURCE_UNREADABLE
+            else -> if (error is ModelImportEngine.Failure) ImportIssue.READ_WRITE else ImportIssue.SOURCE_UNREADABLE
+        }
+    }
+    private fun settlePending() {
+        val finished = pending ?: return
+        val op = finished.operation
+        op.refreshResource()
+        if (!op.state().quiescent) {
+            finished.waitingForSource = true
+            change { it.copy(operation = op.state(), resourcesPending = true) }; return
+        }
+        finished.waitingForSource = false
+        var publication = finished.publication
+        if (publication?.outcome == CheckedModelRecord.State.AMBIGUOUS) {
+            publication = checkNotNull(store).reconcilePublication()
+            finished.publication = publication
+        }
+        val state = if (publication?.outcome == CheckedModelRecord.State.NEW || publication?.outcome == CheckedModelRecord.State.AMBIGUOUS) {
+            publication.state
+        } else {
+            try { store?.discardPendingCandidate() } catch (_: Exception) { finished.cleanupFailed = true }
+            store?.recover() ?: ModelStore.State(problem = ModelStore.Problem.RECOVERY_REQUIRED)
+        }
+        if (state.problem == ModelStore.Problem.RESOURCES_PENDING) {
+            change { it.copy(store = state, operation = op.state(), resourcesPending = true) }; return
+        }
+        val imported = publication?.outcome == CheckedModelRecord.State.NEW && state.available
+        val cancelled = op.state().cancelAccepted && state.available && publication?.outcome != CheckedModelRecord.State.NEW
+        check(op.finish())
+        pending = null
+        val warnings = mutableSetOf<ImportWarning>()
+        if (state.payloadDebt || state.recordDebt) warnings += ImportWarning.CLEANUP_DEBT
+        if (finished.cleanupFailed) warnings += ImportWarning.CLEANUP_FAILED
+        change { it.copy(store = state, operation = op.state(), resourcesPending = false,
+            outcome = if (imported) ImportOutcome.IMPORTED else if (cancelled) ImportOutcome.CANCELLED else ImportOutcome.FAILED,
+            issue = if (imported || cancelled) null else if (!state.available) ImportIssue.RECOVERY_REQUIRED
+                else if (publication != null) ImportIssue.SELECTION_SAVE else issue(finished.primary), warnings = warnings) }
+    }
+
+    fun initialize(): Boolean = command { readyStore() }
+    fun beginPicker(): Boolean = command {
+        readyStore()
+        val coordinator = checkNotNull(picker)
+        val result = coordinator.reserve()
+        change { it.copy(store = result?.state ?: it.store, picker = coordinator.snapshot(),
+            issue = if (result?.accepted == true) null else ImportIssue.SELECTION_SAVE) }
+    }
+    fun claimLaunch(): PickerToken? {
+        val token = picker?.claimLaunch()
+        if (token != null) change { it.copy(picker = checkNotNull(picker).snapshot()) }
+        return token
+    }
+    fun markLaunched(token: PickerToken): Boolean {
+        val marked = picker?.markLaunched(token) == true
+        if (marked) change { it.copy(picker = checkNotNull(picker).snapshot()) }
+        return marked
+    }
+    fun abandonRoute(token: PickerToken) {
+        picker?.abandonRoute(token)
+        change { it.copy(picker = picker?.snapshot() ?: it.picker) }
+    }
+    fun dismissPicker(token: PickerToken): Boolean = command {
+        readyStore()
+        val coordinator = checkNotNull(picker)
+        coordinator.dismiss(token)?.let { result -> change { it.copy(store = result.state,
+            picker = coordinator.snapshot(), issue = if (result.accepted) null else ImportIssue.SELECTION_SAVE) } }
     }
 }

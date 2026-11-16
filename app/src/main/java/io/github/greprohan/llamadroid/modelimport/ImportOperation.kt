@@ -15,15 +15,24 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
     private var sourceSent = false
     private var helpers = 0
     private val errors = mutableListOf<Exception>()
+    private var resourceChanges: (() -> Unit)? = null
+    fun onResourceChange(listener: () -> Unit) = synchronized(gate) {
+        check(resourceChanges == null && current == ImportPhase.PREPARING && !acquiring)
+        resourceChanges = listener
+    }
+    private fun changed() { synchronized(gate) { resourceChanges }?.invoke() }
     private class Abort(val action: () -> Unit) { var started = false; var done = false }
     fun state() = synchronized(gate) { ImportOperationState(id, current, cancelled, helpers, acquiring, source?.settled == false) }
     private fun checkLocked() { if (cancelled) throw CancellationException("Model import cancelled") }
     override fun check() = synchronized(gate) { checkLocked() }
-    private fun complete(task: Abort, failure: Exception? = null) = synchronized(gate) {
-        if (!task.done) {
-            task.done = true; helpers--
-            if (failure != null && errors.size < 2) errors += failure
+    private fun complete(task: Abort, failure: Exception? = null) {
+        synchronized(gate) {
+            if (!task.done) {
+                task.done = true; helpers--
+                if (failure != null && errors.size < 2) errors += failure
+            }
         }
+        changed()
     }
     private fun submit(tasks: List<Abort>) {
         for (task in tasks) try {
@@ -37,9 +46,12 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
             }
         } catch (failure: Exception) {
             synchronized(gate) {
-                if (!task.started) complete(task, failure)
-                else if (errors.size < 2) errors += failure // A started task still owns its slot until its finally.
+                if (!task.started && !task.done) {
+                    task.done = true; helpers--
+                    if (errors.size < 2) errors += failure
+                } else if (errors.size < 2) errors += failure // A started task owns its slot until its finally.
             }
+            changed()
         }
     }
     private fun abortsLocked(): List<Abort> {
@@ -62,7 +74,10 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
         check(signal != null && source == null && current != ImportPhase.COMMITTING && current != ImportPhase.FINISHED && !acquiring)
         acquiring = true
     }
-    fun endAcquisition() = synchronized(gate) { check(acquiring); acquiring = false }
+    fun endAcquisition() {
+        synchronized(gate) { check(acquiring); acquiring = false }
+        changed()
+    }
     /** Caller owns an acquisition until this returns; this operation never reuses a resource slot. */
     fun publish(source: ModelSource): ModelSource {
         val lease = SourceLease(source)
@@ -103,10 +118,12 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
     }
     fun finish() = synchronized(gate) {
         if (acquiring || helpers != 0 || source?.settled == false) false else {
-            current = ImportPhase.FINISHED; signal = null; source = null; true
+            current = ImportPhase.FINISHED; signal = null; source = null; resourceChanges = null; true
         }
     }
     fun refreshResource() { synchronized(gate) { source }?.refresh() }
+    /** Worker cleanup uses the same claim as abort helpers, never a second raw close. */
+    fun closeSource() { synchronized(gate) { source }?.close() }
 
     private enum class CloseState { OPEN, CLOSING, CLOSED, FAILED }
     private inner class SourceLease(private val captured: ModelSource) : ModelSource {
@@ -118,6 +135,7 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
         fun refresh() {
             val confirmed = captured.closed
             synchronized(gate) { if (confirmed && closing != CloseState.CLOSING) closing = CloseState.CLOSED }
+            changed()
         }
         override fun close() {
             val own = synchronized(gate) {
@@ -137,6 +155,7 @@ internal class ImportOperation(val id: String, private val dispatch: (() -> Unit
                 // Even an exception after a real close must not permit a duplicate raw close.
                 if (!confirmed) confirmed = captured.closed
                 synchronized(gate) { closing = if (confirmed) CloseState.CLOSED else CloseState.FAILED }
+                changed()
             }
         }
     }
