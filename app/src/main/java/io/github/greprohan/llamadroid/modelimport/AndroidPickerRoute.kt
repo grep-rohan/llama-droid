@@ -84,13 +84,15 @@ internal class AndroidPickerRoute private constructor(private val route: PickerR
     fun result(code: Int, resultCode: Int, data: Intent?): Result? {
         val token = route.takeResult(code) ?: return null
         if (resultCode != Activity.RESULT_OK) return Result.Dismissed(token)
-        if (data == null || data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION == 0) return Result.Invalid(token)
-        val clip = data.clipData
-        if (clip != null && (clip.itemCount != 1 || clip.getItemAt(0).intent != null)) return Result.Invalid(token)
-        val clipped = clip?.getItemAt(0)?.uri
-        val uri = data.data ?: clipped ?: return Result.Invalid(token)
-        if (clip != null && clipped != uri) return Result.Invalid(token)
-        if (uri.scheme != "content" || uri.authority.isNullOrEmpty()) return Result.Invalid(token)
-        return Result.Document(token, uri)
+        try {
+            if (data == null || data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION == 0) return Result.Invalid(token)
+            val clip = data.clipData
+            if (clip != null && (clip.itemCount != 1 || clip.getItemAt(0).intent != null)) return Result.Invalid(token)
+            val clipped = clip?.getItemAt(0)?.uri
+            val uri = data.data ?: clipped ?: return Result.Invalid(token)
+            if (clip != null && clipped != uri) return Result.Invalid(token)
+            if (uri.scheme != "content" || uri.authority.isNullOrEmpty()) return Result.Invalid(token)
+            return Result.Document(token, uri)
+        } catch (_: Exception) { return Result.Invalid(token) } // Malformed parcel/getters never become an import or raw diagnostics.
     }
 }

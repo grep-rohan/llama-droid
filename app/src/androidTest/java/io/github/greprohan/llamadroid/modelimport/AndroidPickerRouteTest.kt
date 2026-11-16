@@ -122,6 +122,16 @@ class AndroidPickerRouteTest {
         assertNull(route.receive(secondCode, Activity.RESULT_OK, result()))
     }
 
+    @Test fun malformedResultGetterIsInvalidWithoutLeakingItsExceptionTextOrRetainingBinding() {
+        val route = AndroidPickerRoute.restore(null); val code = launch(route)
+        val malformed = object : Intent() {
+            override fun getClipData(): ClipData? = throw android.os.BadParcelableException("content://private/source")
+        }.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val reply = route.receive(code, Activity.RESULT_OK, malformed)
+        assertTrue(reply is AndroidPickerRoute.Result.Invalid); assertNull(route.state().binding)
+        assertFalse(reply.toString().contains("content://")); route.retire()
+    }
+
     @Test fun malformedMultipleNonContentAndUngrantedResultsNeverBecomeDocuments() {
         val multiple = ClipData.newRawUri("fixture", uri).also { it.addItem(ClipData.Item(uri)) }
         val conflicting = ClipData.newRawUri("fixture", Uri.parse("content://generated.fixture/other"))
