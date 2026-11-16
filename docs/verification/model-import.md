@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-06 / F2 host-verified; host progression authorized
+## Current status — MI-07 host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**155 JVM tests pass**, including **14 new MI-05 tests**. Lint reports
+**170 JVM tests pass**, including **15 new MI-07 tests**. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -12,7 +12,7 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-07 is next. Phone work is not authorized.**
+MI-07 is complete; MI-08 is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -889,3 +889,45 @@ ownership was also retained during implementation. No unresolved host-contract
 blocker found for MI-07. Android/provider descriptor behavior, process death,
 physical >2 GiB import and backup/transfer remain unverified until approved device
 batches. This is an assistant technical review, not invented owner/human sign-off.
+
+## MI-07 — Cancellation/commit gate and captured source ownership
+
+Commit `90ba6d1`; four planned files added: `ModelImportState.kt`,
+`ImportOperation.kt`, `ImportOperationTest.kt`, `ImportResourceRaceTest.kt`.
+The pure operation has immutable identity, monotonic copy/promotion phases,
+and one short in-memory gate for accepted Cancel versus one-shot COMMITTING.
+No provider/file call executes inside it. Late Cancel after commit does not set
+cancellation or dispatch helpers. Acquisition requires a registered provider
+signal; cancellation forbids starting a new acquisition. An already-running
+acquisition retains the owner until its late resource is disposed/closed.
+
+At most two immutable abort tasks per operation capture its signal and single
+source lease. Duplicate Cancel queues nothing. Dispatch rejection retains the
+cancel flag, bounded causes and truthful unresolved ownership. A blocked signal
+does not block independent source close. Source construction/close handoff is
+single-owner: worker/helper race for one close claim, pending close is not retried
+blindly or reported closed, and a post-close exception cannot cause raw descriptor
+reuse/double-close. Failed close remains pending until separately confirmed closed.
+No helper can reference a candidate/selection/reset writer. Completion and commit
+require no acquisition/helper/resource owner; finished operations release references.
+The dispatcher contract is explicit: enqueue nonblocking, never execute inline;
+the bounded production executor is a later MI-09 integration obligation.
+
+Meaningful RED runs: gate **5/5 failed**, source ownership **3/8 failed**, signal-
+before-acquisition **1/6 failed**, followed by GREEN. Fifteen new tests include
+**100 concurrent Cancel/commit pairs**, explicit both-winner outcomes, queued
+helper duplication, late acquisition, immutable old-operation capture, dispatch
+rejection, post-close errors, blocked signal and worker-close races. Latches are
+released in `finally`; actual worker threads/executor futures are joined and
+asserted terminated before passing. These are JVM fakes, not Android FD evidence.
+
+Final command `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 25s**, 80 tasks / 16 executed, **170 JVM tests**, zero failures/errors/
+skips. Lint **0 errors / 4 existing warnings**, both APKs pass. Evidence:
+`.cache/model-import/mi-07-20261116T115656Z/` with RED/GREEN/final logs/XML, preflight,
+12 reports, lint and all source/artifact hashes in `results.json`. Production APK
+`e8192d6ac2c99b4486362ecee535c85158d64d2f6e8ca88a8b65e426f5ffa3ea`
+(79,482,963 bytes); test APK remains
+`3f80f1b1cc87144d37250b428a45b07f63b577373982d419325dc4ef34c694c3`.
+All pre-existing app/test/native/excluded owner inputs unchanged. No phone access,
+Activity wiring, Android execution or fabricated checkpoint/human result. MI-08 next.
