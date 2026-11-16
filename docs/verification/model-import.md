@@ -1,6 +1,6 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-16 / H0 technically host-verified; Android runtime unverified
+## Current status — MI-17 host driver verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
@@ -17,7 +17,7 @@ directed **“don't stop until phoen required”**: continue host-only implement
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
 MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13–MI-16 and checkpoints B/H0 are host-verified; MI-17's bounded host driver is next. Phone work is not authorized.**
+screen/routes. MI-13–MI-17 and checkpoints B/H0 are host-verified; MI-17A's crash orchestration is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1270,3 +1270,11 @@ Separate verification establishes authoritative old/new/empty selection, full fi
 Initial setup compilation found a wrong metadata type name, fixed to the existing `ModelMetadata` without changing production. Final command `./gradlew --no-daemon :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest` passes **in 18s**, 75 tasks / 8 executed; lint 0 errors / 4 baseline warnings. 26 ordinary + 2 crash methods compile, **none run**, 23 scenario pairs NOT executed. Unchanged 242 JVM results remain applicable. Evidence `.cache/model-import/mi-16-current-path.txt`, including failed/corrected/final logs and `results.json`. Production APK remains `247b5f6f1a1d9613de732871d988049bd3c15124df0bb476edd117487f0b29ec`; test APK `72124e88ffc35a7b203219211bde1c83aaf704a229421f500061e63bc8ee4ef7`.
 
 **Actual H0 technical review:** seven exact fixture/provider/suite files, source/APK identities and exclusion checks retained via `.cache/model-import/h0-current-path.txt` (`review-audit.json`). Reviewed no-backup namespace/lease/reopen semantics, separate provider package, bounded fixture creation, marker ordering, complete old metadata/length assertions, finite pause fallback and setup-vs-expected-pass exclusions. No unresolved host-contract blocker for MI-17. Assistant technical review only; no human/device result fabricated, no phone inventory or writes. Real platform/process termination, retained-installation and provider behavior remain blocked on MI-20/MI-22 consent.
+
+## MI-17 — Bounded filtered host execution / fake ADB
+
+Three planned Python files only plus this evidence: commits `f951be4`, `a680c67`, `e7da25c`, `c45f4ce`, `b28ae7d`, `c8fd0cf`. Entry script owns fixed packages/runner/two filters and explicit 26-method isolated/one-method native rosters, checked against instrumentation source (including the required provider/controller/view unknown-size case). Generic standard-library helper owns nonblocking pipe polling, subprocess reaping, limits/deadlines, APK/UID identity and independent teardown. No reader threads can be stranded by inherited-open pipes. Output/line limits apply before accumulation; errors/evidence retain only fixed reasons and bounded parsed fields, **no raw diagnostic output/serials/URIs/commands**. No diagnostic tail is retained (zero is below the 64 KiB cap).
+
+`--help` has no ADB calls. Actual execution requires both explicit write flag and private `ANDROID_SERIAL`; no arbitrary class/package/path/root input, installation/uninstall/clear/downgrade or server-kill command. Existing/linked evidence directories are refused and reports use exclusive creation. Preflight verifies both installed base-APK byte streams against fixed local APKs and literal package UIDs (including a reproduced/fixed regex-dot identity gap); initially active test packages are refused before test mutation. Pre/postflight caps are 120 seconds; short controls <=15 seconds. Suite budgets reserve the final 30 seconds for local transport reaping, independently stopping both packages and checking all their UID processes gone; changed APK/UID or failed cleanup cannot become a pass. The baseline is post-install/pre-test, not an old pre-update package hash.
+
+Meaningful RED parser/transport/identity/suite/hardening assertions retained, then GREEN. Final `python -m unittest discover -s scripts/tests -p 'test_model_import_recovery.py' -v`: **22 host tests pass**, zero failures/errors/skips, 0.488s. Python subprocess fixtures/fake ADB only; **no ADB/device contact**. `python scripts/check_model_import_recovery.py --help` passes without device selection. Evidence `.cache/model-import/mi-17-current-path.txt` retains RED/GREEN/final logs/help/source hashes/`results.json`. 242 JVM and latest APK/Android compilation remain applicable (their inputs unchanged, no redundant Gradle rerun). Crash-marker orchestration is still MI-17A; no actual retained-installation or instrumentation result claimed. Git commit succeeded despite a non-fatal auto-maintenance pack-index permission warning; no unrelated Git pack cleanup/config change was attempted.
