@@ -8,6 +8,35 @@ class CheckedModelRecordTest {
     private val old = ModelRecord.Selection("a".repeat(32))
     private val new = old.copy(pendingPickerNonce = "b".repeat(32))
 
+    @Test fun explicitlyConfirmedResetRepairKeepsUnreadableBaseUntilAtomicSwitch() {
+        val reset = ModelRecord.ResetAuthorization("c".repeat(32), "d".repeat(32))
+        for (event in listOf("create:reset.next", "write", "flush", "sync", "rename", "renamed")) {
+            val files = FakeModelFiles().apply { putBytes("reset", byteArrayOf(1)) }
+            val identity = files.stat("reset")!!
+            files.hook = { if (it == event) throw IOException(event) }
+            CheckedModelRecord(files, ModelRecordFile.RESET).use { record ->
+                val result = record.repairReset(identity, reset)
+                assertEquals(if (event == "renamed") CheckedModelRecord.State.NEW else CheckedModelRecord.State.OLD, result.state)
+                if (event == "renamed") assertEquals(reset, record.read())
+                else assertArrayEquals(byteArrayOf(1), files.nodes.getValue("reset").bytes)
+            }
+            assertFalse(files.events.contains("remove:reset"))
+            assertTrue(files.handles.all { it.closed })
+        }
+    }
+
+    @Test fun resetRepairRefusesChangedIdentityAndNeverRepairsSelection() {
+        val reset = ModelRecord.ResetAuthorization("c".repeat(32), "d".repeat(32))
+        val files = FakeModelFiles().apply { putBytes("reset", byteArrayOf(1)) }
+        val identity = files.stat("reset")!!
+        files.putBytes("reset", byteArrayOf(2))
+        assertEquals(CheckedModelRecord.State.AMBIGUOUS, CheckedModelRecord(files, ModelRecordFile.RESET).repairReset(identity, reset).state)
+        assertArrayEquals(byteArrayOf(2), files.nodes.getValue("reset").bytes)
+        try { CheckedModelRecord(files).repairReset(identity, reset); fail("Selection cannot use reset consent") }
+        catch (_: IllegalArgumentException) { }
+        assertFalse(files.events.any { it.startsWith("create:") || it.startsWith("remove:") })
+    }
+
     @Test fun preCommitFailuresPreserveOldBytesAndStopAllWriters() {
         for (event in listOf("create:selection.next", "info-write", "write", "written", "flush", "sync", "closed-write",
                              "open:selection.next", "read:selection.next", "rename")) {

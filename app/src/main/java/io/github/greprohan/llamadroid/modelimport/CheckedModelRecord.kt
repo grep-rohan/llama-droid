@@ -10,7 +10,7 @@ internal class CheckedModelRecord(private val files: ModelFileOps, private val s
     enum class State { OLD, NEW, AMBIGUOUS }
     data class Result(val state: State, val failure: Exception? = null, val sidecarDebt: Boolean = false)
 
-    private data class Snapshot(val entry: ModelFileOps.Entry, val record: ModelRecord)
+    private data class Snapshot(val entry: ModelFileOps.Entry, val record: ModelRecord?)
     private var live: ModelFileOps.Handle? = null
     val quiescent: Boolean get() = live?.closed != false
 
@@ -64,12 +64,27 @@ internal class CheckedModelRecord(private val files: ModelFileOps, private val s
 
     fun read(): ModelRecord? = snapshot(slot.base)?.record
 
-    fun replace(expected: ModelRecord?, replacement: ModelRecord): Result {
+    /** Fresh reset consent only: preserve an unreadable regular base until atomic replacement. */
+    fun repairReset(expected: ModelFileOps.Entry, replacement: ModelRecord.ResetAuthorization): Result {
+        require(slot == ModelRecordFile.RESET)
+        regular(expected)
+        return replace(null, replacement, expected)
+    }
+
+    fun replace(expected: ModelRecord?, replacement: ModelRecord): Result = replace(expected, replacement, null)
+
+    private fun replace(expected: ModelRecord?, replacement: ModelRecord, repair: ModelFileOps.Entry?): Result {
         typed(replacement)
         expected?.let { typed(it) }
         val bytes = ModelRecordCodec.encode(replacement)
+        fun baseSnapshot(): Snapshot? {
+            check(quiescent)
+            val entry = files.stat(slot.base)
+            return if (repair != null && entry == repair) Snapshot(repair, null) else snapshot(slot.base)
+        }
         val old = try {
-            snapshot(slot.base).also { check(it?.record == expected) { "Model record expectation changed" } }
+            if (repair != null) check(files.stat(slot.base) == repair) { "Reset repair identity changed" }
+            baseSnapshot().also { check(it?.record == expected) { "Model record expectation changed" } }
         } catch (failure: Exception) { return Result(State.AMBIGUOUS, failure, true) }
         var identity: ModelFileOps.Entry? = null
         var problem: Exception? = null
@@ -87,12 +102,12 @@ internal class CheckedModelRecord(private val files: ModelFileOps, private val s
             }
             val prepared = snapshot(slot.next)
             check(prepared?.record == replacement && prepared.entry.sameFile(checkNotNull(identity)))
-            check(snapshot(slot.base) == old)
+            check(baseSnapshot() == old)
             files.rename(slot.next, slot.base)
         } catch (failure: Exception) { problem = failure }
         if (!quiescent) return Result(State.AMBIGUOUS, problem, true)
         try {
-            val current = snapshot(slot.base)
+            val current = baseSnapshot()
             if (current?.record == replacement && identity?.let { current.entry.sameFile(it) } == true &&
                 files.stat(slot.next) == null
             ) return Result(State.NEW, problem)
@@ -108,7 +123,7 @@ internal class CheckedModelRecord(private val files: ModelFileOps, private val s
                     if (problem == null) problem = cleanup
                     else if (problem !== cleanup) problem.addSuppressed(cleanup)
                 }
-                check(snapshot(slot.base) == old) { "Model record changed during cleanup" }
+                check(baseSnapshot() == old) { "Model record changed during cleanup" }
                 val debt = try { files.stat(slot.next) != null } catch (_: Exception) { true }
                 return Result(State.OLD, problem ?: IllegalStateException("Model record replacement not confirmed"), debt)
             }
