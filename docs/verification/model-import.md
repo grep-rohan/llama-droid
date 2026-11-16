@@ -1,15 +1,19 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-03 host-verified; F1 ready for owner review
+## Current status — F1 technical review complete; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
 **123 JVM tests pass**, including **32 new MI-03 tests** (80 model-import tests
 in total). Lint reports **0 errors / 4 existing warnings**, and both APK targets
-pass. Owner authorized MI-03 with **“start next”** after MI-02. **Checkpoint F1
-review and MI-04 authorization remain pending.** No Android filesystem,
-process-death, backup, end-user import or phone result is inferred from these
-JVM tests/compilation. Detailed evidence follows below.
+pass. F1 source/evidence review found no host-contract blocker. The owner then
+directed **“don't stop until phoen required”**: continue host-only implementation
+and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
+without per-task approval pauses. **MI-04 is authorized; phone work is not.**
+Reviews are assistant technical reviews under this standing instruction, not
+invented human sign-offs. Distinct human/device results remain explicitly pending
+where required. No Android filesystem, process-death, backup, end-user import or
+phone result is inferred from these JVM tests/compilation.
 
 ### Baseline reconciliation
 
@@ -672,6 +676,45 @@ resource results before MI-04. Approval of MI-03 execution does not itself
 approve F1 or authorize the next slice.
 
 No platform, actual process-death, power-loss, backup/transfer or physical-phone
-result is inferred from this foundation. **Next smallest action: owner F1 review
-and explicit MI-04 batch authorization.** Model import, server lifecycle,
-inference and WebUI milestones remain incomplete.
+result is inferred from this foundation. At MI-03 closure the next action was
+F1 review/MI-04 authorization; the subsequent review and standing owner
+instruction are recorded below. Model import, server lifecycle, inference and
+WebUI milestones remain incomplete.
+
+## F1 technical review — 2026-11-16
+
+The owner requested the next step (F1 review), then explicitly requested
+uninterrupted host work until a phone is required. Reviewed implementation:
+**`fcdb9efaf08d1ece6a7f7a98440e3110e6aaa3f1`**, unchanged at review HEAD
+`836799d4f6dc8733da42b304de1002c5edd1e0a8` (documentation-only difference).
+All eight production model-import sources and six JVM test/fixture sources were
+read against the P1 contract. No blocking defect was identified within that
+contract; this is a bounded review, not a claim that no bugs can exist.
+
+| Review boundary | Source/evidence checked | Finding |
+|---|---|---|
+| Bounded untrusted metadata | `ModelName`, `ModelRecordCodec`, independent wire fixtures, truncation/UTF-8/length tests | Fixed/bounded allocation, canonical safe names and strict record schema; no source path fields or parser-data diagnostics. |
+| Old-record preservation | `CheckedModelRecord`, operation/fault matrix | Base unchanged until same-directory rename; temp readback/identity/closed-handle checks; old/new/ambiguous reconciliation rather than blind rollback. |
+| False normal returns / debt | Write/rename/close/remove silent-failure cases | Readback/postinspection detects violated postconditions; unclosed resources block another I/O pass; known-base debt is not guessed publication. |
+| Root/type/path ownership | `ModelOwnership`, `AndroidModelRoot`, `AndroidModelFileOps`, owned-kind/link/id/path tests | Canonical trusted parent and fixed child, no-follow single-link regular entries, generated payload names; lazy closed inventory. Actual Android syscall behavior still needs MI-15/MI-20. |
+| Old/new/empty recovery | `ModelStore`, reconstructed file images and corruption tests | Only base authority; no `.next` promotion; corrupted/missing metadata does not invent a model or authorize deletion. |
+| Cleanup / reset boundary | Full preflight, current-selection checks, source preservation, record/payload debt and reset-order cases | Cleanup remains limited to owned unreferenced entries; reset is reported pending, not executed before MI-13. |
+| Resource and concurrency assumptions | Captured reader/inventory cleanup, lease tests, bounded latch worker teardown | Second store excluded; one store remains caller-serialized, not an implicit concurrent queue. No cross-process/hostile-writer guarantee is inferred. |
+
+Fresh review audit compared every implementation/test SHA-256 with the retained
+MI-03 results, verified all seven JUnit XML hashes and their nonzero **123/123**
+results (80 model-import + 43 regression, no failures/errors/skips), inspected the
+4-warning/0-error lint report and checked both APK byte sizes/SHA-256 identities.
+No implementation or test inputs changed, so the successful test/build commands
+were **not rerun merely for reassurance**. Exact commands/results/source hashes
+remain in the MI-01–MI-03 evidence above; current audit is retained at
+`.cache/model-import/f1-20261116T111011Z/review-audit.json`.
+
+**F1 technical review is complete.** This does not claim a separate human review,
+Android/process-death result or module closure. The latest owner instruction
+authorizes incremental host progression, including technical checkpoint reviews,
+through **MI-19/H2**; still record each actual review and any fixes before the
+next slice. Do not mark a human/device-only checklist item as performed merely
+because host progression is authorized. **Stop at MI-20**, before inventory,
+installation/test/package-stop/data actions requiring physical-phone consent.
+No MI-04 code, phone access or unrelated-work changes were made in this review.
