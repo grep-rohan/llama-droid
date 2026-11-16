@@ -1,12 +1,14 @@
 # Model Import — Verification Evidence
 
-## Current status — F1 technical review complete; host progression authorized
+## Current status — MI-04 host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**123 JVM tests pass**, including **32 new MI-03 tests** (80 model-import tests
-in total). Lint reports **0 errors / 4 existing warnings**, and both APK targets
-pass. F1 source/evidence review found no host-contract blocker. The owner then
+**141 JVM tests pass**, including **18 new MI-04 tests**. Lint reports
+**0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
+fixed-header/sequential-copy path with closed-resource handoff, not selection
+publication or the MI-05 size/space/cleanup policy. F1 source/evidence review
+found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-04 is authorized; phone work is not.**
@@ -718,3 +720,61 @@ next slice. Do not mark a human/device-only checklist item as performed merely
 because host progression is authorized. **Stop at MI-20**, before inventory,
 installation/test/package-stop/data actions requiring physical-phone consent.
 No MI-04 code, phone access or unrelated-work changes were made in this review.
+
+## MI-04 — Fixed header and sequential byte copy
+
+Authorized by the standing host-only instruction. Commits **`40c74d5`** (header)
+and **`4d088df`** (ports/engine/tests). Exactly five approved deliverables:
+`GgufHeader.kt`, `ModelSource.kt`, `ModelImportEngine.kt` under the production
+`modelimport/` package, and `GgufHeaderTest.kt`, `ModelImportEngineTest.kt` under
+the matching JVM test package. No prior production/test files were modified.
+
+`GgufHeader` accepts the approved byte-level `GGUF` magic with little-endian v2/v3
+and big-endian v3 version bytes; other magic/version/byte-order combinations and
+prefixes shorter than 24 bytes fail. The two untrusted unsigned counts are never
+used for allocation/traversal. Counts/body integrity and compatibility are not
+validated; a header-passing, body-corrupt fixture intentionally passes.
+
+The pure engine retains the 24-byte prefix once, creates a candidate only after
+validation, writes prefix then a single 256 KiB buffer through actual source EOF,
+and tolerates short/zero-progress bulk reads without seek, reopen or trusting
+`available()`. Long counters use checked addition. Source close precedes explicit
+candidate flush/sync/close; closed postconditions and a final cancellation check
+precede `CopiedCandidate`. The engine cannot publish metadata. Failure retains
+its primary cause, candidate ownership and pending-resource flag; cleanup closes
+captured resources once, without concealing unresolved close. The source and
+candidate/cancellation ports have no MI-05/MI-07 forward dependencies. Candidate
+delete/space/reported-size policy is deliberately the next MI-05 slice.
+
+RED evidence: header **5/5 assertions failed**, then GREEN; initial copy **2/2
+failed**, then GREEN. An additional test found metadata could be accessed after
+copy outside classified cleanup: **1/13 engine tests failed**, then metadata/name
+snapshotting was moved inside owned preparation before candidate creation.
+All RED runs compiled/discovered nonzero cases, no errors/skips.
+
+Exact commands (RED/GREEN repetitions separated by source/test edits):
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*GgufHeaderTest'
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*GgufHeaderTest' --tests '*ModelImportEngineTest'
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+Final regression **141/141 pass** (5 header + 13 engine + prior 123), zero
+failures/errors/skips; **BUILD SUCCESSFUL in 21s**, 80 tasks (17 executed / 63
+up-to-date). Lint 0 errors / the same 4 warnings; both APKs pass. Tests cover exact
+prefix/body identity across multiple buffers, short/non-seekable unknown-length
+sources and actual EOF, early invalid/truncated input before destination creation,
+maximal untrusted counts, source/destination read/write/close/flush/sync failures,
+silent close, primary-cause privacy/retention, cooperative cancellation and the
+header-only integrity limitation. Android adapter/instrumentation behavior is
+still unexecuted; no model store/Activity integration or phone access is claimed.
+
+Evidence: `.cache/model-import/mi-04-20261116T111752Z/` retains commands/exit codes,
+RED/GREEN XML, final nine JUnit reports/lint XML, all source hashes and artifacts
+in `results.json`. Production APK SHA-256:
+`57f05a050650002bf8bf07d647d3f6b064741e58706a45bad1f0a68db58c9439`;
+instrumentation APK remains
+`f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6`.
+Prior P1 source/report identities, native stage/receipt, `.gitignore`, `app/.cxx/`
+and unrelated documents are unchanged. Next: MI-05 under standing authorization.
