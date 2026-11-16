@@ -101,6 +101,23 @@ def run_case(session, scenario, checkpoint, baseline=None):
     return report
 
 
+def run_matrix(session, pairs):
+    if not pairs or len(pairs) != len(set(pairs)):
+        raise Failure("invalid checkpoint matrix")
+    for scenario, checkpoint in pairs:
+        if expand_pairs(scenario, checkpoint) != [(scenario, checkpoint)]: raise Failure("invalid checkpoint matrix")
+    baseline = None; cases = []; halted = False
+    for scenario, checkpoint in pairs:
+        if halted:
+            cases.append({"scenario": scenario, "checkpoint": checkpoint, "passed": False, "not_run": "prior case failed"})
+            continue
+        result = run_case(session, scenario, checkpoint, baseline)
+        baseline = result.pop("baseline", baseline)
+        cases.append(result); halted = not result["passed"]
+    return {"mode": "recovery", "passed": not halted, "baseline": baseline, "cases": cases,
+            "requested": len(pairs), "tests": sum(case.get("tests", 0) for case in cases)}
+
+
 class Parser(argparse.ArgumentParser):
     def error(self, message):
         raise Failure("invalid command-line arguments")
@@ -140,11 +157,17 @@ def run_suite(session, mode):
 
 def main(argv=None, environ=None, device_factory=Device):
     parser = Parser(description=__doc__)
-    parser.add_argument("--suite", choices=tuple(FILTERS), required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--suite", choices=tuple(FILTERS))
+    mode.add_argument("--scenario", choices=(*PAIRS, "all"))
+    parser.add_argument("--checkpoint", choices=sorted({p for points in PAIRS.values() for p in points} | {"all"}))
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--allow-device-writes", action="store_true")
     try:
         args = parser.parse_args(argv)
+        if args.suite and args.checkpoint is not None: raise Failure("suite mode rejects checkpoints")
+        if args.scenario and args.checkpoint is None: raise Failure("scenario checkpoint required")
+        pairs = expand_pairs(args.scenario, args.checkpoint) if args.scenario else None
         env = os.environ if environ is None else environ
         if not args.allow_device_writes or not env.get("ANDROID_SERIAL"):
             raise Failure("separate owner consent and private ANDROID_SERIAL required")
@@ -152,7 +175,7 @@ def main(argv=None, environ=None, device_factory=Device):
             raise Failure("linked evidence directory refused")
         session = device_factory(env["ANDROID_SERIAL"], APKS)
         args.evidence_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
-        report = run_suite(session, args.suite)
+        report = run_suite(session, args.suite) if args.suite else run_matrix(session, pairs)
         encoded = json.dumps(report, indent=2)
         if len(encoded.encode("utf-8")) > 65536: raise Failure("evidence size limit")
         with (args.evidence_dir / "report.json").open("x", encoding="utf-8") as output:

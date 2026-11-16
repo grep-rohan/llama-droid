@@ -176,6 +176,7 @@ class FakeAdb:
             def proc(self): return SimpleNamespace(poll=lambda: None if self.alive else status)
             def run(self, deadline, consume, until=lambda: False):
                 if len(output) > limit: raise device.Failure("transport output limit")
+                if status == "timeout": raise device.Failure("transport deadline expired")
                 consume(output)
                 if until(): self.alive = True; return None
                 return status
@@ -394,6 +395,69 @@ class CrashDriverTests(unittest.TestCase):
                 self.assertFalse(fake.replies)
                 self.assertNotEqual(report["ready"]["pid"], report["verified"]["pid"])
                 self.assertEqual(2, sum(args[-1] == driver.TARGET and "force-stop" in args for args in fake.calls))
+
+    def test_fault_at_each_state_keeps_failure_and_independent_final_teardown(self):
+        def change(index, transform):
+            def apply(replies):
+                args, data, status = replies[index]; replies[index] = (args, transform(data), status)
+            return apply
+        mutations = []
+        # Failure before ready/process validation: verification must not start.
+        for transform in [lambda b: b"", lambda b: b.replace(b'"runId": "' + b'a'*32, b'"runId": "' + b'b'*32),
+                          lambda b: b + b"INSTRUMENTATION_CODE: -1\n"]:
+            def before_ready(replies, transform=transform):
+                change(7, transform)(replies); del replies[8:13]
+            mutations.append(before_ready)
+        def wrong_process(replies):
+            change(8, lambda b: b.replace(b"42 10001", b"99 10001"))(replies); del replies[9:13]
+        mutations.append(wrong_process)
+        def failed_stop(replies):
+            args, data, status = replies[9]; replies[9] = (args, data, 1); del replies[12]
+        mutations.append(failed_stop)
+        # Verification framing/count/process identity and timeout must never be masked by cleanup.
+        for transform in [lambda b: b.replace(b'"pid": 43', b'"pid": 42').replace(b'"startedElapsedMs": 200', b'"startedElapsedMs": 100'),
+                          lambda b: b.replace(b"model_import_verified", b"unrecognized_verified"),
+                          lambda b: b.replace(b'"uid": 10001', b'"uid": 10002'),
+                          lambda b: b.replace(b"OK (1 tests)\nINSTRUMENTATION_CODE: -1\n", b""),
+                          lambda b: b.replace(b"INSTRUMENTATION_STATUS_CODE: 0", b"INSTRUMENTATION_STATUS_CODE: -3")]:
+            mutations.append(change(12, transform))
+        def timed_out(replies):
+            args, data, status = replies[12]; replies[12] = (args, data, "timeout")
+        mutations.append(timed_out)
+        for mutate in mutations:
+            with self.subTest(mutation=mutate), tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fixture(tmp, mutation=mutate)
+                report = self.run_case(session)
+                self.assertFalse(report["passed"]); self.assertFalse(fake.replies)
+                self.assertTrue(report["teardown"]); self.assertTrue(report["retained"])
+                self.assertFalse(report["fixture_cleanup"])
+
+    def test_pid_reuse_is_allowed_only_with_distinct_process_start_identity(self):
+        def reuse(replies):
+            args, data, status = replies[12]; replies[12] = (args, data.replace(b'"pid": 43', b'"pid": 42'), status)
+        with tempfile.TemporaryDirectory() as tmp:
+            session, fake = self.fixture(tmp, mutation=reuse)
+            self.assertTrue(self.run_case(session)["passed"]); self.assertFalse(fake.replies)
+
+    def test_matrix_keeps_original_baseline_and_marks_unrun_pairs_after_failure(self):
+        pairs = [("first", "mid-copy"), ("replace", "mid-copy"), ("reset", "reset-delete")]
+        baseline = {driver.TARGET: {"uid": 10001}}
+        replies = [{"passed": True, "tests": 1, "baseline": baseline}, {"passed": False, "tests": 0, "baseline": baseline}]
+        with mock.patch.object(driver, "run_case", side_effect=replies) as run:
+            result = driver.run_matrix(object(), pairs)
+        self.assertFalse(result["passed"]); self.assertEqual(3, result["requested"])
+        self.assertEqual("prior case failed", result["cases"][2]["not_run"])
+        self.assertEqual(baseline, run.call_args_list[1].args[3])
+        with self.assertRaises(device.Failure): driver.run_matrix(object(), [pairs[0], pairs[0]])
+
+    def test_cli_rejects_incompatible_modes_before_device_or_evidence_access(self):
+        invalid = [["--suite", "native", "--checkpoint", "all"], ["--scenario", "first"],
+                   ["--scenario", "first", "--checkpoint", "reset-cleared"],
+                   ["--scenario", "all", "--checkpoint", "mid-copy"],
+                   ["--suite", "native", "--scenario", "first"]]
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("No ADB")), redirect_stderr(io.StringIO()):
+            for args in invalid:
+                self.assertEqual(1, driver.main(args + ["--evidence-dir", "never-created", "--allow-device-writes"], {"ANDROID_SERIAL": "PRIVATE_SERIAL"}))
 
     def test_invalid_pairs_fail_before_any_session_or_device_mutation(self):
         for scenario, checkpoint in [("first", "reset-cleared"), ("reset", "mid-copy"), ("all", "mid-copy"), ("unknown", "all")]:
