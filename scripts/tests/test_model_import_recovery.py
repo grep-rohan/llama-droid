@@ -171,11 +171,15 @@ class FakeAdb:
         if argv[3:] != expected: raise AssertionError("Unexpected fake-ADB command")
         owner = self
         class Reply:
-            proc = SimpleNamespace(poll=lambda: 0)
+            alive = False
+            @property
+            def proc(self): return SimpleNamespace(poll=lambda: None if self.alive else status)
             def run(self, deadline, consume, until=lambda: False):
                 if len(output) > limit: raise device.Failure("transport output limit")
-                consume(output); return status
-            def close(self, deadline): owner.closed += 1
+                consume(output)
+                if until(): self.alive = True; return None
+                return status
+            def close(self, deadline): self.alive = False; owner.closed += 1
         return Reply()
 
 
@@ -339,6 +343,61 @@ class DriverTests(unittest.TestCase):
             with redirect_stderr(io.StringIO()), mock.patch.object(driver, "run_suite", side_effect=AssertionError("No execution")):
                 self.assertEqual(1, driver.main(["--suite", "native", "--evidence-dir", tmp, "--allow-device-writes"], {"ANDROID_SERIAL": "PRIVATE_SERIAL"}))
             self.assertEqual("owner", keep.read_text())
+
+
+class CrashDriverTests(unittest.TestCase):
+    run_id = "a" * 32
+    def fixture(self, tmp, scenario="first", checkpoint="mid-copy", mutation=None):
+        paths = {}; replies = []
+        def identities():
+            for index, pkg in enumerate([driver.TARGET, driver.TEST]):
+                path = Path(tmp) / f"{index}.apk"; path.write_bytes(b"apk"); paths[pkg] = path
+                replies.extend([(["shell", "cmd", "package", "list", "packages", "-U", pkg], f"package:{pkg} uid:{10001+index}\n".encode(), 0),
+                    (["shell", "pm", "path", pkg], b"package:/data/app/safe/base.apk\n", 0),
+                    (["exec-out", "cat", "/data/app/safe/base.apk"], b"apk", 0)])
+        ps = ["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"]
+        identities(); replies.append((ps, b"PID UID NAME\n", 0))
+        args = {"orchestrated": "true", "runId": self.run_id, "scenario": scenario, "checkpoint": checkpoint}
+        def command(cls, method):
+            result = ["shell", "am", "instrument", "-w", "-r", "-e", "class", cls + "#" + method]
+            for key, value in sorted(args.items()): result += ["-e", key, value]
+            return result + [driver.RUNNER]
+        ready = {"v": 1, "runId": self.run_id, "scenario": scenario, "checkpoint": checkpoint, "pid": 42, "uid": 10001, "startedElapsedMs": 100}
+        setup = frame(1, **{"class": driver.CRASH_SETUP, "test": "stageUntilCheckpoint", "numtests": "1"})
+        setup += frame(1001, model_import_checkpoint=json.dumps(ready))
+        replies.append((command(driver.CRASH_SETUP, "stageUntilCheckpoint"), setup, 0))
+        replies.append((ps, f"PID UID NAME\n42 10001 {driver.TARGET}\n".encode(), 0))
+        def stops():
+            for pkg in paths: replies.append((["shell", "am", "force-stop", pkg], b"", 0))
+            replies.append((ps, b"PID UID NAME\n", 0))
+        stops()
+        verified = dict(ready, pid=43, startedElapsedMs=200)
+        fields = {"class": driver.CRASH_VERIFY, "test": "verifyAfterRestart", "numtests": "1"}
+        output = frame(1, **fields) + frame(1002, model_import_verified=json.dumps(verified)) + frame(0, **fields) + b"OK (1 tests)\nINSTRUMENTATION_CODE: -1\n"
+        replies.append((command(driver.CRASH_VERIFY, "verifyAfterRestart"), output, 0))
+        stops(); identities()
+        if mutation: mutation(replies)
+        fake = FakeAdb(replies)
+        return device.Device("PRIVATE_SERIAL", paths, fake), fake
+
+    def run_case(self, session, scenario="first", checkpoint="mid-copy"):
+        with mock.patch.object(driver.uuid, "uuid4", return_value=SimpleNamespace(hex=self.run_id)):
+            return driver.run_case(session, scenario, checkpoint)
+
+    def test_every_explicit_first_replace_reset_pair_runs_separate_stop_and_verify(self):
+        pairs = driver.expand_pairs("all", "all"); self.assertEqual(23, len(pairs))
+        for scenario, checkpoint in pairs:
+            with self.subTest(scenario=scenario, checkpoint=checkpoint), tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fixture(tmp, scenario, checkpoint)
+                report = self.run_case(session, scenario, checkpoint)
+                self.assertTrue(report["passed"]); self.assertEqual(1, report["tests"])
+                self.assertFalse(fake.replies)
+                self.assertNotEqual(report["ready"]["pid"], report["verified"]["pid"])
+                self.assertEqual(2, sum(args[-1] == driver.TARGET and "force-stop" in args for args in fake.calls))
+
+    def test_invalid_pairs_fail_before_any_session_or_device_mutation(self):
+        for scenario, checkpoint in [("first", "reset-cleared"), ("reset", "mid-copy"), ("all", "mid-copy"), ("unknown", "all")]:
+            with self.assertRaises(device.Failure): driver.expand_pairs(scenario, checkpoint)
 
 
 if __name__ == "__main__":

@@ -150,15 +150,15 @@ class Device:
         for key, value in sorted(arguments.items()): args += ["-e", key, value]
         return self.command(self.prefix + args + [runner], 1024 * 1024), deadline
 
-    def teardown(self, baseline, budget):
+    def teardown(self, baseline, budget, teardown=True):
         failed = False
         for package in baseline:
             try:
-                if self.call(["shell", "am", "force-stop", package], budget, cap=8, teardown=True).strip():
+                if self.call(["shell", "am", "force-stop", package], budget, cap=8, teardown=teardown).strip():
                     failed = True
             except Failure: failed = True
         try:
-            if self.processes(baseline, budget, teardown=True): failed = True
+            if self.processes(baseline, budget, teardown=teardown): failed = True
         except Failure: failed = True
         if failed: raise Failure("device teardown incomplete")
 
