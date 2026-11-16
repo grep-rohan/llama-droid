@@ -67,7 +67,7 @@ def run_case(session, scenario, checkpoint, baseline=None):
         setup, deadline = session.instrument_command(RUNNER, CRASH_SETUP + "#stageUntilCheckpoint", arguments, budget, 30)
         live.append(setup)
         result = setup.run(deadline, parser.feed, until=lambda: 1001 in parser.markers)
-        if result is not None or setup.proc.poll() is not None or 1001 not in parser.markers:
+        if result is not None or setup.proc.poll() is not None or 1001 not in parser.markers or parser.buffer or parser.fields or parser.result:
             raise Failure("setup did not remain paused")
         ready = parser.markers[1001]; report["ready"] = ready
         processes = session.processes(baseline, budget)

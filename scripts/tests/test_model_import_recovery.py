@@ -432,6 +432,27 @@ class CrashDriverTests(unittest.TestCase):
                 self.assertTrue(report["teardown"]); self.assertTrue(report["retained"])
                 self.assertFalse(report["fixture_cleanup"])
 
+    def test_partial_extra_frame_after_ready_cannot_be_treated_as_still_paused(self):
+        def malformed(replies):
+            args, data, status = replies[7]; replies[7] = (args, data + b"INSTRUMENTATION_STATUS: class=unfinished", status)
+            del replies[8:13]
+        with tempfile.TemporaryDirectory() as tmp:
+            session, fake = self.fixture(tmp, mutation=malformed)
+            report = self.run_case(session)
+            self.assertFalse(report["passed"]); self.assertFalse(fake.replies)
+
+    def test_final_teardown_or_postflight_failure_cannot_become_a_case_pass(self):
+        def failed_final_stop(replies):
+            args, data, status = replies[13]; replies[13] = (args, data, 1)
+        def changed_post_uid(replies):
+            args, data, status = replies[16]; replies[16] = (args, data.replace(b"10001", b"10003"), status)
+        for mutate in [failed_final_stop, changed_post_uid]:
+            with tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fixture(tmp, mutation=mutate)
+                report = self.run_case(session)
+                self.assertFalse(report["passed"]); self.assertFalse(fake.replies)
+                self.assertTrue(report["fixture_cleanup"])
+
     def test_pid_reuse_is_allowed_only_with_distinct_process_start_identity(self):
         def reuse(replies):
             args, data, status = replies[12]; replies[12] = (args, data.replace(b'"pid": 43', b'"pid": 42'), status)
