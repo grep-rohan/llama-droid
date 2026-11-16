@@ -1130,3 +1130,11 @@ fixture/DoD limits in `results.json`. Production APK
 test APK `db612a60d6eee9e826a7703a6d04b08fbd1078dfcb97ba9c6aaeca7ead976ed5`
 (969,945 bytes). Exactly five reviewed files changed; packaged 14 native hashes,
 other sources and excluded owner work are unchanged. No phone access. MI-11 next.
+
+### MI-11 UI-message integration review
+
+Accurate missing-picker, malformed-result, busy-owner and retired/exhausted-route
+messages require fixed resource strings, not raw provider exceptions or hardcoded
+text. The existing `strings.xml` is explicitly MI-11's fifth file; original Activity,
+route/test and manifest scope is unchanged. This is host-only decomposition under
+standing authorization, not permission to invoke the real picker or access a phone.
