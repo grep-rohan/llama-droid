@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 /** Standalone test-APK process: no target classes, owner paths or production controls. */
 class FixtureModelProvider : ContentProvider() {
-    private val ids = setOf("regular", "slice", "pipe", "pipe-error", "null-open", "missing", "empty", "null-query", "overflow", "unknown", "denied", "gated-unknown")
+    private val ids = setOf("regular", "slice", "pipe", "pipe-error", "null-open", "missing", "empty", "null-query", "overflow", "unknown", "denied", "gated-unknown", "hang-query", "hang-open", "hang-read")
     private val gate = Any()
     private class Gated {
         val token = UUID.randomUUID().toString().replace("-", "")
@@ -33,6 +33,51 @@ class FixtureModelProvider : ContentProvider() {
         @Volatile var failed = false
     }
     private var gated: Gated? = null
+    private class Hanging(val id: String) {
+        val token = UUID.randomUUID().toString().replace("-", "")
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        @Volatile var worker: Thread? = null
+    }
+    private var hanging: Hanging? = null
+    private fun hang(id: String): Hanging = synchronized(gate) { checkNotNull(hanging).also { check(it.id == id) } }
+    private fun block(id: String) {
+        val state = hang(id); state.entered.countDown()
+        check(state.release.await(120, TimeUnit.SECONDS)) { "Generated provider fallback expired" }
+    }
+    private fun hangCall(method: String, arg: String?): Bundle {
+        if (method == "prepare-hang") {
+            require(arg in setOf("hang-query", "hang-open", "hang-read"))
+            val state = synchronized(gate) { check(hanging == null); Hanging(checkNotNull(arg)).also { hanging = it } }
+            return Bundle().apply { putString("token", state.token) }
+        }
+        require(method in setOf("await-hang", "release-hang", "finish-hang"))
+        val state = synchronized(gate) { checkNotNull(hanging).also { require(arg == it.token) } }
+        if (method == "await-hang") check(state.entered.await(5, TimeUnit.SECONDS))
+        else state.release.countDown()
+        if (method == "finish-hang") {
+            state.worker?.let { it.join(5000); check(!it.isAlive) }
+            synchronized(gate) { check(hanging === state); hanging = null }
+        }
+        return Bundle.EMPTY
+    }
+    private fun hangingPipe(): AssetFileDescriptor {
+        val state = hang("hang-read")
+        val pipe = ParcelFileDescriptor.createReliablePipe()
+        val worker = Thread({
+            try {
+                ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
+                    val bytes = payload(); output.write(bytes, 0, 24); state.entered.countDown()
+                    if (!state.release.await(120, TimeUnit.SECONDS)) pipe[1].closeWithError("Generated hang fallback expired")
+                    else output.write(bytes, 24, bytes.size - 24)
+                }
+            } catch (_: Exception) { try { pipe[1].close() } catch (_: Exception) { } }
+        }, "bounded-hang-fixture")
+        try {
+            synchronized(gate) { check(state.worker == null); state.worker = worker; worker.start() }
+            return AssetFileDescriptor(pipe[0], 0, AssetFileDescriptor.UNKNOWN_LENGTH)
+        } catch (failure: Exception) { pipe.forEach { it.close() }; throw failure }
+    }
     private fun caller(): android.content.Context {
         val ctx = checkNotNull(context)
         val caller = Binder.getCallingUid()
@@ -53,6 +98,7 @@ class FixtureModelProvider : ContentProvider() {
     override fun onCreate() = true
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         caller(); require(extras == null || extras.isEmpty)
+        if (method.endsWith("-hang")) return hangCall(method, arg)
         if (method == "prepare-gated") {
             require(arg == null)
             val state = synchronized(gate) { check(gated == null); Gated().also { gated = it } }
@@ -101,6 +147,7 @@ class FixtureModelProvider : ContentProvider() {
     }
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor? {
         val id = fixture(uri)
+        if (id == "hang-query") block(id) // Deliberately ignores subsequent remote signal cancellation.
         if (id == "null-query") return null
         val columns = if (id == "missing") arrayOf("unused") else projection ?: arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         val cursor = MatrixCursor(columns)
@@ -123,6 +170,8 @@ class FixtureModelProvider : ContentProvider() {
         val id = fixture(uri); require(mode == "r")
         if (id == "null-open") return null
         if (id == "gated-unknown") return gatedPipe()
+        if (id == "hang-open") block(id) // Returns a late read-only descriptor after explicit release.
+        if (id == "hang-read") return hangingPipe()
         if (id == "pipe" || id == "pipe-error") {
             val pipe = ParcelFileDescriptor.createReliablePipe()
             try {

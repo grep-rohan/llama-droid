@@ -13,7 +13,8 @@ internal class ModelImportCrashProtocol {
         val pairs = mapOf(
             "first" to setOf("initial-selection-next", "request-reserved", "request-consumed", "candidate-created", "mid-copy", "streams-closed", "payload-renamed", "selection-next-synced", "selection-committed"),
             "replace" to setOf("request-reserved", "request-consumed", "candidate-created", "mid-copy", "streams-closed", "payload-renamed", "selection-next-synced", "selection-committed", "old-payload-delete"),
-            "reset" to setOf("reset-next-synced", "reset-committed", "reset-delete", "reset-empty-committed", "reset-cleared"))
+            "reset" to setOf("reset-next-synced", "reset-committed", "reset-delete", "reset-empty-committed", "reset-cleared"),
+            "cancel-hang" to setOf("query-hung", "open-hung", "read-hung", "close-hung"))
         val oldId = "a".repeat(32); val newId = "b".repeat(32)
         val epoch = "c".repeat(32); val nonce = "d".repeat(32); val resetEpoch = "e".repeat(32)
         fun bytes(old: Boolean): ByteArray = ByteArray(50) { if (old) 7 else 9 }.also {
