@@ -1,11 +1,12 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-10 implemented/compiled; Android runtime unverified
+## Current status — MI-11 implemented/compiled; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**219 JVM tests pass**. MI-10 adds **four Android screen test methods,
-compiled but not executed**, including the gated unknown-size provider case. Lint reports
+**219 JVM tests pass**. MI-11 adds **six Android route test methods,
+compiled but not executed**; the four screen and seven adapter methods also remain
+unexecuted, including the gated unknown-size provider case. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -13,8 +14,8 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-09 and checkpoint A technical review are complete; MI-10 host scope is complete.
-MI-11 is next. Phone work is not authorized.**
+MI-09 and checkpoint A technical review are complete; MI-11 host scope is complete.
+MI-12 lifecycle routing is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1138,3 +1139,46 @@ messages require fixed resource strings, not raw provider exceptions or hardcode
 text. The existing `strings.xml` is explicitly MI-11's fifth file; original Activity,
 route/test and manifest scope is unchanged. This is host-only decomposition under
 standing authorization, not permission to invoke the real picker or access a phone.
+
+## MI-11 — Launcher and opaque SAF result routing
+
+Commits `ce6a83d`, `b9a6450`; five reviewed files: `MainActivity.kt`,
+`AndroidPickerRoute.kt`, `AndroidPickerRouteTest.kt`, production manifest and
+`strings.xml`. MainActivity binds only the Views/controller and observes while
+started, detaching/clearing screen callbacks on stop/destroy. It reads **no incoming
+Activity data/path/model/argument extras**. One memory-only, token-bound result can
+wait for serialized store recovery; no URI or dead copy is saved/restored. Additional
+same-process configuration-retention/lifecycle cases remain the next MI-12 slice.
+
+A same-process reserved request is claimed once before `ACTION_OPEN_DOCUMENT`,
+OPENABLE/`*/*`, single-document mode with temporary read access. Route identity/code/
+epoch/nonce are strictly bounded in one <=2 KiB tested Bundle contract; no URI.
+Unknown/malformed saved state retires the logical route rather than restarting
+codes at 1; exhaustion requires a fresh Activity route, never wrap/rebind. Only a
+matching single content URI with read flag reaches controller consumption; null,
+multiple, conflicting/non-content/ungranted/stale results cannot open a source.
+Picker cancellation/launch failure clears only its matching token. Actual readable
+provider access is still checked off-main and can fail safely. No persistent grant,
+external import filter or test/path control was added.
+
+Six Android memory/dispatch tests **compile, not run**: SAF flags/opaque saved
+bounds, restored matching/single consumption, bad inputs, failed dispatch/code
+non-reuse, malformed saved routes and exhaustion/retirement. Dispatch fakes never
+invoke the owner's picker/store. Full command
+`./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 25s** (80 tasks / 18 executed): **219 JVM tests**, zero failures/errors/
+skips; lint **0 errors / 4 baseline warnings**, both APKs pass. An intermediate
+`InflateParams` warning was fixed using Activity `setContentView`/content root,
+not suppressed. No Android runtime/lifecycle/visual/picker or human/ship result.
+
+Decoded **both actual APK manifests** using
+`D:/softwares/android-sdk/cmdline-tools/latest/bin/apkanalyzer.bat`, installed
+command-line tools **12.0** (`source.properties` retained), existing JDK 17.
+Production has exactly one exported **MAIN/LAUNCHER** Activity and no VIEW/SEND,
+permissions, provider, service or receiver. The fixture provider remains test-only.
+All 14 packaged native hashes match the unchanged stage.
+Evidence `.cache/model-import/mi-11-20261116T162132Z/`: exact logs/exit codes,
+fourteen JVM reports/lint, decoded declarations/tool provenance and source/artifact
+hashes. Production APK `88b7669755b1ac40a0f5ebab373abbb3a669472147b1b92e2d92c1286c4efa51`;
+test APK `8a7eb4f0fb49e849abd7d7b48346036ded6a08b69c9083fd13c5a57169a32e11`
+(975,121 bytes). Five-file scope and excluded owner work preserved. No phone access.
