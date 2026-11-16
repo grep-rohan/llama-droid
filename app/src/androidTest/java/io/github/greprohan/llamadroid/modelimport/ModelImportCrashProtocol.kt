@@ -46,4 +46,57 @@ internal class ModelImportCrashProtocol {
         error("Paused setup must never pass")
     }
     fun verified() { emit(1002, "model_import_verified") }
+
+    /** Wraps real Android operations; all pause controls live exclusively in the test APK. */
+    fun files(delegate: ModelFileOps): ModelFileOps = object : ModelFileOps by delegate {
+        private fun record(name: String): ModelRecord = delegate.openRead(name).use { ModelRecordCodec.read(it.input) }
+        override fun createExclusive(name: String): ModelFileOps.Writer {
+            val writer = delegate.createExclusive(name)
+            try { if (ModelOwnership.isCandidate(name)) hit("candidate-created") }
+            catch (failure: Throwable) { writer.close(); throw failure }
+            return object : ModelFileOps.Writer by writer {
+                private var synced = false
+                private var bytes = 0L
+                private var checkpointed = false
+                override fun write(data: ByteArray, offset: Int, count: Int) {
+                    writer.write(data, offset, count); bytes += count
+                    if (ModelOwnership.isCandidate(name) && bytes in 24..49) hit("mid-copy")
+                }
+                override fun sync() { writer.sync(); synced = true }
+                override fun close() {
+                    writer.close()
+                    if (!armed || !synced || !writer.closed || checkpointed) return
+                    checkpointed = true
+                    when (name) {
+                        "reset.next" -> hit("reset-next-synced")
+                        "selection.next" -> {
+                            val value = record(name) as ModelRecord.Selection
+                            if (value.active?.id == newId) hit("selection-next-synced")
+                            else if (delegate.stat("selection") == null && scenario == "first") hit("initial-selection-next")
+                        }
+                    }
+                }
+            }
+        }
+        override fun rename(from: String, to: String) {
+            delegate.rename(from, to)
+            if (!armed) return
+            when {
+                to == "reset" -> hit("reset-committed")
+                to == "model-$newId.gguf" -> hit("payload-renamed")
+                to == "selection" -> {
+                    val value = record(to) as ModelRecord.Selection
+                    if (value.active?.id == newId) hit("selection-committed")
+                    if (value == ModelRecord.Selection(resetEpoch)) hit("reset-empty-committed")
+                }
+            }
+        }
+        override fun remove(name: String) {
+            delegate.remove(name)
+            when (name) {
+                "model-$oldId.gguf" -> hit(if (scenario == "reset") "reset-delete" else "old-payload-delete")
+                "reset" -> hit("reset-cleared")
+            }
+        }
+    }
 }
