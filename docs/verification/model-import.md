@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-12 / F3 technically host-verified; Android runtime unverified
+## Current status — MI-13 technically host-verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**223 JVM tests pass**. Nine route, four screen and seven adapter Android methods
+**238 JVM tests pass**. Nine route, four screen and seven adapter Android methods
 are **compiled but not executed**, including the gated unknown-size provider case.
 MI-12 and the F3 technical review are complete in host scope. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
@@ -15,7 +15,7 @@ directed **“don't stop until phoen required”**: continue host-only implement
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
 MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13 reset storage is next. Phone work is not authorized.**
+screen/routes. MI-13 reset storage is host-verified; MI-14 confirmation UI is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1230,3 +1230,11 @@ no owner selection reset/replacement was executed by these host checks. No
 unresolved host-contract blocker for MI-13. Actual Android SAF, visual/lifecycle,
 provider/process-death and physical fixtures remain unverified until approved
 MI-20/MI-21 batches. This is assistant technical review, not invented human approval.
+
+## MI-13 — Explicit authorization and repeatable reset recovery
+
+Implemented in four planned substantive files (`ModelReset`, `ModelStore`, reset/recovery tests); the fake required no change. Commits `952c69f`, `4ccf099`, `dbf0963`. Only a verified authoritative marker permits payload/selection deletion; unknown names, links, hardlinks and failed removals stay blocked and untouched. Preflight precedes sweeping. The marker's recorded empty epoch survives retries, `reset.next` is removed first and `reset` last after verified empty publication. Store descriptors/writers retain their lease while pending; explicit confirmation retires only stopped logical candidate ownership. Declining has no storage operation; UI consent binding is MI-14.
+
+**Reviewed MI-13R prerequisite split:** review reproduced a gap in fresh corrupt-marker repair: deleting the corrupt base before writing its replacement could lose unresolved authorization if writing failed. Added a separate two-file checked-record prerequisite (`CheckedModelRecord`, its tests), commit `a63f203`, rather than silently adding a sixth MI-13 file. `repairReset` requires explicit reset-slot consent and a checked regular single-link base identity, keeps that base until atomic rename, and reconciles OLD/NEW/AMBIGUOUS through the existing checked protocol. No selection repair bypass. The assertion RED is retained; failed repair now preserves original corrupt bytes and cannot unblock ordinary recovery. This is technical decomposition under standing host authorization, not additional human/device approval.
+
+Meaningful RED: initial reset 3/3 assertions failed, integration 3/27 failed, corrupt-marker preservation 1/10 failed (final assertion run; initial missing-key reproduction also retained). GREEN/final command: `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`, **BUILD SUCCESSFUL in 27s**, 80 tasks / 15 executed, **238 JVM passes**, no failures/errors/skips. Lint 0 errors / 4 baseline warnings; both APKs pass. Evidence pointer `.cache/model-import/mi-13-current-path.txt` identifies exact logs/reports/source hashes/`results.json`; production APK `9b532628c89e333c0028a40d84965e3dd716534bda555a1703ad7a524daee08f`, test APK unchanged `0e89543ba3185181f52a05040cf6ebb45760bf285e8e3d9db3aa0cf5a1a908c3`. All 14 packaged native hashes match staging. Twenty Android methods remain compiled only. No phone/store-owner access, recursive deletion, app-data clearing, toolchain/native changes or actual process-death claim. MI-14 next under standing authorization.
