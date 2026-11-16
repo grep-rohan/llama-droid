@@ -1,7 +1,9 @@
 """Bounded transport/protocol primitives; never run ADB merely by importing this module."""
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import time
 
 
@@ -20,6 +22,58 @@ class Budget:
         if end <= self.clock():
             raise Failure("deadline expired")
         return end
+
+
+class Command:
+    """Nonblocking pipe polling: no reader thread to strand on inherited-open output."""
+    def __init__(self, argv, limit=1024 * 1024):
+        self.limit = limit
+        self.count = 0
+        try:
+            # Fail closed on hosts without nonblocking anonymous pipes BEFORE spawning ADB.
+            read, write = os.pipe()
+            try: os.set_blocking(read, False)
+            finally: os.close(read); os.close(write)
+            self.proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT, bufsize=0)
+            os.set_blocking(self.proc.stdout.fileno(), False)
+        except OSError:
+            if getattr(self, "proc", None) is not None:
+                self.proc.kill(); self.proc.wait(timeout=2); self.proc.stdout.close()
+            raise Failure("cannot start bounded transport") from None
+
+    def run(self, deadline, consume, until=lambda: False):
+        eof = False
+        while time.monotonic() < deadline:
+            if not eof:
+                try: data = os.read(self.proc.stdout.fileno(), 16384)
+                except BlockingIOError: data = None
+                except OSError: raise Failure("transport read failed") from None
+                if data == b"": eof = True
+                elif data:
+                    self.count += len(data)
+                    if self.count > self.limit: raise Failure("transport output limit")
+                    consume(data)
+            if until(): return None
+            result = self.proc.poll()
+            if eof and result is not None: return result
+            time.sleep(min(.01, max(0, deadline - time.monotonic())))
+        raise Failure("transport deadline expired")
+
+    def close(self, deadline):
+        try:
+            if self.proc.poll() is None:
+                self.proc.terminate()
+                try: self.proc.wait(timeout=min(.5, max(0, deadline - time.monotonic())))
+                except subprocess.TimeoutExpired:
+                    self.proc.kill()
+                    try: self.proc.wait(timeout=max(0, deadline - time.monotonic()))
+                    except subprocess.TimeoutExpired: raise Failure("transport teardown expired") from None
+            if self.proc.poll() is None: raise Failure("transport process survived")
+        except OSError:
+            raise Failure("transport teardown failed") from None
+        finally:
+            self.proc.stdout.close()
 
 
 class Instrumentation:
