@@ -1,10 +1,10 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-13 technically host-verified; Android runtime unverified
+## Current status — MI-14 / B technically host-verified; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**238 JVM tests pass**. Nine route, four screen and seven adapter Android methods
+**242 JVM tests pass**. Nine route, six screen and seven adapter Android methods
 are **compiled but not executed**, including the gated unknown-size provider case.
 MI-12 and the F3 technical review are complete in host scope. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
@@ -15,7 +15,7 @@ directed **“don't stop until phoen required”**: continue host-only implement
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
 MI-09 and checkpoint A technical review are complete; F3 reviewed the integrated
-screen/routes. MI-13 reset storage is host-verified; MI-14 confirmation UI is next. Phone work is not authorized.**
+screen/routes. MI-13/MI-14 and checkpoint B are host-verified; MI-15 adversarial fixtures are next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1238,3 +1238,15 @@ Implemented in four planned substantive files (`ModelReset`, `ModelStore`, reset
 **Reviewed MI-13R prerequisite split:** review reproduced a gap in fresh corrupt-marker repair: deleting the corrupt base before writing its replacement could lose unresolved authorization if writing failed. Added a separate two-file checked-record prerequisite (`CheckedModelRecord`, its tests), commit `a63f203`, rather than silently adding a sixth MI-13 file. `repairReset` requires explicit reset-slot consent and a checked regular single-link base identity, keeps that base until atomic rename, and reconciles OLD/NEW/AMBIGUOUS through the existing checked protocol. No selection repair bypass. The assertion RED is retained; failed repair now preserves original corrupt bytes and cannot unblock ordinary recovery. This is technical decomposition under standing host authorization, not additional human/device approval.
 
 Meaningful RED: initial reset 3/3 assertions failed, integration 3/27 failed, corrupt-marker preservation 1/10 failed (final assertion run; initial missing-key reproduction also retained). GREEN/final command: `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`, **BUILD SUCCESSFUL in 27s**, 80 tasks / 15 executed, **238 JVM passes**, no failures/errors/skips. Lint 0 errors / 4 baseline warnings; both APKs pass. Evidence pointer `.cache/model-import/mi-13-current-path.txt` identifies exact logs/reports/source hashes/`results.json`; production APK `9b532628c89e333c0028a40d84965e3dd716534bda555a1703ad7a524daee08f`, test APK unchanged `0e89543ba3185181f52a05040cf6ebb45760bf285e8e3d9db3aa0cf5a1a908c3`. All 14 packaged native hashes match staging. Twenty Android methods remain compiled only. No phone/store-owner access, recursive deletion, app-data clearing, toolchain/native changes or actual process-death claim. MI-14 next under standing authorization.
+
+## MI-14 — Current in-app consent and checkpoint B
+
+Controller commits `5530c11`, screen/resources/tests `fb56faa`, dialog-identity correction `89e515b`. The five planned files implement revision-bound, single-use recovery-only confirmation and reject healthy/stale/busy/source-helper-pending snapshots. The short in-memory gate reserves the one command before worker I/O. Successful reset exposes the verified empty state, never an inference/import success; failed deletion stays unavailable for a fresh explicit retry. New picker recovery invalidates old-epoch tokens. Four new JVM controller tests pass, with meaningful RED 2/25 assertions retained.
+
+The dialog explains irreversible private-copy/selection removal and source preservation, defaults to no action on decline/back/dismiss, persists no confirmation, and is closed on destruction or revision changes. Review caught a delayed old-dialog callback at the *same* revision: opaque per-dialog identity now rejects both old positive and dismissal callbacks. Two new Android screen tests compile only (22 total model-import Android methods), covering decline/destruction, stale/current/single-use consent, and superseded same-revision callbacks. Real dialog/rotation/visual results remain MI-20/MI-21.
+
+**Reviewed MI-14W integration split:** the approved five-file task does not include the Activity callback; leaving it unwired would not deliver reset. A separate one-file `MainActivity` slice (`9e3f1a4`) binds the existing screen's confirmed revision to the controller. No intent extras, external reset entry point, production test path or sixth-file silent expansion. Tested/committed independently under standing host authorization.
+
+Final current-source full Gradle command passes **in 25s**, 80 tasks / 20 executed, **242 JVM passes**, no failures/errors/skips; lint 0 errors / 4 baseline warnings, both APKs pass. `.cache/model-import/mi-14-current-path.txt` points to retained RED/GREEN/final logs, JUnit/lint, decoded declarations and `results.json`. Production APK `247b5f6f1a1d9613de732871d988049bd3c15124df0bb476edd117487f0b29ec`; test APK `d7c6d6fb86d7ca59cdbb5b4f0a5cb396cf39b24538b3964273a229cbb299fccb`. Fourteen packaged native libraries match staging; no new production permissions/components or external import/reset routes.
+
+**Actual B technical review:** 16 exact source/test/resource/manifest files plus reports/artifacts reviewed; retained `.cache/model-import/b-20261116T170332Z/review-audit.json`. Reviewed authorization ordering/repair, stopped-resource lease retention, scope/isolation, confirmation lifetime/identity, callback wiring and no old-token relaunch. Both findings above were fixed/tested, not waived. No unresolved host-contract blocker for MI-15. This is an assistant technical review under the uninterrupted-host-work instruction, not fabricated human acceptance or Android/device evidence. No phone access; source/owner-state mutation has not been tested on a device.
