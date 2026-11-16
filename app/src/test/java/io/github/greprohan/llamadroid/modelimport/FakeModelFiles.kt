@@ -47,9 +47,10 @@ internal class FakeModelFiles : ModelFileOps {
         return object : ModelFileOps.Writer {
             override val info get(): ModelFileOps.Entry { step("info-write"); return info(node) }
             override var closed = false
-            override fun write(bytes: ByteArray) {
+            override fun write(bytes: ByteArray, offset: Int, count: Int) {
                 check(!closed)
-                if (step("write")) node.bytes = bytes.copyOf()
+                require(offset >= 0 && count >= 0 && offset <= bytes.size - count)
+                if (step("write")) node.bytes += bytes.copyOfRange(offset, offset + count)
                 step("written")
             }
             override fun flush() { check(!closed); step("flush") }

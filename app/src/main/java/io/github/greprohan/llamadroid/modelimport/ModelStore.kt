@@ -22,8 +22,9 @@ internal class ModelStore(private val root: ModelRoot,
     private var reset: CheckedModelRecord? = null
     private var reader: ModelFileOps.Reader? = null
     private var directory: ModelRoot.Inventory? = null
+    private var candidate: OwnedCandidate? = null
     private val quiescent: Boolean get() = selection?.quiescent != false && reset?.quiescent != false &&
-        reader?.closed != false && directory?.closed != false
+        reader?.closed != false && directory?.closed != false && candidate?.closed != false
 
     private fun closeReader() {
         reader?.let { if (!it.closed) it.close(); check(it.closed); reader = null }
@@ -96,7 +97,7 @@ internal class ModelStore(private val root: ModelRoot,
 
     fun recover(): State {
         check(!closed) { "Model store is closed" }
-        if (!quiescent) return State(problem = Problem.RESOURCES_PENDING)
+        if (!quiescent || candidate != null) return State(problem = Problem.RESOURCES_PENDING)
         return try {
             if (selection == null) {
                 root.prepare()
@@ -128,6 +129,75 @@ internal class ModelStore(private val root: ModelRoot,
             State(selected, active, recordDebt = after.next || debt.first, payloadDebt = after.orphans || debt.second)
         } catch (_: Exception) {
             State(problem = if (quiescent) Problem.RECOVERY_REQUIRED else Problem.RESOURCES_PENDING)
+        }
+    }
+
+    fun createCandidate(id: String): ModelCandidate {
+        require(PickerToken.validId(id)) { "Invalid candidate identity" }
+        val state = recover()
+        check(state.canWrite && state.selection?.pendingPickerNonce == null) { "Store is not ready for a candidate" }
+        root.validate()
+        check(root.files.stat("model-$id.gguf") == null) { "Payload identity collision" }
+        val owned = OwnedCandidate(id, checkNotNull(state.selection), root.files.createExclusive("candidate-$id.part"))
+        candidate = owned // Capture ownership before any fallible descriptor/path validation.
+        try {
+            owned.identity = owned.writer.info.also { entry ->
+                check(entry.kind == ModelFileOps.Kind.REGULAR && entry.links == 1L && entry.size == 0L)
+                check(root.files.stat(owned.fileName) == entry)
+            }
+            return owned
+        } catch (failure: Exception) {
+            try { owned.close() } catch (close: Exception) { if (close !== failure) failure.addSuppressed(close) }
+            if (owned.closed) try { owned.discard() } catch (cleanup: Exception) { if (cleanup !== failure) failure.addSuppressed(cleanup) }
+            throw failure
+        }
+    }
+
+    /** Caller first proves source/helpers stopped; this never closes an active writer. */
+    fun discardPendingCandidate() { candidate?.discard() }
+
+    private inner class OwnedCandidate(override val id: String, val base: ModelRecord.Selection,
+                                       val writer: ModelFileOps.Writer) : ModelCandidate {
+        var identity: ModelFileOps.Entry? = null
+        var fileName = "candidate-$id.part"
+        var ambiguous = false
+        private var closeAttempted = false
+        override val closed: Boolean get() = writer.closed
+        private fun owned() { check(!this@ModelStore.closed && candidate === this) { "Candidate ownership expired" } }
+        override fun write(bytes: ByteArray, offset: Int, count: Int) {
+            owned(); check(!closed && !ambiguous && fileName.startsWith("candidate-"))
+            writer.write(bytes, offset, count)
+        }
+        override fun flush() { owned(); check(!closed); writer.flush() }
+        override fun sync() { owned(); check(!closed); writer.sync() }
+        override fun close() {
+            if (closed) return
+            if (!closeAttempted) { closeAttempted = true; writer.close() }
+            check(closed) { "Candidate descriptor remains pending" }
+        }
+        private fun sameOwned(entry: ModelFileOps.Entry): Boolean = identity?.let {
+            entry.sameFile(it) && entry.kind == ModelFileOps.Kind.REGULAR && entry.links == 1L
+        } == true
+        override fun discard() {
+            owned(); check(closed && !ambiguous && quiescent) { "Candidate is not safe to discard" }
+            root.validate()
+            val selected = checkNotNull(selection).read() as ModelRecord.Selection?
+            check(selected != null && selected.active?.id != id) { "Candidate may be referenced" }
+            val before = root.files.stat(fileName)
+            if (before == null) { candidate = null; return }
+            check(sameOwned(before)) { "Candidate identity changed" }
+            try {
+                root.files.remove(fileName)
+                check(root.files.stat(fileName) == null) { "Candidate removal not confirmed" }
+                candidate = null
+            } catch (failure: Exception) {
+                try {
+                    val remaining = root.files.stat(fileName)
+                    // A known, closed, unreferenced regular file is nonblocking cleanup debt.
+                    if (remaining == null || sameOwned(remaining)) candidate = null else ambiguous = true
+                } catch (secondary: Exception) { if (secondary !== failure) failure.addSuppressed(secondary) }
+                throw failure
+            }
         }
     }
 
@@ -176,6 +246,7 @@ internal class ModelStore(private val root: ModelRoot,
                 if (failure == null) failure = error else if (failure !== error) failure!!.addSuppressed(error)
             }
         }
+        attempt { candidate?.close() }
         attempt { selection?.close() }
         attempt { reset?.close() }
         attempt { closeReader() }

@@ -107,6 +107,39 @@ class ModelStoreTest {
         assertTrue(root.files.handles.all { it.closed })
     }
 
+    @Test fun candidateSubsectionWritesAreExclusiveAndLiveRecoveryCannotSweepThem() {
+        val root = activeRoot(); val candidateId = "c".repeat(32)
+        val old = root.files.nodes.getValue("model-$id.gguf").bytes.copyOf()
+        ModelStore(root).use { store ->
+            val candidate = store.createCandidate(candidateId)
+            val data = byteArrayOf(9, 1, 2, 3, 8)
+            candidate.write(data, 1, 3); candidate.write(data, 2, 2)
+            assertArrayEquals(byteArrayOf(1, 2, 3, 2, 3), root.files.nodes.getValue("candidate-$candidateId.part").bytes)
+            val events = root.files.events.size
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.recover().problem)
+            assertEquals(events, root.files.events.size)
+            assertThrows(IllegalStateException::class.java) { store.createCandidate("d".repeat(32)) }
+            candidate.flush(); candidate.sync(); candidate.close(); candidate.close()
+            assertEquals(ModelStore.Problem.RESOURCES_PENDING, store.recover().problem)
+            candidate.discard()
+            assertFalse(root.files.nodes.containsKey("candidate-$candidateId.part"))
+            assertTrue(store.recover().canWrite)
+        }
+        assertArrayEquals(old, root.files.nodes.getValue("model-$id.gguf").bytes)
+        assertTrue(root.files.handles.all { it.closed })
+    }
+
+    @Test fun candidateCreationRefusesOutstandingPickerAndSelectedIdCollision() {
+        val root = activeRoot()
+        ModelStore(root).use { store ->
+            assertThrows(IllegalStateException::class.java) { store.createCandidate(id) }
+            val token = checkNotNull(store.reservePicker("c".repeat(32)).token)
+            assertThrows(IllegalStateException::class.java) { store.createCandidate("d".repeat(32)) }
+            assertTrue(store.consumePicker(token).accepted)
+            val candidate = store.createCandidate("d".repeat(32)); candidate.close(); candidate.discard()
+        }
+    }
+
     @Test fun emptyRootPublishesExplicitEmptySelectionAndKeepsItsEpochOnReopen() {
         val root = FakeModelRoot()
         ModelStore(root) { epoch }.use { store ->

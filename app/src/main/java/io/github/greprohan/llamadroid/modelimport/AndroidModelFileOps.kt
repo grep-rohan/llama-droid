@@ -83,12 +83,13 @@ internal class AndroidModelFileOps(directory: File) : ModelFileOps {
     override fun createExclusive(name: String): ModelFileOps.Writer {
         val fd = Os.open(path(name), OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or flags, 384)
         return object : Descriptor(fd), ModelFileOps.Writer {
-            override fun write(bytes: ByteArray) {
-                var offset = 0
-                while (offset < bytes.size) {
-                    val count = Os.write(fd, bytes, offset, bytes.size - offset)
-                    check(count > 0 && count <= bytes.size - offset) { "Model write made no progress" }
-                    offset += count
+            override fun write(bytes: ByteArray, offset: Int, count: Int) {
+                require(offset >= 0 && count >= 0 && offset <= bytes.size - count)
+                var written = 0
+                while (written < count) {
+                    val step = Os.write(fd, bytes, offset + written, count - written)
+                    check(step > 0 && step <= count - written) { "Model write made no progress" }
+                    written += step
                 }
             }
             override fun flush() { check(!closed) } // Unbuffered; no queued userspace bytes.

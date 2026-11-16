@@ -14,7 +14,7 @@ internal interface ModelFileOps {
     }
     interface Reader : Handle { val input: InputStream }
     interface Writer : Handle {
-        fun write(bytes: ByteArray)
+        fun write(bytes: ByteArray, offset: Int = 0, count: Int = bytes.size - offset)
         fun flush()
         fun sync()
     }
