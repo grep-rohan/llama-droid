@@ -1,10 +1,11 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-09 / checkpoint A technically host-verified
+## Current status — MI-10 implemented/compiled; Android runtime unverified
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**219 JVM tests pass**, including **17 new MI-09 controller tests**. Lint reports
+**219 JVM tests pass**. MI-10 adds **four Android screen test methods,
+compiled but not executed**, including the gated unknown-size provider case. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
 publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
@@ -12,8 +13,8 @@ found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
 without per-task approval pauses. **MI-06 and F2 technical review are complete;
-MI-09 and checkpoint A technical review are complete; MI-10 is next.
-Phone work is not authorized.**
+MI-09 and checkpoint A technical review are complete; MI-10 host scope is complete.
+MI-11 is next. Phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -1086,3 +1087,46 @@ existing finite/prepopulated 50-byte provider fixtures. Review adds the existing
 bound producer, release handshake and bounded join. No production command/provider
 or owner-root override is introduced. Original screen/layout/strings/test scope
 is unchanged; all Android cases remain compiled-only until MI-20 consent.
+
+## MI-10 — Import Views and gated unknown-size contract
+
+Commit `016cac3`; five reviewed deliverables: `ModelImportScreen.kt`,
+`main_activity.xml`, `strings.xml`, `ModelImportScreenTest.kt`, and the explicitly
+reviewed test-only `FixtureModelProvider.kt` extension. The screen does not open a
+store/singleton or retain a controller: active private selection and pending new
+copy are separate, actual Long sizes remain intact, known progress uses checked
+percent and unknown progress has copied bytes/indeterminate display without a
+fabricated total. Preparing/cancelling/finishing/resource-pending states and typed
+recovery/error/cleanup messages remain explicit. Import is not a compatibility
+claim. Actions are disabled while unbound, reset hidden until wired, and detach
+removes callbacks. Launcher/system picker are still MI-11, not claimed working.
+
+Four Android methods **compile only**: unbound/recovery actions, active-vs-pending/
+finishing/detach, cancellation/warnings, and
+`unknownSizeProviderRendersCopiedBytesWithoutPercent`. The latter uses the shared
+isolated no-backup store helper plus real Android adapter/engine/controller and a
+test-provider reliable pipe. A token-bound producer emits 24 bytes, waits for an
+observer/render handshake, then releases the remaining 26 bytes/EOF. The test checks
+copied bytes/no percent **before EOF**, then 50-byte completion; finite latches,
+worker futures and producer join are required, with no sleep timing or production
+singleton. This procedure is **not executed/evidence of Android behavior yet**.
+Test controls remain solely in the test APK/provider. Provider failure is surfaced
+through reliable-pipe error and checked finish status, not concealed as clean EOF.
+
+Incremental provider/layout/binder/state-test/integrated-test build checks pass.
+Final full command `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest`
+passes **in 44s**, 80 tasks / 27 executed: **219 JVM tests**, zero failures/errors/
+skips; lint **0 errors / 4 baseline warnings**, both APKs pass. New plural/unused-
+placeholder warnings were corrected using plural resources and removing the now-
+unreferenced placeholder, without suppressions or Long-to-Int display truncation.
+The standing Definition of Done was reviewed: Android runtime/visual behavior and
+independent human acceptance remain **unverified**; this is host task scope, not
+feature/ship completion or a waived device gate.
+
+Evidence `.cache/model-import/mi-10-20261116T160118Z/` retains all exact build logs/
+exit codes, fourteen passing JVM reports/lint, source/artifact hashes and reviewed
+fixture/DoD limits in `results.json`. Production APK
+`27cdde6fc007959249371d1c2e2dc9e5d8e8a3068cf420c25d584c49d3bd6e41`;
+test APK `db612a60d6eee9e826a7703a6d04b08fbd1078dfcb97ba9c6aaeca7ead976ed5`
+(969,945 bytes). Exactly five reviewed files changed; packaged 14 native hashes,
+other sources and excluded owner work are unchanged. No phone access. MI-11 next.
