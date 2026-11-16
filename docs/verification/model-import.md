@@ -1,14 +1,15 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-02 host-verified
+## Current status — MI-03 host-verified; F1 ready for owner review
 
-**MI-01/MI-02 are implemented and host-tested:** bounded records/names plus
-checked record replacement, uncertainty handling and a compiled Android adapter.
-**91 total JVM tests pass**, including **19 new MI-02 tests**. Lint reports
-**0 errors / 4 existing warnings**, and both APKs build. Android filesystem
-behavior is **unverified** pending MI-15/MI-20; this is not an end-user import
-flow or device result. Owner authorized MI-02 with **“start next”** after MI-01.
-MI-03 onward remains unauthorized. Detailed evidence follows below.
+**MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
+recovery, root ownership, validation and safe cleanup are implemented.
+**123 JVM tests pass**, including **32 new MI-03 tests** (80 model-import tests
+in total). Lint reports **0 errors / 4 existing warnings**, and both APK targets
+pass. Owner authorized MI-03 with **“start next”** after MI-02. **Checkpoint F1
+review and MI-04 authorization remain pending.** No Android filesystem,
+process-death, backup, end-user import or phone result is inferred from these
+JVM tests/compilation. Detailed evidence follows below.
 
 ### Baseline reconciliation
 
@@ -501,5 +502,176 @@ Android/device-tested.** Filesystem syscall/descriptor/rename behavior must be
 validated by MI-15/MI-20; source review, JVM fakes and lint are not substitutes.
 No ADB, device installation/launch/stop, process-death, backup or owner-data test
 occurred. Native stage, `.gitignore`, `app/.cxx/`, toolchain and unrelated files
-are unchanged. Next smallest task is **MI-03 — authoritative selection recovery**,
-requiring its own authorization; Checkpoint F1 remains pending that task/review.
+are unchanged. At MI-02 closure, the next task was MI-03 and required its own
+authorization. That authorization/results follow; F1 owner review remains pending.
+
+## MI-03 — Authoritative selection recovery and root ownership
+
+Owner authorization: **“start next”** after the explicit MI-02 completion/MI-03
+next-task report. Scope is MI-03 only, followed by F1 evidence preparation, not
+MI-04 or device writes. Run date: **2026-11-16 UTC**, starting HEAD
+`d1ad976db22fd083ae9512235d23f1c751cf804f`. Same reviewed worktree/source exclusions.
+Implemented/tested commits: **`4aba8e4`** (lease), **`6fcbea3`** (store/root/recovery),
+**`b1cb474`** (adversarial/resource coverage), **`fcdb9ef`** (committed-empty/root
+replacement boundaries). No SDK/dependency/toolchain/native/manifest/UI changes.
+
+### Five approved deliverables
+
+Under `app/src/main/java/io/github/greprohan/llamadroid/modelimport/`:
+
+- `ModelOwnership.kt`: synchronized root-keyed in-process lease; idempotent close
+  cannot release a newer owner's lease. Also holds the small root/inventory
+  boundary and Android implementation, keeping the existing record-I/O API
+  unchanged. The production factory canonicalizes the supplied no-backup parent,
+  uses fixed child `models`, checks creation, rejects a linked/non-directory root,
+  remembers/rechecks root device/inode, and lazily enumerates direct children
+  through a closed `DirectoryStream`. It never materializes the directory list.
+- `ModelStore.kt`: one leased, caller-serialized recovery/cleanup owner. It reads
+  authoritative reset state first, explicitly initializes empty selection only
+  for an empty root or lone owned `selection.next`, validates authoritative
+  selection/owned entries, then resolves active payload kind, links, exact
+  signed-64-bit length, descriptor identity and readability before exposing its
+  generated private path. It validates again after cleanup. Display names never
+  become path components; `.next` is never promoted by inspection.
+
+Under `app/src/test/java/io/github/greprohan/llamadroid/modelimport/`:
+`ModelStoreTest.kt` (**17 methods**), `ModelRecoveryTest.kt` (**15 methods**), and
+the extended `FakeModelFiles.kt` (fake root/inventory, named read/close faults,
+and optional long stat length for synthetic tests). Exactly the five planned
+files were added/modified. Inventory snapshots in the bounded fake fixtures are
+not the production enumeration implementation.
+
+`ModelStore.open(noBackupParent)` expects `Context.noBackupFilesDir` from its
+future application-context owner; no Activity/singleton wiring is added here.
+The lease excludes a second store instance, not concurrent operations on the
+same instance: callers must serialize store methods, as the approved controller
+will do. This is not cross-process locking.
+
+### Authority, cleanup and resource outcomes
+
+- Valid selection is the sole model authority. Old/new/explicit-empty file
+  images retain exactly their authoritative epoch, pending nonce and active
+  id/name/size. Uncommitted records cannot select a promoted payload or resume a
+  dead copy. Missing/corrupt metadata with payloads, candidates, reset state or
+  unknown entries blocks mutation; it never invents an empty state.
+- Committed reset is reported as `RESET_PENDING` **before selection lookup**.
+  It is not executed here (MI-13 owns reset recovery). Corrupt reset or any
+  uncommitted `reset.next` blocks ordinary recovery without authorizing deletion.
+- A complete preflight validates every recognized owned entry before any
+  sweeping. Cleanup checks current authoritative selection, root identity,
+  no-follow regular type, one link and unchanged entry identity before unlink;
+  it confirms absence afterward. Only strict generated candidates, unreferenced
+  payloads and owned `selection.next` are eligible. Sources, unknown names,
+  unknown links/directories and the active payload are preserved.
+- Failed record-sidecar cleanup exposes `recordDebt` and disables metadata-write
+  eligibility. Unreferenced candidate/payload debt is separately visible and does
+  not block current selection or eligibility when space permits. `canWrite` is a
+  protocol eligibility flag, **not** a free-space/permission guarantee or an
+  implemented import/replacement command. Recovery retries safe cleanup.
+- Payload/record readers and inventory handles are captured before use. Pending
+  close returns `RESOURCES_PENDING`, blocks another recovery I/O pass and keeps
+  the lease. Explicit disposal retries the captured resources and cannot release
+  ownership while any remains live; a new store can recover after successful
+  disposal. No replacement worker/thread is started to conceal pending cleanup.
+
+Root/type/containment/syscall behavior is **compiled only** for Android. Pure
+root-validation faults are not real Android symlink tests. Payload resolution
+opens/checks readability with constant-size reads, not a complete body/hash/GGUF
+check, RAM-fit estimate, or inference compatibility claim. Large-length tests
+use fake stats; they are **not** real >2 GiB imports or heap/device evidence.
+
+### Test-first evidence and verification
+
+All RED runs compiled and discovered nonzero tests, then failed assertions;
+none was a missing-file/symbol/test-discovery failure. Each was followed by GREEN:
+
+| Retained RED XML/log | Discovered in that class | Assertion failures |
+|---|---:|---:|
+| `lease-red` | 2 | 2 |
+| `store-red` | 4 | 2 |
+| `recovery-red` | 5 | 3 |
+| `reset-order-red` | 7 | 1 |
+| `root-guard-red` | 10 | 1 |
+
+The root-guard case found and fixed a real orchestration gap: recovery must
+revalidate the root after initial inventory and **before** publishing the empty
+record, not merely before/after the whole operation. Existing Android record-I/O
+root checks are retained as an additional boundary, not used to waive this test.
+
+Exact repository-root command families, with relevant source/test edits or
+expanded regression scope between repetitions:
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*ModelStoreTest'
+./gradlew --no-daemon :app:testDebugUnitTest --tests '*ModelStoreTest' --tests '*ModelRecoveryTest'
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+python --version
+java -version
+./gradlew --version
+```
+
+Focused RED/GREEN runs and the last focused run passed through 30 store/recovery
+methods; the final unfiltered run includes the two additional boundary methods,
+so **all 32 MI-03 tests pass**. Full final roster: store **17**, recovery **15**,
+checked record **19**, codec **21**, names **8**, native probe **24**, native
+launcher **19** = **123 tests**, 0 failures/errors/skips. The two synchronized
+lease workers use bounded latch handshakes, are joined and asserted terminated
+before the race test passes; no worker is left to mutate a later fixture.
+
+The matrix covers old/new/empty file-image recovery, lost initial publication
+acknowledgement, initialization faults/retry, stale next records, corrupt/missing
+metadata, every owned entry's unsafe kinds/hardlinks, exact/missing/mismatched
+lengths, read failure, changed payload/root identity, malformed/unowned names,
+source-byte preservation, independent roots/simultaneous lease attempts,
+record-versus-payload debt, inventory faults and record/payload/inventory pending
+close ownership. File-image reconstruction and injected errors are not process
+termination or physical-disk evidence.
+
+Final Gradle result: **BUILD SUCCESSFUL in 23s**, 80 actionable tasks (6 executed /
+74 up-to-date). Production compilation and both APK builds had also executed
+successfully during the 34-second store/root integration runs; unchanged outputs
+are reused in the final test-only expansion. Lint: **0 errors / 4 unchanged
+warnings** (`RedundantLabel`, two `GradleDependency`, `ChromeOsAbiSupport`), no
+suppression. Native stage verification passes in each Gradle invocation.
+Python **3.14.7**, Temurin **17.0.21+9**, Gradle **8.10.2**/project plugins unchanged;
+SDK remains the existing `local.properties` path. The prior 94 Python passes
+remain applicable because their scripts, fixtures and provenance inputs are
+unchanged; that successful suite was not redundantly rerun.
+
+### Artifacts and retained evidence
+
+| Built artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 79,482,963 | `9a27a9aaccbd4d1acc690ade9c4361673f971aa4a02b0d6228061a1b938258f7` |
+| `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` | 927,596 | `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6` |
+
+Production DEX symbol presence was checked for `ModelStore`, `ModelOwnership`
+and `AndroidModelRoot`; this is a narrow packaging presence check, not a full
+APK audit/manifest review or runtime test. Full clean-output/audit work stays
+MI-19. Android instrumentation remains compiled, **not executed**.
+
+Local evidence: `.cache/model-import/mi-03-20261116T095717Z/`. It retains preflight
+identities/tracker snapshot, all five RED and subsequent GREEN XML/logs, focused
+and unfiltered command output, exit codes, tools log, final seven JUnit reports,
+lint XML, source/report/artifact hashes and final preservation check. Source,
+tests and evidence documentation are committed. Tracker bookkeeping remains
+with the owner's pre-existing uncommitted planning changes; these were not swept
+into code commits. Native payloads/receipt, `.gitignore`, `app/.cxx/`, other
+planning documents, toolchain and later tasks/native history are unchanged.
+No model roots or owner data were accessed on Android: no ADB, installs,
+instrumentation, launch/stop/reset, or device writes.
+
+### Checkpoint F1 — Storage foundation ready for owner review
+
+**Host evidence ready; owner review pending, not checkpoint approval.** All
+MI-01–MI-03 cases run in the final regression (80 model-import + 43 existing JVM
+cases); lint/APK checks pass, with no required preservation/ownership case
+skipped or waived. Checkpoint review should examine the committed codecs,
+checked replacement and recovery/root boundaries plus the retained fault and
+resource results before MI-04. Approval of MI-03 execution does not itself
+approve F1 or authorize the next slice.
+
+No platform, actual process-death, power-loss, backup/transfer or physical-phone
+result is inferred from this foundation. **Next smallest action: owner F1 review
+and explicit MI-04 batch authorization.** Model import, server lifecycle,
+inference and WebUI milestones remain incomplete.
