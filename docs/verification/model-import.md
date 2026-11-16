@@ -1,17 +1,17 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-04 host-verified; host progression authorized
+## Current status — MI-05 host-verified; host progression authorized
 
 **MI-00–MI-03 are complete in their host-only scope.** Authoritative selection
 recovery, root ownership, validation and safe cleanup are implemented.
-**141 JVM tests pass**, including **18 new MI-04 tests**. Lint reports
+**155 JVM tests pass**, including **14 new MI-05 tests**. Lint reports
 **0 errors / 4 existing warnings**, and both APK targets pass. MI-04 adds the
 fixed-header/sequential-copy path with closed-resource handoff, not selection
-publication or the MI-05 size/space/cleanup policy. F1 source/evidence review
+publication. MI-05 now adds the size/space/failure-cleanup policy. F1 source/evidence review
 found no host-contract blocker. The owner then
 directed **“don't stop until phoen required”**: continue host-only implementation
 and actual technical checkpoint reviews through MI-19/H2, including MI-17A,
-without per-task approval pauses. **MI-04 is authorized; phone work is not.**
+without per-task approval pauses. **MI-06 is next; phone work is not authorized.**
 Reviews are assistant technical reviews under this standing instruction, not
 invented human sign-offs. Distinct human/device results remain explicitly pending
 where required. No Android filesystem, process-death, backup, end-user import or
@@ -778,3 +778,52 @@ instrumentation APK remains
 `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6`.
 Prior P1 source/report identities, native stage/receipt, `.gitignore`, `app/.cxx/`
 and unrelated documents are unchanged. Next: MI-05 under standing authorization.
+
+## MI-05 — Space, size and stopped-resource cleanup
+
+Host-only implementation, commits `08935dc` and `b3af807`. Exactly the five
+planned files: `ImportPolicy.kt`, `ModelImportEngine.kt`, `ModelImportEngineTest.kt`,
+`ModelImportFailureTest.kt`, `FakeModelSource.kt`. The engine requires an explicit
+injected destination-space policy (no permissive production default).
+
+Known positive sizes require the entire new payload plus **67,108,864 bytes**
+before source reads/candidate creation. Every pending write, for known or unknown
+sizes, remeasures available space and checks the reserve. Failed/negative
+measurements fail conservatively; checks subtract the reserve without overflow.
+Unbuffered destination writes are a documented adapter obligation. Over-reported
+sizes fail at actual EOF; under-reported sizes fail before an excess write.
+Counters use checked addition, and percentage uses bounded exact integer ratio
+arithmetic even near signed-Long limits.
+
+Failure/cancellation closes each captured resource once; candidate deletion is
+attempted only after both source and destination confirm closed. Pending close
+blocks deletion; failure keeps candidate identity, resource/cleanup-pending flags,
+the original cause and at most three typed secondary warnings. A discard failure
+does not mask a read/write/cancellation cause. No selection/source/old payload
+mutation is possible through these ports; publication integration remains MI-09.
+
+RED: policy **5/5 failed**; engine-policy integration **2/20 failed** (one assertion,
+one wrong-primary-type cast), then GREEN. Extended fault/boundary runs pass.
+Final command:
+
+```bash
+./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+```
+
+**155/155 JVM tests pass**, zero failures/errors/skips; lint **0 errors / 4 existing
+warnings**, both APKs pass, **BUILD SUCCESSFUL in 19s** (80 tasks, 14 executed).
+The legal sequential synthetic **2,147,483,649-byte** stream returns no more than
+requested, uses only the 24-byte prefix / 256 KiB buffer and counts output without
+allocating a model. This is not a physical file/provider/device result. Coverage
+includes known/unknown/unusable size, exact reserve boundary, mid-copy depletion
+and measurement errors, strict size mismatch, near-Long arithmetic, create/read/
+write/flush/sync/close/discard errors, pending close, and cancellation at preparation,
+read, space, progress and closed handoff. Fake resources are settled by tests.
+
+Evidence `.cache/model-import/mi-05-20261116T113651Z/`: preflight, exact command logs,
+exit codes, RED/GREEN XML, final ten reports/lint and source/artifact hashes in
+`results.json`. Production APK `76f0f0aac8ca93cc332f60b0c25a003e0ce18b804f0bf5318fedbb284ea00d4c`
+(79,482,963 bytes); test APK `f75923a5847f9a5264ed25e4b78411769f3866e1b221ced2ffad6f85a87772e6`
+(927,596 bytes). Preservation audit confirms all other preflight app/test sources,
+native stage/receipt, `.cxx`, `.gitignore` and unrelated planning/spec files unchanged.
+No phone access; next MI-06 and an actual F2 technical review.
