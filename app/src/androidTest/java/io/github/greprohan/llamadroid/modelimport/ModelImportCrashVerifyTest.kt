@@ -17,8 +17,10 @@ class ModelImportCrashVerifyTest {
                 assertFalse(state.available) // Uncommitted authorization cannot delete even the old model.
                 CheckedModelRecord(f.root.files).use {
                     val selected = it.read() as ModelRecord.Selection
-                    assertEquals(ModelImportCrashProtocol.oldId, selected.active!!.id)
+                    assertEquals(ModelRecord.Selection(ModelImportCrashProtocol.epoch,
+                        active = ActiveModel(ModelImportCrashProtocol.oldId, 50, "old")), selected)
                 }
+                assertEquals(50L, f.root.files.stat("model-${ModelImportCrashProtocol.oldId}.gguf")!!.size)
                 f.root.files.openRead("model-${ModelImportCrashProtocol.oldId}.gguf").use {
                     assertArrayEquals(ModelImportCrashProtocol.bytes(true), it.input.readBytes())
                 }
