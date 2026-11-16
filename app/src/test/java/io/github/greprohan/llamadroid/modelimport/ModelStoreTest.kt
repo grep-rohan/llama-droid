@@ -47,6 +47,66 @@ class ModelStoreTest {
         }
     }
 
+    @Test fun pickerWriteFailuresPreserveOldSelectionAndPayloadOnReserveAndConsume() {
+        for (consume in listOf(false, true)) for (event in listOf("flush", "sync", "rename")) {
+            val root = activeRoot(); val token = PickerToken(epoch, "c".repeat(32))
+            ModelStore(root).use { store ->
+                if (consume) assertTrue(store.reservePicker(token.nonce).accepted) else store.recover()
+                val oldRecord = root.files.nodes.getValue("selection").bytes.copyOf()
+                val oldPayload = root.files.nodes.getValue("model-$id.gguf").bytes.copyOf()
+                val primary = IOException("private record fault")
+                root.files.hook = { if (it == event) throw primary }
+                val result = if (consume) store.consumePicker(token) else store.reservePicker(token.nonce)
+                assertFalse(result.accepted); assertNull(result.token)
+                assertEquals(CheckedModelRecord.State.OLD, result.outcome); assertSame(primary, result.failure)
+                assertArrayEquals(oldRecord, root.files.nodes.getValue("selection").bytes)
+                assertArrayEquals(oldPayload, root.files.nodes.getValue("model-$id.gguf").bytes)
+                assertTrue(root.files.handles.all { it.closed })
+            }
+        }
+    }
+
+    @Test fun pickerExceptionAfterRealRenameIsConfirmedRatherThanBlindlyRolledBack() {
+        val root = activeRoot(); val primary = IOException("after rename")
+        ModelStore(root).use { store ->
+            root.files.hook = { if (it == "renamed") throw primary }
+            val reserved = store.reservePicker("c".repeat(32))
+            assertTrue(reserved.accepted); assertSame(primary, reserved.failure)
+            assertTrue(store.consumePicker(checkNotNull(reserved.token)).accepted)
+            assertEquals(id, store.recover().active!!.model.id)
+            assertNull(store.recover().selection!!.pendingPickerNonce)
+        }
+    }
+
+    @Test fun ambiguousPickerWriteBlocksLaunchAndNeverDeletesPossiblyReferencedPayload() {
+        val root = activeRoot()
+        ModelStore(root).use { store ->
+            root.files.hook = { if (it == "renamed") { root.files.putBytes("selection", byteArrayOf(1)); throw IOException("ambiguous") } }
+            val update = store.reservePicker("c".repeat(32))
+            assertFalse(update.accepted); assertNull(update.token); assertFalse(update.state.canWrite)
+            assertEquals(CheckedModelRecord.State.AMBIGUOUS, update.outcome)
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+            assertFalse(root.files.events.any { it == "remove:model-$id.gguf" })
+        }
+    }
+
+    @Test fun pickerPendingWriterCloseRetainsLeaseAndInvalidNonceNeverStartsIo() {
+        val root = activeRoot(); val store = ModelStore(root)
+        try {
+            assertTrue(store.recover().canWrite)
+            val events = root.files.events.size
+            assertThrows(IllegalArgumentException::class.java) { store.reservePicker("../bad") }
+            assertEquals(events, root.files.events.size)
+            root.files.silent += "close-write"
+            val update = store.reservePicker("c".repeat(32))
+            assertFalse(update.accepted); assertEquals(ModelStore.Problem.RESOURCES_PENDING, update.state.problem)
+            assertThrows(IllegalStateException::class.java) { store.close() }
+            assertThrows(IllegalStateException::class.java) { ModelStore(root) }
+            assertTrue(root.files.nodes.containsKey("model-$id.gguf"))
+        } finally { root.files.silent.clear(); store.close() }
+        assertTrue(root.files.handles.all { it.closed })
+    }
+
     @Test fun emptyRootPublishesExplicitEmptySelectionAndKeepsItsEpochOnReopen() {
         val root = FakeModelRoot()
         ModelStore(root) { epoch }.use { store ->
