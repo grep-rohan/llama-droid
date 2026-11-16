@@ -135,7 +135,10 @@ class ModelImportCancellationDeviceTest {
             assertTrue(s.aborts.get() in 1..2); assertTrue(s.helpers.largestPoolSize <= 2)
             if (state.busy) {
                 val op = checkNotNull(state.operation)
-                assertTrue(op.cancelAccepted); assertFalse(op.quiescent)
+                assertTrue(op.cancelAccepted)
+                if (protocol.checkpoint in setOf("query-hung", "close-hung")) assertFalse(op.quiescent)
+                // A closed read descriptor may still have a blocked in-flight syscall on some kernels.
+                assertFalse(s.main { s.controller.beginPicker() })
             } else {
                 assertEquals(ImportOutcome.CANCELLED, state.outcome); assertTrue(checkNotNull(state.operation).quiescent)
             }
@@ -145,5 +148,25 @@ class ModelImportCancellationDeviceTest {
             protocol.armed = true; protocol.hit(protocol.checkpoint)
             fail("Controlled cancellation checkpoint was not paused")
         }
+    }
+
+    @Test fun verifyAfterRestart() {
+        val protocol = ModelImportCrashProtocol()
+        require(protocol.scenario == "cancel-hang")
+        ModelImportTestStore(instrumentation.targetContext, protocol.runId, existing = true).use { f ->
+            val state = f.store.recover()
+            assertTrue(state.canWrite)
+            assertEquals(ModelRecord.Selection(ModelImportCrashProtocol.epoch,
+                active = ActiveModel(ModelImportCrashProtocol.oldId, 50, "old")), state.selection)
+            assertEquals(ModelImportCrashProtocol.oldId, state.active!!.model.id)
+            f.root.files.openRead("model-${ModelImportCrashProtocol.oldId}.gguf").use {
+                assertArrayEquals(ModelImportCrashProtocol.bytes(true), it.input.readBytes())
+            }
+            f.root.entries().use { assertEquals(setOf("selection", "model-${ModelImportCrashProtocol.oldId}.gguf"), it.toSet()) }
+            assertFalse(state.recordDebt || state.payloadDebt)
+            val picker = PickerCoordinator(f.store).also { it.restore(state) }
+            assertEquals(PickerCoordinator.Phase.IDLE, picker.snapshot().phase); assertNull(picker.claimLaunch())
+        }
+        protocol.verified() // Fixture cleanup is complete before the frame; host proves process restart.
     }
 }
