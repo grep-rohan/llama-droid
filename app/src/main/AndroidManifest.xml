@@ -9,13 +9,18 @@
         android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 
         <!--
-            Minimal entry point — no model import, service, WebView, or exported
-            launch hooks at this stage.
+            Launcher-only import controller. Incoming data/path/argument extras are
+            ignored; no external import filter, service, native launch or WebView.
         -->
         <activity
             android:name=".MainActivity"
-            android:exported="false"
-            android:label="@string/app_name" />
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
     </application>
 

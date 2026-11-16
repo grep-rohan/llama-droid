@@ -44,4 +44,8 @@
     <string name="import_error_stale">This picker result is no longer current. Start a fresh document selection.</string>
     <string name="import_warning_debt">Some unreferenced private files still occupy storage. Safe cleanup will be retried; the selected model remains usable.</string>
     <string name="import_warning_cleanup">An earlier cleanup step failed. Any remaining allocated files are reported separately; the source is unchanged.</string>
+    <string name="import_picker_missing">No system document picker is available. Enable a document picker and try again.</string>
+    <string name="import_picker_invalid">No single readable content document was returned. Choose one GGUF again.</string>
+    <string name="import_picker_busy">An import or recovery action is already in progress. Wait or cancel the current copy.</string>
+    <string name="import_picker_fresh_route">This result route cannot be reused. A fresh import screen was opened; choose the document again.</string>
 </resources>
