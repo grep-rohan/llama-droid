@@ -364,18 +364,20 @@ class CrashDriverTests(unittest.TestCase):
             for key, value in sorted(args.items()): result += ["-e", key, value]
             return result + [driver.RUNNER]
         ready = {"v": 1, "runId": self.run_id, "scenario": scenario, "checkpoint": checkpoint, "pid": 42, "uid": 10001, "startedElapsedMs": 100}
-        setup = frame(1, **{"class": driver.CRASH_SETUP, "test": "stageUntilCheckpoint", "numtests": "1"})
+        setup_class = driver.MODEL + "ModelImportCancellationDeviceTest" if scenario == "cancel-hang" else driver.CRASH_SETUP
+        verify_class = setup_class if scenario == "cancel-hang" else driver.CRASH_VERIFY
+        setup = frame(1, **{"class": setup_class, "test": "stageUntilCheckpoint", "numtests": "1"})
         setup += frame(1001, model_import_checkpoint=json.dumps(ready))
-        replies.append((command(driver.CRASH_SETUP, "stageUntilCheckpoint"), setup, 0))
+        replies.append((command(setup_class, "stageUntilCheckpoint"), setup, 0))
         replies.append((ps, f"PID UID NAME\n42 10001 {driver.TARGET}\n".encode(), 0))
         def stops():
             for pkg in paths: replies.append((["shell", "am", "force-stop", pkg], b"", 0))
             replies.append((ps, b"PID UID NAME\n", 0))
         stops()
         verified = dict(ready, pid=43, startedElapsedMs=200)
-        fields = {"class": driver.CRASH_VERIFY, "test": "verifyAfterRestart", "numtests": "1"}
+        fields = {"class": verify_class, "test": "verifyAfterRestart", "numtests": "1"}
         output = frame(1, **fields) + frame(1002, model_import_verified=json.dumps(verified)) + frame(0, **fields) + b"OK (1 tests)\nINSTRUMENTATION_CODE: -1\n"
-        replies.append((command(driver.CRASH_VERIFY, "verifyAfterRestart"), output, 0))
+        replies.append((command(verify_class, "verifyAfterRestart"), output, 0))
         stops(); identities()
         if mutation: mutation(replies)
         fake = FakeAdb(replies)
@@ -386,7 +388,7 @@ class CrashDriverTests(unittest.TestCase):
             return driver.run_case(session, scenario, checkpoint)
 
     def test_every_explicit_first_replace_reset_pair_runs_separate_stop_and_verify(self):
-        pairs = driver.expand_pairs("all", "all"); self.assertEqual(23, len(pairs))
+        pairs = driver.expand_pairs("all", "all"); self.assertEqual(27, len(pairs))
         for scenario, checkpoint in pairs:
             with self.subTest(scenario=scenario, checkpoint=checkpoint), tempfile.TemporaryDirectory() as tmp:
                 session, fake = self.fixture(tmp, scenario, checkpoint)
@@ -395,6 +397,20 @@ class CrashDriverTests(unittest.TestCase):
                 self.assertFalse(fake.replies)
                 self.assertNotEqual(report["ready"]["pid"], report["verified"]["pid"])
                 self.assertEqual(2, sum(args[-1] == driver.TARGET and "force-stop" in args for args in fake.calls))
+
+    def test_cancel_hang_pairs_use_separate_filters_and_stop_provider_process(self):
+        self.assertIn("cancel-hang", driver.PAIRS)
+        self.assertEqual({"query-hung", "open-hung", "read-hung", "close-hung"}, set(driver.PAIRS["cancel-hang"]))
+        def provider(replies):
+            args, data, status = replies[8]
+            replies[8] = (args, data + f"44 10002 {driver.TEST}:model_import_fixture\n".encode(), status)
+        for checkpoint in driver.PAIRS["cancel-hang"]:
+            with self.subTest(checkpoint=checkpoint), tempfile.TemporaryDirectory() as tmp:
+                session, fake = self.fixture(tmp, "cancel-hang", checkpoint, provider)
+                report = self.run_case(session, "cancel-hang", checkpoint)
+                self.assertTrue(report["passed"]); self.assertFalse(fake.replies)
+                self.assertEqual(2, sum("force-stop" in args and args[-1] == driver.TEST for args in fake.calls))
+        self.assertFalse(any("CancellationDevice" in cls for cls, method in driver.ROSTERS["isolated"]))
 
     def test_fault_at_each_state_keeps_failure_and_independent_final_teardown(self):
         def change(index, transform):

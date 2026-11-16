@@ -34,6 +34,7 @@ PAIRS = {
     "first": ("initial-selection-next", "request-reserved", "request-consumed", "candidate-created", "mid-copy", "streams-closed", "payload-renamed", "selection-next-synced", "selection-committed"),
     "replace": ("request-reserved", "request-consumed", "candidate-created", "mid-copy", "streams-closed", "payload-renamed", "selection-next-synced", "selection-committed", "old-payload-delete"),
     "reset": ("reset-next-synced", "reset-committed", "reset-delete", "reset-empty-committed", "reset-cleared"),
+    "cancel-hang": ("query-hung", "open-hung", "read-hung", "close-hung"),
 }
 CRASH_SETUP = MODEL + "ModelImportCrashSetupTest"
 CRASH_VERIFY = MODEL + "ModelImportCrashVerifyTest"
@@ -62,9 +63,11 @@ def run_case(session, scenario, checkpoint, baseline=None):
         report["errors"].append(str(error)); return report
     budget = Budget(180, reserve=30); live = []
     arguments = {**correlation, "orchestrated": "true"}
+    setup_class = MODEL + "ModelImportCancellationDeviceTest" if scenario == "cancel-hang" else CRASH_SETUP
+    verify_class = setup_class if scenario == "cancel-hang" else CRASH_VERIFY
     try:
-        parser = Instrumentation({(CRASH_SETUP, "stageUntilCheckpoint")}, correlation, 1001, baseline[TARGET]["uid"])
-        setup, deadline = session.instrument_command(RUNNER, CRASH_SETUP + "#stageUntilCheckpoint", arguments, budget, 30)
+        parser = Instrumentation({(setup_class, "stageUntilCheckpoint")}, correlation, 1001, baseline[TARGET]["uid"])
+        setup, deadline = session.instrument_command(RUNNER, setup_class + "#stageUntilCheckpoint", arguments, budget, 30)
         live.append(setup)
         result = setup.run(deadline, parser.feed, until=lambda: 1001 in parser.markers)
         if result is not None or setup.proc.poll() is not None or 1001 not in parser.markers or parser.buffer or parser.fields or parser.result:
@@ -76,8 +79,8 @@ def run_case(session, scenario, checkpoint, baseline=None):
         # Controlled stop is work, not reserved final teardown. No verification until all UIDs are quiet.
         session.teardown(baseline, budget, teardown=False)
         setup.close(budget.deadline(2)); live.remove(setup)
-        parser = Instrumentation({(CRASH_VERIFY, "verifyAfterRestart")}, correlation, 1002, baseline[TARGET]["uid"])
-        verify, deadline = session.instrument_command(RUNNER, CRASH_VERIFY + "#verifyAfterRestart", arguments, budget, 90)
+        parser = Instrumentation({(verify_class, "verifyAfterRestart")}, correlation, 1002, baseline[TARGET]["uid"])
+        verify, deadline = session.instrument_command(RUNNER, verify_class + "#verifyAfterRestart", arguments, budget, 90)
         live.append(verify)
         if verify.run(deadline, parser.feed) != 0: raise Failure("verification transport failed")
         report.update(parser.complete())
