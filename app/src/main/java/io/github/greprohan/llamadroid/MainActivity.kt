@@ -3,7 +3,7 @@ package io.github.greprohan.llamadroid
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
+import android.view.View
 import android.widget.Toast
 import io.github.greprohan.llamadroid.modelimport.AndroidPickerRoute
 import io.github.greprohan.llamadroid.modelimport.ModelImportScreen
@@ -23,9 +23,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LayoutInflater.from(this).inflate(R.layout.main_activity, null)
-        setContentView(root)
-        screen = ModelImportScreen(root)
+        setContentView(R.layout.main_activity)
+        screen = ModelImportScreen(findViewById<View>(android.R.id.content))
         imports = ModelImports.get(applicationContext)
         route = AndroidPickerRoute.restore(savedInstanceState)
         screen.bind(ModelImportScreen.Actions(choose = ::choose, cancel = { imports.controller.requestCancel() }))
