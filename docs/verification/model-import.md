@@ -1,6 +1,29 @@
 # Model Import — Verification Evidence
 
-## Current status — fixture repair host-verified; retry paused for active app
+## Current status — MI-20 bounded device acceptance complete
+
+After the owner confirmed **“ready”**, both packages were bounded-stopped and the
+current production store was inventoried read-only: one selection record, one
+model payload, no candidates. Only the approved revised test APK was
+retained-updated. The fixed isolated suite then **PASSed 26/26 tests** on the S25,
+including the previously failing regular metadata case and actual unknown-size
+provider/controller/view integration. Both package UIDs, installed APK bytes and
+production selection-record hash/model-file metadata were retained; both packages
+are quiet. No production model/source was deleted, reset, replaced or launched.
+
+MI-20 acceptance is complete **across separately authorized batches**: isolated
+26/26 on revised test APK `660379ac…`, native smoke 1/1 earlier on original test APK
+`38679225…`, with the same unchanged production APK `76284abd…`. The native test's
+actual DEX disassembly and provenance asset are identical in both test APKs; native
+was **not rerun or claimed on the revised APK**. Each run retained its own recorded
+post-install baseline. This is not a single 27-test run or a model-inference pass.
+
+No app/host source changed in this retry; unchanged successful host checks were
+not repeated. MI-21 real SAF/lifecycle/>2 GiB work, MI-22 interruption/cancellation
+matrix, MI-23/module/human/ship review and inference/WebUI remain incomplete and
+separately gated. The final retry section records evidence and the exact boundary.
+
+## Previous follow-up — fixture repair host-verified; retry paused for active app
 
 The owner approved the test-only fixture repair, rebuild/audit, retained update of
 its revised APK and bounded isolated retry. Four tested/committed host slices now
@@ -1518,3 +1541,80 @@ The original native pass remains attributed to its original test APK and unchang
 production APK; no native run on the revised APK is invented. MI-21/MI-22 remain
 separate gates. The earlier provider packaging gap is fixed on host; whether it
 explains the device's null metadata is still **unverified until the retry**.
+
+## MI-20 — Approved isolated retry PASS and production-store preservation — 2026-11-17
+
+The owner replied **“ready”**, confirming the requested manual-import quiescence.
+Existing approval covered the revised test APK, fixed bounded isolated retry and
+bounded stops of both packages/provider; no repeated approval was requested.
+Evidence pointer `.cache/model-import/mi-20-retry-current-path.txt` identifies
+`.cache/model-import/mi-20-retry-20261117T150701Z/`. Earlier batch/fixture evidence
+pointers are preserved, not overwritten. No raw serial, wireless endpoint, source
+URI, owner label or raw instrumentation output is retained.
+
+### Inventory, retained update and baseline
+
+- Private S25 identity checks succeeded; installed original APK bytes/UIDs matched
+  the preserved original baseline. Both packages were explicitly bounded-stopped,
+  with all matching UID processes quiet, before store inventory. This used the
+  owner's readiness confirmation rather than assuming a cached main process
+  meant an ongoing manual import.
+- The now-existing production `no_backup/models` was preserved, **not deleted or
+  required to be absent**. Read-only no-follow/type/link checks found **one
+  selection record, one payload, zero candidates**. Inventory records root/entry
+  inode, mode, link count, size and mtime; selection bytes are SHA-256 hashed, and
+  generated payload names are represented only by hashes. No payload body was
+  read/hashed and no claim of full GGUF validity/content integrity is made.
+  Both legacy model paths remain absent. `/data` had **129,378,608 KiB available**.
+- Only pinned audited `revised-test.apk` was installed using bounded captured
+  **`install -r -t`**, with success acknowledgement. Production was not reinstalled
+  or changed. No uninstall, downgrade, data clear, reset, signature fallback,
+  document grant/source access or production selection replacement occurred.
+- Actual installed-byte hashing verified production
+  **`76284abdf487403266e26114a24246638b4422a1dee3e0d84f6dd7ec2069f291`**
+  and revised test
+  **`660379acb43023afdafdbd0b23509f18ab890ffadc88af7244b0f65a4c9eb1fa`**;
+  UIDs **10437 / 10439** are unchanged. `post-install-baseline.json` was established
+  before tests. Production snapshot after installation exactly matched the new
+  pre-update snapshot, not the obsolete earlier absent-store inventory.
+
+### Actual test result and postflight
+
+`isolated/report.json`: **PASS, 26 tests, errors=[]**, complete nonzero fixed-roster
+JUnit reporting, **teardown=true, retained=true**. The in-memory baseline-checking
+session used the pinned APKs and compared every identity read to the new baseline.
+Only the reviewed fixed `--suite isolated` filter ran. Sanitized diagnostic events
+independently contain all 26 start/pass pairs, no negative statuses/exceptions.
+The previously failing `optionalNullEmptyMissingAndOverflowMetadataNeverInventsASize`
+now passes, as do regular/sliced/reliable-error I/O, checked filesystem/store/reset
+fixtures, picker routing and unknown-size ContentResolver/controller/view cases.
+This validates those **isolated** paths, not the real manual picker/lifecycle matrix.
+
+`postflight.json` confirms both packages quiet and production inventory equal to
+`production-before.json`. Selection-record SHA-256, payload identity/stat metadata
+and model-root identity/stat metadata match before update, after update and after
+tests. This is scoped preservation evidence, **not a full payload-body hash**.
+No owner-data deletion or automatic cleanup/reset was used to make tests pass.
+
+### Native provenance and task boundary
+
+The separately approved original batch's `native/report.json` remains **PASS 1/1**
+on original test APK `38679225…` and the exact same production APK. Host APK
+inspection in this retry proves `NativeVersionSmokeTest` disassembly is **identical**
+in original/revised test APKs (SHA-256 of disassembly
+`ca171d10ab2002b66c69ad2577370bfc6ee8b2d45dccf575ad1599c6e8cd9b13`), and native
+provenance asset bytes are identical. `native-provenance-audit.json` records this.
+No new native instrumentation ran outside the isolated-retry scope, and no claim
+is made that native executed under the revised test APK. Each successful suite
+has its own correct retained post-install baseline; the two test APK identities
+are intentionally not conflated. There was no app/native implementation change
+that would invalidate the earlier native launch/exit evidence.
+
+**MI-20's bounded isolated/provider and native-smoke acceptance is now complete
+across these separately authorized batches.** No unchanged JVM/Python/build/lint
+suite was rerun for reassurance; prior host evidence remains unchanged. MI-21 real
+SAF, lifecycle, manual selection replacements and >2 GiB test-owned fixtures still
+need separate approval for each production-selection impact. MI-22's 27
+interruption/cancel pairs and MI-23/Checkpoint C/module/ship acceptance remain
+unexecuted or unapproved. The existing owner model copy must not be replaced or
+deleted as a side effect of entering MI-21 without explicit data-impact consent.
