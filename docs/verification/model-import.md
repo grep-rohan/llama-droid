@@ -1,27 +1,26 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-21 bounded real-picker open/cancel PASS
+## Current status — MI-21 one real Downloads model replacement PASS
 
-After another owner **“unlocked”**, the bounded non-replacing slice passed on the
-S25: verified idle target controls → Import button → actual resolved SAF picker →
-Back → verified ready target UI. **No document was selected or copied.** Both
-installed APK byte/UID identities matched the pinned baseline. The active model's
-record identity/name/size, store epoch and payload stat metadata were preserved;
-the pending picker nonce cleared. Selection-record SHA returned to its original
-value, although its inode legitimately changed. All 41 inventoried owner files
-were preserved before this slice's tracker update.
+The owner approved the real replacement, identified the phone's Downloads, and
+corrected the assistant's mistaken classification: **one GGUF is the model; the
+other is its mmproj, not a second model choice.** Filename-role checks confirmed
+the correction. The actual Downloads SAF picker selected only the approved model.
+The app reported Imported, selected a new private payload of **1,846,240,768 bytes**
+and normally cleaned up the old private payload. Store epoch was preserved,
+pending nonce cleared, and exactly one selection/one payload/no candidates remain.
+The Downloads model and mmproj stat metadata were preserved; neither source was
+modified/deleted by the assistant. No inference was started.
 
-Evidence: `.cache/model-import/mi-21-resume-20261117T182520Z/`, specifically
-`result.json` and `batch-audit.json`. Earlier keyguard attempts remain historical,
-not failed imports or completed picker tests. No source fixture, settings change,
-reset, install, force-stop, inference or MI-22 action occurred. **Full MI-21 is
-still incomplete.** The owner has now explicitly approved a real replacement
-using **“LMF3 in Downloads”**, with its previously stated private-copy impact;
-the external source must remain untouched. Source identity needs clarification:
-a bounded read-only lookup found no literal LMF3 GGUF and two LFM3 candidates,
-Q8_0 (1,846,240,768 bytes) and F16 (949,841,248 bytes). No source was selected or
-opened. Ask which candidate; do not repeat the already granted replacement
-consent or silently choose between files.
+Evidence: `.cache/model-import/mi-21-import-20261117T183950Z/`, `result.json` and
+`batch-audit.json`. The earlier real picker open/cancel pass remains valid.
+All 41 inventoried owner files were preserved before own tracker bookkeeping.
+No product source, APK installation, package stop, settings or fixture changed.
+**Full MI-21 remains incomplete:** the first post-selection UI observation already
+showed Imported, so in-flight progress/Cancel was not observed; lifecycle cases,
+>2 GiB copied length and heap bounds remain unverified. Network was not disabled,
+so this is not an offline/network-independence test. The single approved real
+replacement is complete, not permission for extra copies or MI-22.
 
 ## MI-20 bounded device acceptance complete
 
@@ -1781,3 +1780,56 @@ this lookup. Clarify **which file** before selecting any document; permission to
 replace is granted, source disambiguation is not. No product implementation
 changed and successful unchanged product builds/tests were not repeated. The
 real-picker open/cancel pass remains valid; full MI-21 is still incomplete.
+
+### Corrected model/mmproj classification; real replacement PASS — 2026-11-17
+
+The assistant's preceding ambiguity was a **classification error**: the F16 GGUF
+was the mmproj, not an alternative language model. The owner clarified this after
+confirming the location was the phone's Downloads. All earlier filesystem queries
+were already over private ADB under `/sdcard/Download`, never the PC's Downloads.
+Read-only filename-role checks confirmed exactly one model and one mmproj. The
+existing explicit replacement approval therefore identified the model without
+another consent request. No mmproj body was opened or selected.
+
+Evidence pointer `.cache/model-import/mi-21-import-current-path.txt` identifies
+`.cache/model-import/mi-21-import-20261117T183950Z/`:
+
+- Before UI action, both installed APK bytes/UIDs matched the pinned baseline;
+  the old active-record/epoch/payload stat matched the prior picker batch.
+  Source model/mmproj stats and destination headroom were captured. No APK was
+  rebuilt/installed, package stopped, settings changed or source fixture created.
+- The verified idle Import button opened the actual system SAF picker in
+  Downloads. The approved file was not in the initial visible hierarchy; no
+  wrong row was tapped.
+  A guarded continuation opened the actual picker Search control. Diagnosis
+  identified its real `AutoCompleteTextView` rather than assuming an EditText;
+  the continuation verified that focused field and the fixed `LFM3` query before
+  submitting it. The exact approved filename matched one result; the mmproj was
+  explicitly excluded. One model-row tap delivered the real document to the app.
+  All continuations checked the still-pending route, unchanged old active state
+  and source stats; no second import/picker reservation was started.
+- The first post-selection hierarchy already showed the known **Imported** status,
+  enabled Import button, correct active-name hash, and no pending/cancel/reset
+  controls. `observations.json` contains one Imported observation, **not observed
+  in-flight copy progress**. No copy Cancel, rotation, lock/leave or restart was
+  attempted. The source-selection guard and helper hashes are retained; raw UI,
+  filenames, source URI and device selector are not.
+- Final bounded record/inventory checks show a **new active identity and payload**
+  of **1,846,240,768 bytes**, same model name and store epoch, cleared nonce,
+  exactly one selection record/one payload/no candidates, and old private payload
+  absent after normal authorized replacement cleanup. Source model and mmproj
+  mode/link/inode/size/mtime metadata match before/after. This is metadata and
+  actual copied-length evidence, not full source/payload hashing or full GGUF
+  structural/compatibility validation.
+- All 41 owner-file hashes matched before own tracker bookkeeping; five generated
+  host-memory helper guards passed (not product/device-suite acceptance). No
+  product implementation changed, so unchanged successful product builds/tests
+  and MI-20 suites were not repeated. No inference/WebUI was started. The app was
+  left at its successful return, not force-stopped.
+
+`result.json` and `batch-audit.json` PASS only this one real replacement. Its
+length is **below 2 GiB**, no heap bound was measured, and Wi-Fi/network settings
+were untouched; offline operation/network independence is not claimed. Full
+MI-21 and MI-22/MI-23 remain incomplete. This consumes the approved single real
+replacement; extra imports, interruption actions or new large fixtures need
+separate scope, without altering/deleting either Downloads source.
