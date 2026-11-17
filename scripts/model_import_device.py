@@ -109,8 +109,13 @@ class Device:
             if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
                 raise Failure("local APK changed")
             uid_text = self.call(["shell", "cmd", "package", "list", "packages", "-U", package], budget)
-            match = re.fullmatch(rb"package:" + re.escape(package.encode()) + rb" uid:([0-9]+)\r?\n?", uid_text)
-            if not match or not 10000 <= int(match[1]) <= 2147483647: raise Failure("installed package UID mismatch")
+            uids = []
+            for line in uid_text.splitlines():
+                row = re.fullmatch(rb"package:([A-Za-z0-9_.]+) uid:([0-9]+)", line)
+                if not row: raise Failure("installed package UID mismatch")
+                if row[1] == package.encode(): uids.append(int(row[2]))
+            if len(uids) != 1 or not 10000 <= uids[0] <= 2147483647:
+                raise Failure("installed package UID mismatch")
             location = self.call(["shell", "pm", "path", package], budget)
             match_path = re.fullmatch(rb"package:(/data/app/[-A-Za-z0-9_~+=./]+/base\.apk)\r?\n?", location)
             if not match_path: raise Failure("installed APK path mismatch")
@@ -120,7 +125,7 @@ class Device:
             def absorb(chunk): installed.update(chunk); size[0] += len(chunk)
             self.call(["exec-out", "cat", remote], budget, cap=120, limit=before.st_size, consume=absorb)
             if size[0] != before.st_size or installed.digest() != digest.digest(): raise Failure("installed APK bytes mismatch")
-            result[package] = {"uid": int(match[1]), "sha256": digest.hexdigest(), "bytes": size[0]}
+            result[package] = {"uid": uids[0], "sha256": digest.hexdigest(), "bytes": size[0]}
         if len({p["uid"] for p in result.values()}) != len(result): raise Failure("package UIDs overlap")
         return result
 

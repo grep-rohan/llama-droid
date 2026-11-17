@@ -203,6 +203,25 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual(3, fake.closed); self.assertEqual([], fake.replies)
             self.assertNotIn("PRIVATE_SERIAL", str(result))
 
+    def test_package_filter_may_return_both_target_and_suffixed_test_package(self):
+        def add_suffix(replies):
+            args, output, status = replies[0]
+            replies[0] = (args, output + f"package:{self.package}.test uid:10002\n".encode(), status)
+        with tempfile.TemporaryDirectory() as tmp:
+            d, fake = self.fixture(tmp, add_suffix)
+            self.assertEqual(10001, d.identity(device.Budget(120))[self.package]["uid"])
+            self.assertEqual(3, fake.closed)
+
+    def test_duplicate_exact_or_malformed_package_rows_are_rejected(self):
+        for extra in (f"package:{self.package} uid:10001\n".encode(), b"malformed package row\n"):
+            def append_row(replies):
+                args, output, status = replies[0]
+                replies[0] = (args, output + extra, status)
+            with self.subTest(extra=extra), tempfile.TemporaryDirectory() as tmp:
+                d, fake = self.fixture(tmp, append_row)
+                with self.assertRaises(device.Failure): d.identity(device.Budget(120))
+                self.assertEqual(1, fake.closed)
+
     def test_wrong_package_uid_apk_split_or_transport_failure_cannot_be_accepted(self):
         changes = [lambda r: r.__setitem__(0, (r[0][0], b"package:wrong uid:10001\n", 0)),
                    lambda r: r.__setitem__(0, (r[0][0], f"package:{self.package.replace('.', 'X')} uid:10001\n".encode(), 0)),
