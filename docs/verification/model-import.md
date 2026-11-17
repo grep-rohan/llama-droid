@@ -1,6 +1,6 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-19 / H2 host-ready; STOP at MI-20 phone-consent gate
+## Current status — MI-20 approved; blocked because no device is connected
 
 **MI-00–MI-19, including MI-17A and reviewed integration splits, are complete only
 in their host implementation/verification or Android compilation scope.** Actual
@@ -12,10 +12,11 @@ human acceptance is invented. Final clean-output checks pass: **242 JVM tests,
 **compiled, NOT executed**. Native smoke is a separate fixed one-method filter.
 
 The owner's **“don't stop until phoen required”** direction has reached its exact
-host-only endpoint: **MI-20 is BLOCKED pending separate phone/data/package-stop
-consent. No ADB, device inventory, installation, test or phone write occurred.**
-The next action is owner approval of the precise MI-20 scope below, not another
-host implementation task. Runtime, real SAF/lifecycle, >2 GiB physical import,
+host-only endpoint. The owner subsequently **approved the precise MI-20 batch**
+on 2026-11-17. Authorized read-only ADB enumeration found **zero devices** (no
+unauthorized/offline devices either); device-specific inventory, installation,
+suites and package stops could not begin. **No phone data was written.**
+The next action is to connect/authorize the S25, not request the same consent again. Runtime, real SAF/lifecycle, >2 GiB physical import,
 process-death/cancellation, backup transport and module/ship completion remain
 unverified. No inference, model compatibility or WebUI result is claimed.
 
@@ -1328,3 +1329,11 @@ Preservation audit: **41 excluded owner files** (including all 36 `app/.cxx` fil
 **STOP: MI-20 requires a phone and separate explicit approval.** Approval must cover private S25/package/storage inventory; retained updates of the two exact audited APKs (including test package presence/signature handling); isolated 26-method suite and separate native `--version` smoke; bounded force-stop/fixture-provider teardown for **both** fixed packages; and the intended existing-selection/data impact. No uninstall, downgrade, data clear, disk filling, owner-model/source deletion or automatic reset is authorized. Signature/update failure blocks rather than permits uninstall. Establish the **post-install/pre-test** APK/UID baseline before suites; pre-update hashes are intentionally not that baseline.
 
 MI-21 needs separately approved real SAF/lifecycle and >2 GiB test-owned fixtures; MI-22 needs controlled interruption/cancel matrix approval and cannot overlap manual import. Physical results, phone/OEM compatibility, actual disk-full/backup transport/low-memory/power-loss behavior, inference/WebUI and full module/ship readiness remain explicitly unverified. The standing Definition of Done's runtime/human gates are not waived by these host results.
+
+## MI-20 — Consent recorded; device connection blocked — 2026-11-17
+
+The owner replied **“approve”** to the explicit MI-20 request: private inventory, retained updates of both audited APKs, bounded isolated/native tests and bounded stops of both fixed packages/provider. This is new, separate batch consent, not an inference from the old native-runtime/task-list approval. It does **not** authorize MI-21 production-selection/manual/large-file work or MI-22 interruption scenarios, uninstall/downgrade/data clear, owner-model/source deletion, automatic reset or disk filling.
+
+Local debug/test APK hashes still match the MI-19 audited identities. The authorized inventory attempt used bounded captured `adb devices -l`, retaining no serial or raw device output. It could not privately select a connected device; the follow-up redacted diagnostic returned exit0 with **0 authorized, 0 unauthorized, 0 offline, 0 permission-denied devices**, and no preselected `ANDROID_SERIAL`. No device-specific property/package/storage/model-root inventory, installation, instrumentation or package stop was attempted. Package presence, existing selection/data impact and available phone storage are consequently **unknown**, not assumed empty or fresh.
+
+Evidence pointer `.cache/model-import/mi-20-current-path.txt` identifies `.cache/model-import/mi-20-20261117T121237Z/`: `inventory.json` records the consent/safe block, `connection-status.json` the redacted connection counts. MI-20 remains unchecked and no Android/runtime acceptance is claimed. Production/test code and artifacts did not change; unchanged passing host checks were not rerun. Resume after the S25 is connected with USB debugging authorized; inventory existing packages/data/storage **before** any retained update. Initially absent packages need explicit installation consent, and any signature/update failure blocks rather than permits uninstall. Then establish the post-install/pre-test APK/UID baseline and use only the approved bounded wrapper for the isolated26 and separate native1 filters.
