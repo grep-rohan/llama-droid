@@ -1,6 +1,30 @@
 # Model Import — Verification Evidence
 
-## Current status — active-import rotation blocked by observer handshake; cleaned up
+## Current status — observer blockers resolved; emulator active-import rotation PASS
+
+Owner **“address blocker”** authorized a fresh emulator-only attempt. The CRLF
+handshake now works on the actual emulator. Diagnosis also exposed shell built-in
+comparisons mishandling the 4 GiB threshold; the observer now uses **Toybox 64-bit
+comparisons**, verified at seven real emulator boundary values.
+
+Latest `.cache/model-import/mi-21-emulator-active-20261117T212906Z/` proves a new
+landscape client Activity while the **same candidate** grew from **14,417,944**
+through **86,507,544 / 136,577,048 bytes**, then committed that inode as a selected
+**4,294,967,296-byte** private copy. PID/UID/epoch remained unchanged, nonce cleared,
+old private test copy normally cleaned up, one payload/no candidates remain.
+The initial busy-UI/over-strict postflight failure is retained; read-only resolution
+accepts Ready only with the exact new source/name/size/reference and candidate
+continuity verified. **No extra import was started to resolve postflight.**
+
+`resolved-result.json`, `rotation/result-resolved.json` and `batch-audit.json`
+are PASS. Both earlier failed intent ledgers are byte-preserved. Original rotation
+settings are restored; the owned external source is deleted. **The emulator still
+has the selected synthetic 4 GiB private test copy**; app data was not cleared.
+No S25 contact, basic Cancel retest, production code/build change or inference.
+Full MI-21 remains incomplete, including numeric UI progress, active leave/restart,
+heap/offline and remaining source-revocation/platform evidence.
+
+## Previous status — active-import rotation blocked by observer handshake; cleaned up
 
 Owner authorized continuing emulator work **until a blocker**. A 4 GiB test-owned
 source was created and the exact file located in the actual SAF picker. The armed
@@ -2173,3 +2197,88 @@ Next smallest action is a **fresh, separately recorded attempt** using the fixed
 observer, not overwriting/reusing the failed intent ledger or its deleted source.
 Further runtime work stopped at the encountered blocker; active-copy lifecycle,
 numeric progress, heap and offline/source-independence evidence remain open.
+
+## Observer blockers addressed — emulator active-import rotation PASS — 2026-11-17
+
+Owner **“address blocker”** continued the fixed-emulator scope. No old failure
+marker/source was reset or overwritten. Two fresh recorded attempts explain the
+resolution; neither is a S25/OEM/native inference acceptance claim.
+
+### CRLF runtime verification and 4 GiB comparison diagnosis
+
+`.cache/model-import/mi-21-emulator-active-20261117T211454Z/` preserves the parent
+204053Z ledger hashes and first verifies the actual corrected `Watch.arm/finish`
+over a harmless echo-only emulator command. CRLF was accepted. A new 4 GiB source
+was then selected once; the observer armed but timed out without a partial-candidate
+marker. The import committed, the owned source was removed, and the resulting
+private synthetic copy was retained. No basic Cancel was requested.
+
+Read-only diagnosis isolated another **harness** error: the emulator shell's
+built-in `[` returned false for both `1 < 4294967296` and `4294967296 > 0`, while
+`toybox test` correctly returned true. The partial-copy predicate now uses
+`toybox test "$bytes" -gt 0 && toybox test "$bytes" -lt 4294967296`.
+Seven host cases and seven actual read-only emulator boundary comparisons passed,
+including 2 GiB/4 GiB edges; no app import/rotation was started by those probes.
+Fresh-parent/no-retry and phase-aware cleanup guards passed 7+4 host cases.
+
+### Fresh model-present attempt and actual in-flight proof
+
+Latest `.cache/model-import/mi-21-emulator-active-20261117T212906Z/` verified that
+only the known previous **test-owned** 4 GiB private copy was selected: exact record,
+source-prefix nonce, inode/stat, APK/UID and idle UI checks. No owner weight was
+read/replaced, no app reset forced an empty baseline. A new exclusive source and
+fresh case ledger retained the previous attempt's complete byte hashes. The new
+source/private-copy reserve was checked before generation.
+
+The actual armed observer captured:
+
+- Before rotation: candidate **14,417,944 bytes**.
+- First sample: same candidate at **43,778,072 bytes**, old portrait Activity still
+  present, correctly **not** accepted as recreated.
+- Next samples: **new client Activity, landscape configuration**, same candidate
+  identity/inode at **86,507,544** and **136,577,048 bytes** — both strictly below
+  the 4 GiB source length. This proves actual recreation during the in-flight copy,
+  not merely a rotation request followed by a completed import.
+- Final persisted new selection refers to that **same inode**, now a full
+  **4,294,967,296-byte** private payload; same PID/UID/epoch, nonce clear, old test
+  payload absent, one selected payload and no candidate/extra payload. Only one
+  source tap/import occurred in this attempt. Numeric UI progress was not captured.
+
+The wrapper also gained a guarded consumed-route Activity-refresh path, with four
+host cases rejecting unexpected second taps; it was not needed in this actual
+attempt. No URI/extras or production import hooks were injected.
+
+### Postflight observation fix, cleanup and retained state
+
+The first idle-waiting UI dump was unavailable while progress was updating. The
+initial verifier retained its BLOCKED result; its subsequent read-only observation
+found **Ready**, not transient Imported, with the correct new persisted copy.
+Initialization can reset the transient outcome; status text alone is not a commit
+proof. The verifier now permits Ready **only** when source-name/size, new active
+identity/new payload, same epoch and cleared nonce independently prove replacement.
+It retries only bounded known busy-idle-dump misses without selecting another file.
+Fourteen host guards cover these postconditions and read-only retries, including
+rejecting unchanged/wrong records, unknown foreground and UI/record mismatch.
+
+`--verify-existing` resolved that SAME job, without another import/rotation. It
+required the captured live proof, same PID, committed-candidate inode and exact new
+record. Original rotation settings were already restored. Cleanup verified and
+removed **only the new owned external source**; the selected private test-copy
+metadata stayed identical after removal. This is warm-state source-removal
+preservation evidence, not permission revocation/cold restart or inference.
+
+`resolved-result.json` and `rotation/result-resolved.json` PASS;
+`batch-audit.json` is **PASS_ACTIVE_IMPORT_ROTATION_BLOCKERS_RESOLVED**. The original
+failed postflight report remains for provenance. Both older attempt directories
+are byte-unchanged; the critical executed observer hash matches. Host groups total
+36 new helper cases (7+4+7+4+14), plus seven read-only emulator numeric probes —
+not a product-suite count. Final APK SHA/UID retained, all 41 owner-file hashes
+matched before own tracker bookkeeping. No product implementation/build input
+changed, so unchanged successful product builds/tests were not repeated.
+
+**Final emulator state:** app Ready with the selected **synthetic 4 GiB private
+copy**, one selection/one payload/no candidates, no external generated source,
+original rotation restored. No app-data clear, S25 contact, basic Cancel retest,
+new test APK or native inference. This resolves the observer blocker and the
+bounded active-import rotation case, not full MI-21. Further cases require fresh
+current model-aware baselines, not the old empty-store helper or deleted sources.
