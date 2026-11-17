@@ -1,6 +1,25 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-20 partial: native passes; isolated suite fails
+## Current status — fixture repair host-verified; retry paused for active app
+
+The owner approved the test-only fixture repair, rebuild/audit, retained update of
+its revised APK and bounded isolated retry. Four tested/committed host slices now
+provide an Android/JDK-only Java provider, including all existing bounded modes;
+the manifest selects it and the Kotlin provider is removed. The six-class DEX
+closure has **zero Kotlin/target-helper references**. Final build/lint pass,
+**133 Python tests pass**, production inputs/APK are unchanged. The revised test
+APK is built/audited/preserved, **not installed or device-tested**.
+
+Read-only pre-update identity matched the original installed baseline, but the
+main app was active and `no_backup/models` had appeared since the earlier batch.
+The safety gate stopped **before installation, force-stop or any phone write**.
+Finish/cancel any manual import and confirm ready; the existing approval remains
+valid. Re-inventory/preserve the now-existing production data before retry, never
+reset or remove it. See the final fixture-repair section and its evidence pointer.
+MI-20 remains incomplete; native passed on the original test APK, isolated failed
+on that APK, and no runtime result is yet claimed for the revised test APK.
+
+## Previous batch — MI-20 partial: native passes; isolated suite fails
 
 **MI-00–MI-19/H2 remain complete only in their host/compilation scope.** On
 2026-11-17 the owner connected wireless ADB after approving the exact MI-20 batch.
@@ -1427,3 +1446,75 @@ another bounded isolated run. The old consent covered the two exact old APKs,
 not an unreviewed replacement. MI-21 and MI-22 remain separately gated. No new
 APK, provider rewrite, backup/disk-full test or manual owner import was performed
 in this batch.
+
+## MI-20 — Approved self-contained fixture repair; active-app gate — 2026-11-17
+
+The owner's subsequent **“approve”** explicitly covers fixing the test-only
+provider, rebuilding/re-auditing its APK, retained-updating that revised test APK
+and a bounded isolated rerun. This is the new artifact scope, not repeated consent
+for the old batch. It does not authorize MI-21/MI-22 or owner-data deletion/reset.
+
+Evidence: `.cache/model-import/mi-20-fixture-current-path.txt` identifies
+`.cache/model-import/mi-20-fixture-20261117T144639Z/`. Before builds, original
+production/test APK copies and original installed-baseline JSON were preserved;
+41 owner-file and production-input hashes were captured. The revised APK is
+separately preserved as `revised-test.apk`.
+
+### Incremental implementation and host verification
+
+- **`68734fd`**: staged test-only Java metadata/file provider; original manifest
+  remained active. Build/lint/unit-test task gate **PASS, 41 s**; new DEX had no
+  Kotlin references.
+- **`89504d0`**: ported reliable short/error and gated unknown-size pipes with
+  existing ownership, finite waits, token checks and joins. Same gate **PASS, 30 s**.
+- **`30dcc25`**: ported the existing query/open/read hang fixtures and finite
+  cancellation protocols without running them. Same gate **PASS, 33 s**.
+- **`d7590df`**: selected `StandaloneFixtureProvider` in the test manifest and
+  removed `FixtureModelProvider.kt`. Same gate **PASS, 32 s**; final Python suite
+  **133/133 PASS, 3.759 s**; lint **0 errors / 4 baseline warnings**. JVM test task
+  was **UP-TO-DATE** in these builds; unchanged prior 242 JVM results are not
+  misrepresented as newly executed tests.
+- Actual side-by-side source review checked all 15 fixture IDs, caller UID/debug
+  signature validation, URI/token validation, 50 generated GGUF bytes, read-only
+  descriptors/slices, reliable errors, no owner paths, bounded waits/worker joins
+  and cleanup ownership. All existing provider modes remain compiled; this is an
+  assistant technical review, not fabricated human/platform acceptance.
+- Final decoded test manifest retains the test authority and separate
+  `:model_import_fixture` process. DEX audit covers the provider, two state classes,
+  two lambda classes and D8's `-IA` synthetic class: only platform classes and
+  those six self-contained test classes are referenced. **Zero Kotlin or target
+  helper references**, old provider classes absent. An initial audit enumerator
+  missed the `-IA` suffix; enumeration was corrected, without a product change or
+  repeat build. All six class bodies were actually inspected by the audit.
+- APK signature verification passes and matches the original public debug signer.
+  Revised test APK: **993,738 bytes**, SHA-256
+  **`660379acb43023afdafdbd0b23509f18ab890ffadc88af7244b0f65a4c9eb1fa`**.
+  Production remains byte-identical at
+  **`76284abdf487403266e26114a24246638b4422a1dee3e0d84f6dd7ec2069f291`**.
+  `apk-audit.json` verifies all preflight owner/production-input hashes before
+  subsequent intentional tracker bookkeeping. No dependencies/build settings,
+  native payloads, production code, suite filters or test rosters changed.
+
+### Actual retry gate and next action
+
+Captured bounded read-only checks privately selected the S25 and matched both
+installed APK bytes/UIDs against the **original installed baseline**. However,
+`target_main` UID 10437 was active. Additional sanitized read-only inventory found
+`no_backup/models` now present; the two checked legacy paths remain absent.
+`retained-update.json` records **completed=false, phone_writes=false**;
+`active-package-diagnostic.json` records only fixed process roles/path presence.
+No revised installation, package stop or test was attempted. Owner data appearing
+between batches is not a cleanup target and is not attributed to the host build.
+
+**Paused for owner quiescence, not missing approval:** finish/cancel any manual
+import and confirm ready. A cached main process can remain after closing its UI;
+once the owner confirms no concurrent manual import, use the already approved
+bounded package stops, re-inventory the current model store read-only, preserve
+its new baseline, and retained-update **only the audited revised test APK**.
+Never demand an absent model directory or delete/reset it to satisfy the old
+inventory. Establish a new post-install/pre-test APK/UID baseline, then run the
+fixed bounded isolated wrapper with sanitized failure diagnostics if needed.
+The original native pass remains attributed to its original test APK and unchanged
+production APK; no native run on the revised APK is invented. MI-21/MI-22 remain
+separate gates. The earlier provider packaging gap is fixed on host; whether it
+explains the device's null metadata is still **unverified until the retry**.
