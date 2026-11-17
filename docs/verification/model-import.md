@@ -15,9 +15,13 @@ Evidence: `.cache/model-import/mi-21-resume-20261117T182520Z/`, specifically
 `result.json` and `batch-audit.json`. Earlier keyguard attempts remain historical,
 not failed imports or completed picker tests. No source fixture, settings change,
 reset, install, force-stop, inference or MI-22 action occurred. **Full MI-21 is
-still incomplete.** Before selecting any document (even intending copy Cancel),
-obtain explicit consent: a successful import can remove the current app-private
-model copy during normal replacement cleanup; the original source is untouched.
+still incomplete.** The owner has now explicitly approved a real replacement
+using **“LMF3 in Downloads”**, with its previously stated private-copy impact;
+the external source must remain untouched. Source identity needs clarification:
+a bounded read-only lookup found no literal LMF3 GGUF and two LFM3 candidates,
+Q8_0 (1,846,240,768 bytes) and F16 (949,841,248 bytes). No source was selected or
+opened. Ask which candidate; do not repeat the already granted replacement
+consent or silently choose between files.
 
 ## MI-20 bounded device acceptance complete
 
@@ -1754,3 +1758,26 @@ bounded heap remain unverified. Before selecting any source, obtain separate
 current-private-copy replacement-impact consent; even an intended Cancel can
 race successful commit and normal old-copy cleanup. Original external sources
 must remain untouched; generated/large fixtures need their own explicit scope.
+
+### Replacement approved; source identity ambiguous — 2026-11-17
+
+The owner answered the explicit replacement-impact question with **“yes, use LMF3
+in Downloads dir”**. This authorizes the next real replacement using the approved
+source, not source deletion/modification, extra replacements, new large fixtures,
+settings changes or MI-22. Do not request that same impact approval again.
+
+Bounded read-only filesystem lookup under the fixed Downloads directory (maximum
+three levels, 65,536 output bytes / 256 entries) found no literal LMF3 GGUF match
+and two LFM3 candidates. Only candidate-name hashes, stat metadata and generic
+quantization labels were retained: **Q8_0, 1,846,240,768 bytes**, and **F16,
+949,841,248 bytes**. No raw names, source URI, unrelated filenames, device selector
+or source body was retained/read. Evidence pointer
+`.cache/model-import/mi-21-source-choice-current-path.txt` identifies
+`.cache/model-import/mi-21-source-choice-20261117T183306Z/source-choice.json`.
+
+The latest hierarchy showed the target focused with no keyguard; an earlier
+observation showed keyguard. No input, picker opening, import or copy occurred in
+this lookup. Clarify **which file** before selecting any document; permission to
+replace is granted, source disambiguation is not. No product implementation
+changed and successful unchanged product builds/tests were not repeated. The
+real-picker open/cancel pass remains valid; full MI-21 is still incomplete.
