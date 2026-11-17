@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 /** Test-package process: Android/JDK dependencies only, never the target APK's classpath. */
 public final class StandaloneFixtureProvider extends ContentProvider {
     private final Set<String> ids = new HashSet<>(Arrays.asList("regular", "slice", "pipe", "pipe-error",
-        "null-open", "missing", "empty", "null-query", "overflow", "unknown", "denied", "gated-unknown"));
+        "null-open", "missing", "empty", "null-query", "overflow", "unknown", "denied", "gated-unknown", "hang-query", "hang-open", "hang-read"));
     private final Object gate = new Object();
     private static final class Gated {
         final String token = UUID.randomUUID().toString().replace("-", "");
@@ -40,6 +40,58 @@ public final class StandaloneFixtureProvider extends ContentProvider {
         volatile boolean failed;
     }
     private Gated gated;
+    private static final class Hanging {
+        final String id, token = UUID.randomUUID().toString().replace("-", "");
+        final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        volatile Thread worker;
+        Hanging(String id) { this.id = id; }
+    }
+    private Hanging hanging;
+    private Hanging hang(String id) {
+        synchronized (gate) { Hanging state = Objects.requireNonNull(hanging); check(state.id.equals(id)); return state; }
+    }
+    private void block(String id) {
+        Hanging state = hang(id); state.entered.countDown(); await(state.release, 120);
+    }
+    private Bundle hangCall(String method, String arg) {
+        if ("prepare-hang".equals(method)) {
+            require("hang-query".equals(arg) || "hang-open".equals(arg) || "hang-read".equals(arg));
+            Hanging state;
+            synchronized (gate) { check(hanging == null); state = new Hanging(arg); hanging = state; }
+            Bundle result = new Bundle(); result.putString("token", state.token); return result;
+        }
+        require("await-hang".equals(method) || "release-hang".equals(method) || "finish-hang".equals(method));
+        Hanging state;
+        synchronized (gate) { state = Objects.requireNonNull(hanging); require(state.token.equals(arg)); }
+        if ("await-hang".equals(method)) await(state.entered, 5); else state.release.countDown();
+        if ("finish-hang".equals(method)) {
+            join(state.worker);
+            synchronized (gate) { check(hanging == state); hanging = null; }
+        }
+        return Bundle.EMPTY;
+    }
+    private AssetFileDescriptor hangingPipe() throws FileNotFoundException {
+        Hanging state = hang("hang-read"); ParcelFileDescriptor[] ends = null;
+        try {
+            ends = ParcelFileDescriptor.createReliablePipe();
+            final ParcelFileDescriptor[] pipe = ends;
+            Thread worker = new Thread(() -> {
+                try (ParcelFileDescriptor.AutoCloseOutputStream output = new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])) {
+                    byte[] bytes = payload(); output.write(bytes, 0, 24); state.entered.countDown();
+                    try {
+                        if (!state.release.await(120, TimeUnit.SECONDS)) pipe[1].closeWithError("Generated hang fallback expired");
+                        else output.write(bytes, 24, bytes.length - 24);
+                    } catch (InterruptedException failure) { Thread.currentThread().interrupt(); throw new IllegalStateException(failure); }
+                } catch (Exception failure) { try { pipe[1].close(); } catch (IOException ignored) { } }
+            }, "bounded-hang-fixture");
+            synchronized (gate) { check(state.worker == null); state.worker = worker; worker.start(); }
+            return new AssetFileDescriptor(ends[0], 0, AssetFileDescriptor.UNKNOWN_LENGTH);
+        } catch (IOException | RuntimeException failure) {
+            closeFailure(ends, failure);
+            if (failure instanceof RuntimeException) throw (RuntimeException) failure;
+            throw fileFailure(failure);
+        }
+    }
     private static void await(CountDownLatch latch, int seconds) {
         try { check(latch.await(seconds, TimeUnit.SECONDS)); }
         catch (InterruptedException failure) { Thread.currentThread().interrupt(); throw new IllegalStateException(failure); }
@@ -84,6 +136,7 @@ public final class StandaloneFixtureProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         caller(); require(extras == null || extras.isEmpty());
+        if (method.endsWith("-hang")) return hangCall(method, arg);
         if ("prepare-gated".equals(method)) {
             require(arg == null); Gated state;
             synchronized (gate) { check(gated == null); state = new Gated(); gated = state; }
@@ -143,6 +196,7 @@ public final class StandaloneFixtureProvider extends ContentProvider {
     }
     @Override public Cursor query(Uri uri, String[] projection, String selection, String[] args, String order) {
         String id = fixture(uri);
+        if ("hang-query".equals(id)) block(id); // Deliberately ignores cancellation until bounded release.
         if ("null-query".equals(id)) return null;
         String[] columns = "missing".equals(id) ? new String[]{"unused"} : projection == null
             ? new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE} : projection;
@@ -168,6 +222,8 @@ public final class StandaloneFixtureProvider extends ContentProvider {
         String id = fixture(uri); require("r".equals(mode));
         if ("null-open".equals(id)) return null;
         if ("gated-unknown".equals(id)) return gatedPipe();
+        if ("hang-open".equals(id)) block(id); // A late read-only descriptor remains caller-owned.
+        if ("hang-read".equals(id)) return hangingPipe();
         if ("pipe".equals(id) || "pipe-error".equals(id)) return regularPipe(id);
         File file = null; ParcelFileDescriptor descriptor = null;
         try {
