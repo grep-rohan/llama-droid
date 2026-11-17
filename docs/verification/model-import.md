@@ -1,22 +1,28 @@
 # Model Import — Verification Evidence
 
-## Current status — Cancel attempt completed as import; cancellation unproven
+## Current status — 4 GiB copy/restoration/cleanup PASS; basic Cancel owner-confirmed
 
-After owner **“unlocked”**, the approved additional same-model attempt ran once.
-A partial candidate of **38,273,048 bytes** was observed; the later guarded live
-view already showed the idle post-copy layout, so no verified Cancel tap was sent.
-The final UI reported Imported with a new active private payload of
-**1,846,240,768 bytes**. **Result: INCOMPLETE_CANCEL_NOT_PROVEN**, not a Cancel pass
-or a demonstrated Cancel-handler failure. Normal replacement cleanup removed the
-previous private payload. Epoch was preserved, nonce cleared, one selection/one
-payload/no candidates remain; Downloads model/mmproj stats and all 41 inventoried
-owner files were preserved before own bookkeeping. No retry or inference ran.
+Owner reports **“i tested `cancel` manually, it works”**. Record **basic Cancel
+manually confirmed by the owner**, separately from the automation's missed timing
+window; do not repeat Cancel or imply a demonstrated Cancel-handler failure.
+The agent did not observe that manual interaction or take post-report snapshots.
 
-Latest evidence: `.cache/model-import/mi-21-cancel-20261117T190523Z/`, `result.json`
-and `batch-audit.json`. Both authorized copy attempts are now complete. Numeric
-UI progress/Cancel, lifecycle, offline operation and >2 GiB/heap evidence remain
-incomplete. A larger test-owned source is a possible next scoped step, **not yet
-approved**; do not create one or repeat imports automatically.
+The explicitly approved fixture batch completed a real **4,294,967,296-byte** SAF
+import, then restored the real **1,846,240,768-byte** model and deleted only the
+test-owned source. The app-private fixture payload was normally cleaned up by
+restoration. The Downloads model/mmproj stats and all 41 owner-file hashes were
+preserved before own bookkeeping. No inference ran. Automated Cancel remained
+**INCOMPLETE_CANCEL_NOT_PROVEN**: no eligible live Cancel control was captured,
+so zero Cancel taps were sent. The successful import is not an automated Cancel
+pass, and the owner's subsequent manual result is not relabelled as one.
+
+Latest evidence: `.cache/model-import/mi-21-fixture-20261117T191721Z/`,
+`result.json`, `batch-audit.json`, `restoration/result.json`,
+`fixture-cleanup.json` and `owner-manual-cancel.json`. **Full MI-21 remains
+incomplete:** numeric UI progress, lifecycle, offline/network independence,
+heap measurement and selected-fixture source-revocation checks still lack evidence.
+Actual >2 GiB completed copied length is now verified; bounded heap is not.
+The fixture/cleanup/restoration scope is complete; no further copy is automatic.
 
 The owner approved the preceding real replacement, identified the phone's Downloads, and
 corrected the assistant's mistaken classification: **one GGUF is the model; the
@@ -32,9 +38,10 @@ Evidence: `.cache/model-import/mi-21-import-20261117T183950Z/`, `result.json` an
 `batch-audit.json`. The earlier real picker open/cancel pass remains valid.
 All 41 inventoried owner files were preserved before own tracker bookkeeping.
 No product source, APK installation, package stop, settings or fixture changed.
-**Full MI-21 remains incomplete:** the first post-selection UI observation already
-showed Imported, so in-flight progress/Cancel was not observed; lifecycle cases,
->2 GiB copied length and heap bounds remain unverified. Network was not disabled,
+On that first real-model import, the first post-selection UI observation already
+showed Imported, so in-flight progress/Cancel was not observed. Later fixture and
+owner-manual results above supersede that timing/size boundary, not the remaining
+lifecycle/heap/network acceptance requirements. Network was not disabled,
 so this is not an offline/network-independence test. That first replacement and
 the subsequently approved additional attempt are complete; neither authorizes
 further copies or MI-22.
@@ -1926,4 +1933,73 @@ approval; the no-retry guard remains active. Existing successful product tests
 were not rerun on unchanged inputs. Full MI-21 remains unchecked. The next
 possible slice is an explicitly approved larger test-owned source and controlled
 Cancel attempt, with source cleanup and restoration of the real model if that
-copy commits. No fixture creation/restoration/extra copy is authorized yet.
+copy commits. No fixture creation/restoration/extra copy was authorized at that
+historical point; the subsequently approved batch is recorded below.
+
+### Approved 4 GiB fixture — import/restoration/cleanup PASS — 2026-11-17
+
+Owner **“yes”** explicitly approved creating/deleting one temporary 4 GiB source,
+one Cancel test, and restoring the real model if the fixture committed. Batch
+`.cache/model-import/mi-21-fixture-20261117T191721Z/`, pointer
+`.cache/model-import/mi-21-fixture-current-path.txt`:
+
+- Checked pinned installed APK bytes/UIDs, current active baseline, original
+  model/mmproj source stats and at least 8 GiB additional-space budget plus
+  64 MiB reserve. Created a unique generated source exclusively (no overwrites)
+  under the phone's Downloads, with a little-endian v3 24-byte GGUF header and
+  a 40-byte ownership marker. Wrote zero-filled data to a verified logical length
+  of **4,294,967,296 bytes**, retaining the prefix across interrupted writes.
+  This is a **synthetic header-only test source, not an inference model**; no
+  weights/generated source entered Git. Before/after creation snapshots showed
+  the app's production store unchanged and original source stats preserved.
+- Initial UI-stage enumeration found two authorized ADB transports. Read-only
+  filtering found only one physical S25/ARM64 match with this batch's exact
+  fixture inode/stat/prefix. A bounded fixture-scoped selector then privately
+  chose that approved phone. The other device received only a read-only model
+  property query, with no UI input, file/app-state access or writes. Duplicate routes would require the same
+  private hardware identity; distinct matching phones are rejected. No selector,
+  endpoint, hardware ID or unrelated device model was retained.
+- Fresh UI-stage APK/active/source/fixture checks and actual accessibility/live
+  view anchor/foreground gates passed. Actual SAF Downloads selected the exact
+  generated source once, explicitly excluding the mmproj. The first candidate
+  sample was **27,263,000 bytes**; later sequential guarded view samples already
+  showed the idle post-copy layout. **No eligible Cancel control, zero Cancel
+  taps, no repeated fixture copy.** This is still an observation-timing limit,
+  not a measured Cancel-handler failure or proof that Cancel was hidden during
+  the earlier partial candidate sample.
+- The app reported Imported with a **new active private identity/payload of
+  4,294,967,296 bytes**, unchanged store epoch, cleared nonce and no candidate
+  debris. This verifies completed copied length beyond 2 GiB, not bounded heap,
+  full GGUF compatibility or inference. The automated Cancel result remains
+  **INCOMPLETE_CANCEL_NOT_PROVEN**.
+- Conditional restoration then used another verified real SAF Downloads selection
+  of the original model, never the mmproj. The app reported Imported and selected
+  a new **1,846,240,768-byte** real-model copy. The private fixture payload was
+  normally removed. `restoration/result.json` PASS; original private identity
+  was not preserved because restoration legitimately created a new one.
+- After resources were released, cleanup verified the generated source's exact
+  nonce prefix/inode/mode/link/size metadata and removed **only that owned source**.
+  `fixture-cleanup.json` and an independent absence check confirm removal. Final
+  inventory has one selection/one real-model payload/no candidates, clear nonce,
+  same epoch and original source model/mmproj stats. The source was deleted
+  **after restoration**, so selected-fixture source revocation/independence was
+  not exercised. No whole payload-body hash is claimed.
+- All 41 owner-file hashes matched before own tracker bookkeeping. Executed helper
+  hashes match; **50 private host-helper guard cases across separate groups**
+  passed, not a product/device suite. An initial cleanup fake-test used an invalid
+  host `out` argument and was corrected before its six guards passed; no phone
+  action was involved in that harness error. No product source/build input,
+  package install/stop, settings, inference or MI-22 changed; unchanged successful
+  product builds/tests were not repeated.
+
+### Subsequent owner manual Cancel confirmation
+
+Owner then reported **“i tested `cancel` manually, it works”**. This is accepted as
+**basic Cancel manually confirmed by the owner** (`owner-manual-cancel.json`),
+separately from the automated timing misses. Do not repeat the Cancel test or
+misrepresent the report as agent-observed UI, automated cancellation, a recorded
+specific source/phase, or independently checked private-store preservation.
+The agent sent no further phone commands after that report; the automated batch's
+final snapshots remain pre-report evidence, not invented post-manual snapshots.
+Remaining MI-21 work is numeric progress/lifecycle/offline/heap and scoped source
+independence evidence; the grouped acceptance items and MI-22 remain open.
