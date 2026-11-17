@@ -1,8 +1,15 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-21 one real Downloads model replacement PASS
+## Current status — model replacement PASS; next Cancel attempt awaits unlock
 
-The owner approved the real replacement, identified the phone's Downloads, and
+After the next-step explanation, owner **“do next”** authorizes one additional
+same-model copy with a progress/Cancel attempt, including the stated risk that a
+fast copy may commit before Cancel. The prepared helper stopped at keyguard
+**before any new input, file selection or copy**. Unlock and keep the phone awake
+to resume this already approved attempt; no renewed replacement consent is needed.
+No offline/settings/large-fixture/MI-22 scope was inferred.
+
+The owner approved the preceding real replacement, identified the phone's Downloads, and
 corrected the assistant's mistaken classification: **one GGUF is the model; the
 other is its mmproj, not a second model choice.** Filename-role checks confirmed
 the correction. The actual Downloads SAF picker selected only the approved model.
@@ -1833,3 +1840,38 @@ were untouched; offline operation/network independence is not claimed. Full
 MI-21 and MI-22/MI-23 remain incomplete. This consumes the approved single real
 replacement; extra imports, interruption actions or new large fixtures need
 separate scope, without altering/deleting either Downloads source.
+
+### Next progress/Cancel attempt approved; paused before input — 2026-11-17
+
+Owner **“do next”** follows the explicit proposal to test copy progress/Cancel,
+with fast-copy completion/replacement risk stated. Scope is one additional attempt
+with the same approved phone Downloads model, never the mmproj; external sources
+must stay untouched. It does not authorize automatic retries, extra replacements,
+fixtures, settings changes, package stops or MI-22.
+
+The prior real import finished before the first idle-waiting accessibility dump.
+Read-only diagnosis confirmed `dumpsys activity top` exposes the actual target view
+hierarchy, current bounds, visibility and enabled/clickable flags. The prepared
+one-batch helper requires accessibility/live-view anchor agreement before opening
+the picker, and awake/unlocked/current-target policy/focus, a non-scrolling fully
+visible layout, a live visible enabled Cancel control and a strictly partial
+candidate size before its single Cancel tap. Raw dumps stay in memory. A successful
+Cancel must return the known Cancelled status and preserve the exact active
+record/epoch/payload stat, with nonce cleared and no candidates. Fast completion
+is explicitly incomplete Cancel evidence, not a pass; no retry is automatic.
+
+Twenty-one generated host-memory helper guards pass, including live-coordinate
+composition, hidden ancestors, disabled/clipped/wrong-anchor controls, candidate
+metadata, awake/keyguard policy and no-retry intent markers. These are **private
+helper checks, not product/device acceptance**. Actual accessibility-anchor and
+Cancel-path acceptance remain unexecuted. No product source changed, so unchanged
+successful product builds/tests were not repeated.
+
+Actual invocation `python .cache/model-import/mi21_cancel_attempt.py` stopped at
+its initial keyguard gate, before installed-identity/current-store rechecks or any
+new input/selection/copy. No current snapshot or Cancel pass is invented. Evidence
+pointer `.cache/model-import/mi-21-cancel-gate-current-path.txt` identifies
+`.cache/model-import/mi-21-cancel-gate-20261117T190008Z/gate.json`. The earlier model
+replacement remains PASS. Resume the same prepared command immediately after
+owner unlock/keep-awake confirmation, without bypassing keyguard or changing
+screen/network settings. Full MI-21 remains incomplete.
