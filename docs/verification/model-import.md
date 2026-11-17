@@ -1,6 +1,22 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-20 bounded device acceptance complete
+## Current status — MI-21 non-replacing UI slice started; unlock required
+
+The owner said **“start next”**. MI-21 began with a bounded, non-replacing slice:
+real MAIN/LAUNCHER entry, then planned SAF open/cancel without selecting a file.
+No replacement import, large source fixture, settings change, reset, installation
+or MI-22 action was authorized or attempted in this slice.
+
+The audited installed identity matched and the MAIN/LAUNCHER command succeeded,
+but private in-memory UI inspection found keyguard visible and the target app UI
+not visible. No coordinate tap, Back action, document selection or unlock attempt
+was sent. Production snapshots remained identical. **Real picker/cancel behavior
+is still blocked, not passed.** Owner must unlock the S25 and leave it awake;
+no password/PIN is requested. After confirmation resume the same non-replacing
+slice, not a model replacement. Full MI-21 remains incomplete and each successful
+production-selection replacement still needs explicit data-impact consent.
+
+## MI-20 bounded device acceptance complete
 
 After the owner confirmed **“ready”**, both packages were bounded-stopped and the
 current production store was inventoried read-only: one selection record, one
@@ -1618,3 +1634,48 @@ need separate approval for each production-selection impact. MI-22's 27
 interruption/cancel pairs and MI-23/Checkpoint C/module/ship acceptance remain
 unexecuted or unapproved. The existing owner model copy must not be replaced or
 deleted as a side effect of entering MI-21 without explicit data-impact consent.
+
+## MI-21 — Non-replacing UI entry; keyguard blocker — 2026-11-17
+
+Owner request **“start next”** starts MI-21, not a silent approval to remove the
+current private model. The stated first slice is real app launch and real SAF
+open/cancel without selecting any document. Successful replacement imports,
+>2 GiB generated sources/private copies, settings changes, reset, new installations
+and MI-22 interruption work remain outside this slice.
+
+Evidence `.cache/model-import/mi-21-current-path.txt` identifies
+`.cache/model-import/mi-21-ui-20261117T153006Z/`. Read-only checks privately selected
+the S25, verified both installed APK bytes/UIDs against the MI-20 revised baseline
+and captured the current production store before launch. No unfinished candidate
+was found. Captured bounded `am start -W` with MAIN/LAUNCHER and the fixed
+`.MainActivity` component was accepted. This verifies intent entry only, **not a
+human OEM launcher-icon tap or visible app-screen acceptance**.
+
+### UI observation and privacy
+
+- Non-PTY `uiautomator dump /dev/tty` and `/proc/self/fd/1` returned only short
+  completion output, no XML in the captured stream. The capture method was
+  corrected to bounded **`adb shell -tt uiautomator dump /dev/tty`**; the PTY
+  capture returned a real hierarchy. No persistent phone XML file or screenshot
+  was created, and no raw hierarchy, owner text, URI or endpoint was retained.
+- The actual hierarchy showed **target UI absent, system UI present, keyguard
+  resource indicators present**. Other package identities/text were not stored.
+  No button coordinates were guessed, no input was sent into an unverified
+  foreground window, and no unlock/PIN action was attempted.
+- `production-before.json`, `production-after-launch.json` and
+  `production-latest.json` match exactly, including selection SHA-256 and payload
+  stat metadata. Full payload bodies were not read/hashed. No picker opened,
+  document was selected/copied, model was replaced/deleted, fixture created,
+  settings changed, package installed or forced stop performed in this slice.
+- App/host source did not change; no unchanged host tests/builds or MI-20 suites
+  were rerun. No manual visual/human sign-off is invented from hierarchy output.
+
+**Paused for physical unlock:** owner must unlock the S25, leave it awake and
+confirm. Then resume the already stated non-replacing UI slice using PTY hierarchy
+capture, verified target/picker resource identities and bounded actions. Picker
+reservation/cancellation may rewrite routing/selection metadata legitimately;
+verify the active-model identity/bytes/stat rather than mistake an expected
+metadata inode change for a model replacement. Stop again before selecting any
+source or successful replacement. Full MI-21, including real offline import,
+rotation/copy/Cancel/lifecycle/>2 GiB evidence, remains unchecked; MI-20's isolated
+unknown-size provider result is not relabelled a real-picker/manual import result.
