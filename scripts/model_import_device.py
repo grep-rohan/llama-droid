@@ -126,7 +126,7 @@ class Device:
 
     def processes(self, baseline, budget, teardown=False):
         output = self.call(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], budget,
-                           cap=8 if teardown else 15, limit=32768, teardown=teardown)
+                           cap=8 if teardown else 15, limit=65536, teardown=teardown)
         try: lines = output.decode("ascii").splitlines()
         except UnicodeError: raise Failure("invalid process inventory") from None
         if not lines or lines[0].split() != ["PID", "UID", "NAME"]: raise Failure("invalid process header")

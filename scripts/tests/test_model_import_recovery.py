@@ -225,6 +225,22 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual([(42, 10001, self.package)], d.processes(baseline, device.Budget(20)))
         d.teardown(baseline, device.Budget(30)); self.assertFalse(fake.replies)
 
+    def test_large_system_process_inventory_stays_bounded_and_finds_target(self):
+        baseline = {self.package: {"uid": 10001}}
+        command = ["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"]
+        for count in (1500, 3000):
+            output = b"PID UID NAME\n" + b"123 1000 system-service\n" * count
+            output += f"42 10001 {self.package}\n".encode()
+            self.assertGreater(len(output), 32768)
+            fake = FakeAdb([(command, output, 0)])
+            d = device.Device("PRIVATE_SERIAL", {}, fake)
+            if len(output) <= 65536:
+                self.assertEqual([(42, 10001, self.package)], d.processes(baseline, device.Budget(20)))
+            else:
+                with self.assertRaisesRegex(device.Failure, "transport output limit"):
+                    d.processes(baseline, device.Budget(20))
+            self.assertEqual(1, fake.closed)
+
     def test_wrong_uid_and_surviving_uid_process_fail_closed(self):
         baseline = {self.package: {"uid": 10001}}
         for uid, name in [(10002, self.package), (10001, "libllama-server.so")]:
