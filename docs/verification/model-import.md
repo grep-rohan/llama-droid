@@ -1,24 +1,30 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-20 approved; blocked because no device is connected
+## Current status — MI-20 partial: native passes; isolated suite fails
 
-**MI-00–MI-19, including MI-17A and reviewed integration splits, are complete only
-in their host implementation/verification or Android compilation scope.** Actual
-assistant technical reviews F1/F2/A/F3/B/H0/H1/H2 are recorded below; no separate
-human acceptance is invented. Final clean-output checks pass: **242 JVM tests,
-128 Python tests, 12 disposable-project packaging tests**, lint **0 errors /
-4 baseline warnings**, both APKs built. Thirty model-import Android methods
-(26 ordinary + four crash/cancellation) and all 27 interruption pairs remain
-**compiled, NOT executed**. Native smoke is a separate fixed one-method filter.
+**MI-00–MI-19/H2 remain complete only in their host/compilation scope.** On
+2026-11-17 the owner connected wireless ADB after approving the exact MI-20 batch.
+Private inventory selected one physical **SM-S931B, ARM64, reporting Android 17 /
+API 37**. Both packages already existed. Retained updates of both audited APKs
+succeeded with unchanged UIDs; installed bytes matched the original audited hashes.
 
-The owner's **“don't stop until phoen required”** direction has reached its exact
-host-only endpoint. The owner subsequently **approved the precise MI-20 batch**
-on 2026-11-17. Authorized read-only ADB enumeration found **zero devices** (no
-unauthorized/offline devices either); device-specific inventory, installation,
-suites and package stops could not begin. **No phone data was written.**
-The next action is to connect/authorize the S25, not request the same consent again. Runtime, real SAF/lifecycle, >2 GiB physical import,
-process-death/cancellation, backup transport and module/ship completion remain
-unverified. No inference, model compatibility or WebUI result is claimed.
+**Native `--version` smoke: 1/1 PASS. Isolated 26-method suite: FAIL, incomplete.**
+The diagnosed failure is `AndroidImportIoTest.kt:98`: regular metadata expected
+`50`, received `null`. Host DEX inspection establishes that the separate-process
+fixture provider references Kotlin helpers absent from the test APK, a likely
+fixture packaging cause; no device exception confirming that cause was captured.
+All four bounded wrapper runs verified retained APK/UID identities and stopped
+both packages. Checked production model paths were absent before and after.
+
+Three host-only harness fixes were tested/committed separately: bounded 64 KiB
+process inventory, space-containing process names, and exact package UID selection
+from substring-filtered package output. **133 Python tests pass**. Previous
+**242 JVM / 12 packaging tests, lint 0 errors / 4 baseline warnings and APK builds**
+remain applicable to unchanged app/build inputs; no unchanged host build was rerun.
+MI-20 remains unchecked. A fixture fix and revised test APK need a fresh artifact
+review/update scope, not repeated approval of the old batch. MI-21/MI-22, real SAF,
+large imports, interruption/cancellation, inference/WebUI and module/ship readiness
+remain unverified. Detailed evidence is in the wireless MI-20 section below.
 
 ### Baseline reconciliation
 
@@ -1337,3 +1343,87 @@ The owner replied **“approve”** to the explicit MI-20 request: private inven
 Local debug/test APK hashes still match the MI-19 audited identities. The authorized inventory attempt used bounded captured `adb devices -l`, retaining no serial or raw device output. It could not privately select a connected device; the follow-up redacted diagnostic returned exit0 with **0 authorized, 0 unauthorized, 0 offline, 0 permission-denied devices**, and no preselected `ANDROID_SERIAL`. No device-specific property/package/storage/model-root inventory, installation, instrumentation or package stop was attempted. Package presence, existing selection/data impact and available phone storage are consequently **unknown**, not assumed empty or fresh.
 
 Evidence pointer `.cache/model-import/mi-20-current-path.txt` identifies `.cache/model-import/mi-20-20261117T121237Z/`: `inventory.json` records the consent/safe block, `connection-status.json` the redacted connection counts. MI-20 remains unchecked and no Android/runtime acceptance is claimed. Production/test code and artifacts did not change; unchanged passing host checks were not rerun. Resume after the S25 is connected with USB debugging authorized; inventory existing packages/data/storage **before** any retained update. Initially absent packages need explicit installation consent, and any signature/update failure blocks rather than permits uninstall. Then establish the post-install/pre-test APK/UID baseline and use only the approved bounded wrapper for the isolated26 and separate native1 filters.
+
+## MI-20 — Wireless S25 batch: native pass, isolated failure — 2026-11-17
+
+This supersedes the earlier missing-device blocker. The owner said **“wireless
+adb connected”**; the already recorded MI-20 consent was used, not requested again.
+Evidence pointer `.cache/model-import/mi-20-current-path.txt` now identifies
+`.cache/model-import/mi-20-20261117T141619Z/`. No serial, wireless endpoint, URI,
+raw device output or provider document name is retained in evidence.
+
+### Inventory and retained installation
+
+- Exactly one authorized device: `SM-S931B`, `arm64-v8a`, reporting Android 17 /
+  API 37. Both fixed packages existed, UIDs **10437 / 10439**. No fresh-install
+  assumption or additional installation consent was needed. No package processes
+  were active. `/data` had **131,193,332 KiB available** (about 125 GiB).
+- Before updates, `no_backup/models`, legacy `files/models`, `files/model.gguf`
+  and all four selection/reset record paths were absent. Inventory did not open
+  the app, import a document, initialize the production singleton or reset data.
+- Three real host-contract blockers were fixed in separate tested commits:
+  **`31057d1`** accepts up to 64 KiB of process output, still rejects overflow;
+  **`8b03b6e`** accepts names containing spaces without ignoring target-UID
+  children or weakening UID checks; **`eaabab2`** selects exactly one literal
+  package row while validating every row, rejecting duplicates/malformed output.
+  The S25 process sample was **39,718 bytes / 1,140 rows**, with five names
+  containing spaces. The production package filter returned both target and test
+  rows; UIDs had not actually changed. All these pre-install gates stopped before
+  phone writes. RED logs prove each regression before its fix; successive full
+  Python results were **129 / 131 / 133 passes**, final **3.490 s**. No Gradle/app
+  source or APK bytes changed, so unchanged successful builds were not repeated.
+- Both approved updates then succeeded, using bounded captured `install -r` and
+  `install -r -t`. No uninstall, downgrade, data clear or signature fallback.
+  `post-install-baseline.json` records the installed-byte SHA-256/UID baseline
+  **before any suite**, distinct from the deliberately replaced pre-update hashes.
+  Production remains **`76284abdf487403266e26114a24246638b4422a1dee3e0d84f6dd7ec2069f291`**;
+  test remains **`3867922538ccec2a1abe25b9c6496440e69dee7dc41b7e3ee89cce3850abbddc`**.
+
+### Actual bounded test results
+
+Only the approved fixed `--suite isolated` and `--suite native` filters ran,
+through the reviewed wrapper. A private in-memory selector and a baseline-checking
+session bound each run to the original post-install identities. No unfiltered
+instrumentation, crash/cancel matrix or manual production import ran.
+
+- `isolated/report.json`: **FAIL**, `failed skipped or duplicate test`, 0 fully
+  accepted suite tests. This means incomplete reporting, not that no method ran.
+- `isolated-diagnostic-run/report.json`: **FAIL**. The observer retained only
+  known-roster method/status identities, exception types and code source frames.
+  `documentIoRefusesMainThreadAndNonContentInputs` reported start/pass;
+  `optionalNullEmptyMissingAndOverflowMetadataNeverInventsASize` reported failure
+  `-2`, `java.lang.AssertionError`, **`AndroidImportIoTest.kt:98`**. A subsequent
+  test had started before the wrapper stopped the process; it is not counted as
+  passed and fixture cleanup is not asserted.
+- `native/report.json`: **PASS, 1 test**, complete nonzero JUnit framing,
+  `teardown=true`, `retained=true`. This validates this S25's installed pinned
+  native payload hashes, `--version` launch/exit and bounded child cleanup only;
+  it does not validate inference, a model, server readiness or the WebUI.
+- `isolated-numeric-diagnostic/report.json`: **FAIL**. One final diagnostic run of
+  the same approved suite retained only the numeric assertion shape: **expected
+  50, actual null**. No raw failure text/URI was saved. No more unchanged retries.
+- Every run independently verified the same APK/UID baseline afterward and
+  stopped both packages/provider. `postflight.json` additionally confirms both
+  packages quiet and all three checked production model paths still absent,
+  matching pre-update inventory. No owner file/model deletion, production reset,
+  disk filling or source access occurred. Interrupted test-fixture cleanup is
+  not promoted to a success claim.
+
+### Fixture blocker and next artifact gate
+
+`provider-classpath-audit.json` and host-only DEX listings establish that
+`FixtureModelProvider` references `kotlin.collections.SetsKt`,
+`kotlin.jvm.internal.Intrinsics` and other Kotlin runtime helpers not defined in
+its standalone test APK. The target APK's runtime classes do not make a test-only
+provider's separate package/process self-contained. This is a concrete packaging
+contract gap consistent with null queries; bounded sanitized logcat checks did
+not obtain a device exception, so that exact causal stack remains unverified.
+
+**MI-20 is NOT complete.** Next smallest slice: make the test provider
+self-contained without moving it into production or depending on target helper
+classes; host-test/build and audit the revised test APK, preserve the current
+artifact/baseline evidence, then obtain explicit scope for its retained update and
+another bounded isolated run. The old consent covered the two exact old APKs,
+not an unreviewed replacement. MI-21 and MI-22 remain separately gated. No new
+APK, provider rewrite, backup/disk-full test or manual owner import was performed
+in this batch.
