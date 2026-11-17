@@ -1,6 +1,25 @@
 # Model Import — Verification Evidence
 
-## Current status — emulator empty-store lifecycle checks PASS; S25 untouched
+## Current status — active-import rotation blocked by observer handshake; cleaned up
+
+Owner authorized continuing emulator work **until a blocker**. A 4 GiB test-owned
+source was created and the exact file located in the actual SAF picker. The armed
+observer then timed out: the emulator emits **CRLF**, but its ready predicate
+expected LF only. The failure occurred before a source tap/import was recorded;
+read-only inspection found only our unchanged pending picker reservation, no
+payload or candidate. **Active-import rotation is not verified.** No subsequent
+lifecycle, heap or offline test was started.
+
+Cleanup verified that same picker/nonce before Back, deleted only the owned
+source, and restored the original empty selection SHA/epoch and rotation settings.
+Final APK/UID match; app Ready, no model/payload/candidate. **S25 untouched; no
+basic Cancel retest.** The observer now accepts LF/CRLF and eight host regression
+cases pass, but **no runtime retry followed**, honoring the stop-at-blocker scope.
+Evidence `.cache/model-import/mi-21-emulator-active-20261117T204053Z/`,
+`batch-audit.json`, `observer-handshake-diagnostic.json`,
+`observer-fix-host-tests.json` and `cleanup-after-blocker.json`.
+
+## Previous emulator status — empty-store lifecycle checks PASS; S25 untouched
 
 Owner explicitly requested **the running `emulator-5554`, not the live S25**.
 Only that fixed selector was used, with `ro.kernel.qemu=1` enforced. A fresh
@@ -2098,3 +2117,59 @@ revocation or native startup/inference. Full MI-21 remains unchecked; physical
 S25 lifecycle acceptance is not invented or required as permission to touch that
 phone. Further work must honor the owner's emulator-only direction. The owner's
 basic manual Cancel confirmation remains accepted and is not repeated.
+
+## Emulator active-import attempt — observer handshake blocker — 2026-11-17
+
+Owner **“continue doing next until any blocker is encountered”** authorized the
+proposed emulator-only active-import work with a test-owned source. Fixed
+`emulator-5554`/qemu=1, installed APK/UID and the empty selection baseline matched.
+Both source/private headroom checks reported 15,171,129,344 bytes available before
+creation, enough for a 4 GiB source plus 4 GiB destination and 64 MiB reserve.
+No owner GGUF, new APK, source from the S25 or app-data reset was involved.
+
+Evidence pointer `.cache/model-import/mi-21-emulator-active-current-path.txt`
+identifies `.cache/model-import/mi-21-emulator-active-20261117T204053Z/`:
+
+- Created one exclusive test-owned **4,294,967,296-byte** source using the existing
+  nonce/prefix/inode/regular-single-link guards. The synthetic GGUF fixed header
+  is not a usable inference model. Before/after creation app-store snapshots match.
+- Verified the actual SAF picker, navigated its real Downloads root and located
+  the exact generated source. Its pending nonce/epoch and source metadata were
+  checked again. There was no basic app Cancel action or repeat of passed cases.
+- To avoid the previous sequential-query timing miss, prepared an observer armed
+  **before** the source tap. It uses a remote 20-second timeout and would rotate
+  when a partial candidate appears, then sample client Activity/configuration and
+  the same candidate identity/size. Nine generated protocol/selector host guards
+  and five generated source-row guards passed before the attempt. These are
+  private helper checks, not an app/device pass.
+- The observer's LF-only `LD_ARMED\n` predicate did not recognize the emulator's
+  `LD_ARMED\r\n` response and timed out at arming. No source-selected marker,
+  candidate or payload was found; the app remained behind the actual picker with
+  the same pending nonce. No in-flight rotation or import is claimed. Later test
+  stages were stopped rather than retrying the import.
+- The initial generic cleanup treated a source-selection **intent** as an
+  already-started copy and deferred deletion because the app was not foreground.
+  Read-only diagnosis resolved that ambiguity: the known picker was still focused
+  with our exact unchanged empty-store reservation. Cleanup then sent Back only
+  from that verified route, required Ready/empty original selection, verified the
+  owned source's nonce/prefix/inode/stat and removed only it. Original rotation
+  settings were restored; final inventory has no payload/candidate, original
+  empty selection SHA/epoch and matching installed APK/UID. The initial deferred
+  cleanup is not misreported as a remaining fixture or an app failure.
+- A subsequent **read-only** `echo` probe in the same nested timeout/shell form
+  returned exit 0 and exactly ten CRLF-framed bytes, identifying the transport
+  mismatch without starting another app test. The helper predicate was corrected
+  to accept one complete LF/CRLF marker and reject partial, prefixed or duplicate
+  markers. Eight new host cases pass, including both full protocol line endings;
+  the old predicate failure is reproduced. **The fix is not runtime-verified.**
+
+`batch-audit.json`: **BLOCKED_OBSERVER_HANDSHAKE_WITH_CLEANUP_PASS**. All 41 owner
+files matched before own tracker bookkeeping; no product code/build input,
+physical-phone access, test APK, app clear/stop, inference or further import/test
+was performed. Successful unchanged product builds/tests were not rerun. The
+emulator is left Ready with no imported model and the temporary source absent.
+
+Next smallest action is a **fresh, separately recorded attempt** using the fixed
+observer, not overwriting/reusing the failed intent ledger or its deleted source.
+Further runtime work stopped at the encountered blocker; active-copy lifecycle,
+numeric progress, heap and offline/source-independence evidence remain open.
