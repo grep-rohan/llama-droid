@@ -1,13 +1,22 @@
 # Model Import — Verification Evidence
 
-## Current status — model replacement PASS; next Cancel attempt awaits unlock
+## Current status — Cancel attempt completed as import; cancellation unproven
 
-After the next-step explanation, owner **“do next”** authorizes one additional
-same-model copy with a progress/Cancel attempt, including the stated risk that a
-fast copy may commit before Cancel. The prepared helper stopped at keyguard
-**before any new input, file selection or copy**. Unlock and keep the phone awake
-to resume this already approved attempt; no renewed replacement consent is needed.
-No offline/settings/large-fixture/MI-22 scope was inferred.
+After owner **“unlocked”**, the approved additional same-model attempt ran once.
+A partial candidate of **38,273,048 bytes** was observed; the later guarded live
+view already showed the idle post-copy layout, so no verified Cancel tap was sent.
+The final UI reported Imported with a new active private payload of
+**1,846,240,768 bytes**. **Result: INCOMPLETE_CANCEL_NOT_PROVEN**, not a Cancel pass
+or a demonstrated Cancel-handler failure. Normal replacement cleanup removed the
+previous private payload. Epoch was preserved, nonce cleared, one selection/one
+payload/no candidates remain; Downloads model/mmproj stats and all 41 inventoried
+owner files were preserved before own bookkeeping. No retry or inference ran.
+
+Latest evidence: `.cache/model-import/mi-21-cancel-20261117T190523Z/`, `result.json`
+and `batch-audit.json`. Both authorized copy attempts are now complete. Numeric
+UI progress/Cancel, lifecycle, offline operation and >2 GiB/heap evidence remain
+incomplete. A larger test-owned source is a possible next scoped step, **not yet
+approved**; do not create one or repeat imports automatically.
 
 The owner approved the preceding real replacement, identified the phone's Downloads, and
 corrected the assistant's mistaken classification: **one GGUF is the model; the
@@ -26,8 +35,9 @@ No product source, APK installation, package stop, settings or fixture changed.
 **Full MI-21 remains incomplete:** the first post-selection UI observation already
 showed Imported, so in-flight progress/Cancel was not observed; lifecycle cases,
 >2 GiB copied length and heap bounds remain unverified. Network was not disabled,
-so this is not an offline/network-independence test. The single approved real
-replacement is complete, not permission for extra copies or MI-22.
+so this is not an offline/network-independence test. That first replacement and
+the subsequently approved additional attempt are complete; neither authorizes
+further copies or MI-22.
 
 ## MI-20 bounded device acceptance complete
 
@@ -1875,3 +1885,45 @@ pointer `.cache/model-import/mi-21-cancel-gate-current-path.txt` identifies
 replacement remains PASS. Resume the same prepared command immediately after
 owner unlock/keep-awake confirmation, without bypassing keyguard or changing
 screen/network settings. Full MI-21 remains incomplete.
+
+### Approved Cancel attempt — fast completion, Cancel not proven — 2026-11-17
+
+After owner **“unlocked”**, immediately invoked
+`python .cache/model-import/mi21_cancel_attempt.py`. Evidence pointer
+`.cache/model-import/mi-21-cancel-current-path.txt` identifies
+`.cache/model-import/mi-21-cancel-20261117T190523Z/`.
+
+- Fresh preflight matched both pinned installed APK byte/UID identities and the
+  prior real-import active record/payload baseline. Model/mmproj source stats and
+  headroom were checked. Actual accessibility/live-view anchor bounds agreed;
+  the awake/unlocked/current-MainActivity and non-scrolling layout gates passed.
+  The actual Downloads SAF picker/search selected the exact approved model once,
+  never the mmproj. Intent markers prevent automatic re-opening/re-selection.
+- `fast-observations.json` records a first partial candidate size of
+  **38,273,048 bytes**, sampled before its subsequent foreground-policy/live-view
+  queries. Those later view snapshots already showed Import enabled, with
+  pending/progress/Cancel controls not visible and Cancel disabled. These are
+  **sequential observations**, not proof that Cancel was hidden while the partial
+  copy existed. No live Cancel control met all gates, so **zero Cancel taps** were
+  sent. Numeric UI progress and a visible in-flight progress widget were not
+  captured. The candidate size independently proves copying began.
+- `ui-observations.json` then records the known **Imported** status. Postflight
+  checks show a new active identity/new private payload of 1,846,240,768 bytes,
+  same model name/store epoch, cleared nonce, old private payload absent after
+  normal authorized cleanup, and exactly one selection/one payload/no candidates.
+  The old private identity was **not preserved**: this was the explicitly warned
+  fast-completion replacement outcome, not a completed Cancel test.
+- Source model and mmproj stat metadata match before/after; all 41 owner-file
+  hashes matched before own tracker bookkeeping. `batch-audit.json` verifies the
+  executed helper hashes match the prepared gate's hashes. No source was modified
+  or deleted; no product source, package install/stop, settings, large fixture,
+  inference, MI-22 action or second attempt occurred. No payload-body hash or
+  unchanged private payload identity is claimed.
+
+`result.json` is **INCOMPLETE_CANCEL_NOT_PROVEN**. This is not a product Cancel
+failure: cancellation was never requested. This attempt consumes its one-copy
+approval; the no-retry guard remains active. Existing successful product tests
+were not rerun on unchanged inputs. Full MI-21 remains unchecked. The next
+possible slice is an explicitly approved larger test-owned source and controlled
+Cancel attempt, with source cleanup and restoration of the real model if that
+copy commits. No fixture creation/restoration/extra copy is authorized yet.
