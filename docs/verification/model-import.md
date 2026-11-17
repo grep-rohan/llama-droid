@@ -1,6 +1,6 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-21 non-replacing UI slice started; unlock required
+## Current status — MI-21 resume checked; phone asleep at keyguard
 
 The owner said **“start next”**. MI-21 began with a bounded, non-replacing slice:
 real MAIN/LAUNCHER entry, then planned SAF open/cancel without selecting a file.
@@ -11,9 +11,12 @@ The audited installed identity matched and the MAIN/LAUNCHER command succeeded,
 but private in-memory UI inspection found keyguard visible and the target app UI
 not visible. No coordinate tap, Back action, document selection or unlock attempt
 was sent. Production snapshots remained identical. **Real picker/cancel behavior
-is still blocked, not passed.** Owner must unlock the S25 and leave it awake;
-no password/PIN is requested. After confirmation resume the same non-replacing
-slice, not a model replacement. Full MI-21 remains incomplete and each successful
+is still blocked, not passed.** After the owner replied **“unlocked”**, fresh
+read-only checks again found keyguard, target UI absent and power state not awake.
+Both installed APK identities matched; all 41 inventoried owner files and the
+production snapshot were preserved. No input was sent. The bounded picker helper
+is prepared; unlock again and keep the screen awake for the same non-replacing
+slice. No password/PIN is requested. Full MI-21 remains incomplete and each
 production-selection replacement still needs explicit data-impact consent.
 
 ## MI-20 bounded device acceptance complete
@@ -1679,3 +1682,31 @@ metadata inode change for a model replacement. Stop again before selecting any
 source or successful replacement. Full MI-21, including real offline import,
 rotation/copy/Cancel/lifecycle/>2 GiB evidence, remains unchecked; MI-20's isolated
 unknown-size provider result is not relabelled a real-picker/manual import result.
+
+### Unlock-confirmed resume — still asleep/keyguard
+
+After owner **“unlocked”**, evidence pointer
+`.cache/model-import/mi-21-resume-current-path.txt` identifies
+`.cache/model-import/mi-21-resume-20261117T154616Z/`. Fresh private selection and
+installed APK byte/UID verification matched the pinned revised MI-20 baseline.
+The production snapshot matched the previous UI batch exactly. In-memory PTY
+hierarchy again showed keyguard and no target UI; a bounded power-state query
+reported not awake. This does not establish when or why the phone locked.
+
+`production-before.json` and `production-after.json` match exactly; all 41
+current owner-file hashes also match. `batch-audit.json` records the blocked
+result. No tap, Back, unlock, launch retry, picker opening, document selection,
+package stop/install, settings change or production metadata write occurred.
+No raw hierarchy, unrelated package text, selector, source URI or screenshot was
+retained. The target app was not force-stopped.
+
+Ignored one-batch helpers now prepare the same bounded open/cancel flow, checking
+keyguard before APK transfer, then installed identity, active-record/payload
+identity, idle target controls, actual resolved picker focus before Back, and
+post-return nonce/active-model preservation. Ten host-only generated-metadata/UI
+guard checks pass; those are **helper checks, not product or device acceptance**.
+The actual helper invocation stopped at its keyguard guard without input; its
+picker actions and post-return checks remain unexecuted. No app/tracked host
+implementation changed, so prior successful product builds/tests were not rerun.
+Unlock again and keep the screen awake; do not select a source, change display
+settings or replace/reset the existing private model for this slice.
