@@ -1,6 +1,29 @@
 # Model Import — Verification Evidence
 
-## Current status — 4 GiB copy/restoration/cleanup PASS; basic Cancel owner-confirmed
+## Current status — emulator empty-store lifecycle checks PASS; S25 untouched
+
+Owner explicitly requested **the running `emulator-5554`, not the live S25**.
+Only that fixed selector was used, with `ro.kernel.qemu=1` enforced. A fresh
+production-only install of the existing audited APK was necessary: neither the
+package nor retained package data existed on the emulator. No test APK, model,
+fixture, data clear or physical-phone action occurred in this batch.
+
+**PASS on the empty-store emulator:** idle rotation with actual MainActivity
+recreation in the same process; picker-open rotation with the same pending nonce
+and clean return on verified picker Back; screen-off/wake return; idle target-only
+force-stop/relaunch with a new PID. The original rotation settings and the empty
+selection record SHA/epoch were preserved. Final APK bytes/UID match the postinstall
+baseline. App remains installed and Ready. **No actual keyguard was observed**, so
+this is screen-off return, not secure lock/unlock acceptance.
+
+Evidence `.cache/model-import/mi-21-emulator-20261117T194524Z/`,
+`batch-audit.json` and four case reports. Android 17/API 37, x86_64 with ARM64
+translation; no native inference was tested. These are **empty-store emulator
+results**, not active-model/in-flight-copy lifecycle or S25/OEM acceptance.
+Numeric progress/offline/heap/source-independence and full MI-21 remain open.
+Do not contact the S25 or repeat basic Cancel based on this supplementary batch.
+
+## Previous device status — 4 GiB copy/restoration/cleanup PASS; basic Cancel owner-confirmed
 
 Owner reports **“i tested `cancel` manually, it works”**. Record **basic Cancel
 manually confirmed by the owner**, separately from the automation's missed timing
@@ -2003,3 +2026,75 @@ The agent sent no further phone commands after that report; the automated batch'
 final snapshots remain pre-report evidence, not invented post-manual snapshots.
 Remaining MI-21 work is numeric progress/lifecycle/offline/heap and scoped source
 independence evidence; the grouped acceptance items and MI-22 remain open.
+
+## Emulator-only non-importing lifecycle batch — 2026-11-17
+
+### Scope, platform and initial install
+
+Owner requested **“start next, and use the running emulator instead of live s25”**,
+explicitly naming `emulator-5554`. All batch ADB commands used only
+`-s emulator-5554`; the helper rejects any changed selector and checks qemu=1.
+There was no device enumeration/selection or contact with the S25. The emulator
+reports Android 17/API 37, primary x86_64, supported ABI list x86_64/arm64-v8a and
+`libndk_translation.so`. This supports this APK's Java UI testing, not a native
+server/ELF startup or ARM64 inference claim.
+
+Both installed and retained (`package list -u`) target/test package checks were
+empty. A new, non-replacing production-only installation used the pinned existing
+79,332,034-byte APK SHA-256
+`76284abdf487403266e26114a24246638b4422a1dee3e0d84f6dd7ec2069f291`.
+No rebuild, test APK, uninstall, `-r`, app-data clear, model import or fixture was
+needed. Installed byte/UID verification passed, emulator target UID **10234**.
+The first fixed MAIN/LAUNCHER entry initialized one empty selection record, no
+payloads/candidates, and displayed No model imported / Ready.
+
+Evidence pointer `.cache/model-import/mi-21-emulator-current-path.txt` identifies
+`.cache/model-import/mi-21-emulator-20261117T194524Z/`. Initial and final package,
+UI, store and rotation records plus ignored one-batch helper hashes are retained.
+Raw hierarchies, unrelated app text/accounts/files, screenshots and native output
+were not retained. Fifteen generated host-memory helper guards passed across two
+groups; these are not extra product-suite or physical-device acceptance results.
+
+### Cases actually executed
+
+1. **Idle rotation — PASS:** changed actual display rotation 0 → 1; the ready UI
+   persisted, the client MainActivity identity changed while PID/UID stayed the
+   same, and the empty selection record/epoch stayed identical. Restored the
+   baseline `wm user-rotation free`, accelerometer rotation 1 / user rotation 0.
+2. **Picker rotation — PASS:** one verified Import tap opened the actual resolved
+   SAF picker. With **no file selected**, rotation changed 0 → 1, the same pending
+   nonce/epoch survived, and the actual picker stayed foreground. Back was sent
+   only from that verified picker with its unchanged reservation. The target
+   returned Ready, client Activity recreated in the same process, nonce cleared,
+   and original empty selection SHA restored. Original rotation settings restored.
+   This is picker dismissal, **not a repeat of the owner's copy Cancel test**.
+3. **Screen-off/wake return — PASS, genuine lock unverified:** from an idle app,
+   KEYCODE_SLEEP produced a non-Awake power state without changing the selection.
+   KEYCODE_WAKEUP returned directly to the ready app with no stale busy controls.
+   The emulator did not show keyguard; no PIN/security settings changed and normal
+   keyguard dismissal was not needed. An initial read-only `wm help` query exposed
+   Android 17's exit 255 despite valid usage output; the private helper was adapted
+   before the sleep case started. This was not an app failure or a failed Cancel.
+4. **Idle process restart — PASS:** after verifying no import/pending route,
+   force-stopped only the emulator target package and observed its process absent.
+   Fixed MAIN/LAUNCHER relaunch produced a new PID/client Activity with the same
+   UID, empty selection SHA/epoch, Ready UI and no pending/cancel/reset controls.
+   No app data was cleared. This is **idle restart**, not an MI-22 copy-interruption
+   scenario or active-model restoration test.
+
+### Postflight and limits
+
+`batch-audit.json` is **PASS_BOUNDED_EMPTY_STORE_EMULATOR_CHECKS**. Final installed
+APK SHA/UID match, test APK remains absent, one empty selection/no payload/no
+candidate remain, original rotation mode/settings match, and all 41 owner-file
+hashes matched before own tracker bookkeeping. The app is left installed and
+Ready. No product implementation changed, so unchanged successful product builds,
+JVM/packaging suites and MI-20 device tests were not rerun.
+
+These emulator results do not prove active-model selection preservation, rotation
+or leave/lock during a copy, multiple Activities, genuine credential lock/unlock,
+OEM background behavior, numeric progress, offline operation, heap bounds, source
+revocation or native startup/inference. Full MI-21 remains unchecked; physical
+S25 lifecycle acceptance is not invented or required as permission to touch that
+phone. Further work must honor the owner's emulator-only direction. The owner's
+basic manual Cancel confirmation remains accepted and is not repeated.
