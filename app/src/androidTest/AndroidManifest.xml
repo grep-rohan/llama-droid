@@ -5,7 +5,7 @@
     </queries>
     <application>
         <provider
-            android:name="io.github.greprohan.llamadroid.modelimport.FixtureModelProvider"
+            android:name="io.github.greprohan.llamadroid.modelimport.StandaloneFixtureProvider"
             android:authorities="${applicationId}.modelimport.fixture"
             android:exported="true"
             android:process=":model_import_fixture" />
