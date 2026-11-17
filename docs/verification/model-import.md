@@ -1,23 +1,23 @@
 # Model Import — Verification Evidence
 
-## Current status — MI-21 resume checked; phone asleep at keyguard
+## Current status — MI-21 bounded real-picker open/cancel PASS
 
-The owner said **“start next”**. MI-21 began with a bounded, non-replacing slice:
-real MAIN/LAUNCHER entry, then planned SAF open/cancel without selecting a file.
-No replacement import, large source fixture, settings change, reset, installation
-or MI-22 action was authorized or attempted in this slice.
+After another owner **“unlocked”**, the bounded non-replacing slice passed on the
+S25: verified idle target controls → Import button → actual resolved SAF picker →
+Back → verified ready target UI. **No document was selected or copied.** Both
+installed APK byte/UID identities matched the pinned baseline. The active model's
+record identity/name/size, store epoch and payload stat metadata were preserved;
+the pending picker nonce cleared. Selection-record SHA returned to its original
+value, although its inode legitimately changed. All 41 inventoried owner files
+were preserved before this slice's tracker update.
 
-The audited installed identity matched and the MAIN/LAUNCHER command succeeded,
-but private in-memory UI inspection found keyguard visible and the target app UI
-not visible. No coordinate tap, Back action, document selection or unlock attempt
-was sent. Production snapshots remained identical. **Real picker/cancel behavior
-is still blocked, not passed.** After the owner replied **“unlocked”**, fresh
-read-only checks again found keyguard, target UI absent and power state not awake.
-Both installed APK identities matched; all 41 inventoried owner files and the
-production snapshot were preserved. No input was sent. The bounded picker helper
-is prepared; unlock again and keep the screen awake for the same non-replacing
-slice. No password/PIN is requested. Full MI-21 remains incomplete and each
-production-selection replacement still needs explicit data-impact consent.
+Evidence: `.cache/model-import/mi-21-resume-20261117T182520Z/`, specifically
+`result.json` and `batch-audit.json`. Earlier keyguard attempts remain historical,
+not failed imports or completed picker tests. No source fixture, settings change,
+reset, install, force-stop, inference or MI-22 action occurred. **Full MI-21 is
+still incomplete.** Before selecting any document (even intending copy Cancel),
+obtain explicit consent: a successful import can remove the current app-private
+model copy during normal replacement cleanup; the original source is untouched.
 
 ## MI-20 bounded device acceptance complete
 
@@ -1710,3 +1710,47 @@ picker actions and post-return checks remain unexecuted. No app/tracked host
 implementation changed, so prior successful product builds/tests were not rerun.
 Unlock again and keep the screen awake; do not select a source, change display
 settings or replace/reset the existing private model for this slice.
+
+### Real picker open/cancel PASS — 2026-11-17
+
+After the next owner **“unlocked”**, the prepared bounded helper was invoked
+immediately. Its first invocation stopped before input because exactly one
+authorized device was not available. A bounded private enumeration then found
+one authorized device, zero offline/unauthorized devices; a new invocation of
+`python .cache/model-import/mi21_picker_slice.py` completed **PASS**. No selector
+or endpoint was saved. Evidence pointer `.cache/model-import/mi-21-resume-current-path.txt`
+now identifies `.cache/model-import/mi-21-resume-20261117T182520Z/`.
+
+- Fresh installed production/test APK bytes and UIDs matched the pinned baseline.
+  The initial saved setup hierarchy still showed keyguard; the later pre-input
+  hierarchy/focus and idle controls were verified independently. No unlock input
+  was sent or bypass attempted. Fixed MAIN/LAUNCHER entry was used when the target
+  was not focused; this is not a human launcher-icon tap claim.
+- Exactly one actual verified target Import-button tap opened the resolved
+  DocumentsUI SAF picker. Its actual foreground window/package matched the
+  resolver before exactly one Back action. No document entry/confirmation was
+  tapped, no source was opened/read and no import/copy/Cancel-during-copy ran.
+- The returned app window was focused, showed the known Ready status and enabled
+  Import button, with pending/cancel/reset controls absent. The displayed active
+  model-name hash matched the private bounded selection-record decoder.
+- `active-before.json` and `active-after.json` match: epoch and active-record
+  fingerprints, active name/size, payload identity/inode/size/mtime/mode/link
+  metadata, and no pending nonce. Exactly one selection and one payload remain,
+  with no candidates. Selection SHA also matches. **Full filesystem snapshots do
+  not match:** the selection inode changed through legitimate picker reservation
+  and cancellation. This is not reported as unchanged selection inode or as
+  payload replacement. No full payload-body hash or GGUF/inference claim is made.
+- `batch-audit.json` records these checks and hashes of both ignored one-batch
+  helpers; all 41 inventoried owner files matched before own tracker bookkeeping.
+  No app/tracked host implementation changed; unchanged successful product
+  builds/tests and MI-20 suites were not rerun. No install, package stop, reset,
+  settings change, large fixture or MI-22 action occurred. Raw UI/source names,
+  URIs, screenshots and unrelated package text were not retained.
+
+This proves **only real picker open/cancel and active-model preservation** under
+the stated non-replacing scope. Offline local import, copy progress/Cancel,
+rotation/multiple Activities/lock-return/restart, >2 GiB actual copied length and
+bounded heap remain unverified. Before selecting any source, obtain separate
+current-private-copy replacement-impact consent; even an intended Cancel can
+race successful commit and normal old-copy cleanup. Original external sources
+must remain untouched; generated/large fixtures need their own explicit scope.
