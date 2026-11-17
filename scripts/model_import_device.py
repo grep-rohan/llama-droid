@@ -132,7 +132,7 @@ class Device:
         if not lines or lines[0].split() != ["PID", "UID", "NAME"]: raise Failure("invalid process header")
         found = []
         for line in lines[1:]:
-            match = re.fullmatch(r"\s*([0-9]+)\s+([0-9]+)\s+(\S+)\s*", line)
+            match = re.fullmatch(r"\s*([0-9]+)\s+([0-9]+)\s+(\S(?:.*\S)?)\s*", line)
             if not match: raise Failure("invalid process inventory")
             pid, uid, name = int(match[1]), int(match[2]), match[3]
             if not 0 < pid <= 2147483647: raise Failure("invalid process identity")

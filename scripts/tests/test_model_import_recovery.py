@@ -241,6 +241,24 @@ class IdentityTests(unittest.TestCase):
                     d.processes(baseline, device.Budget(20))
             self.assertEqual(1, fake.closed)
 
+    def test_process_names_with_spaces_do_not_hide_target_uid_children(self):
+        baseline = {self.package: {"uid": 10001}}
+        output = b"PID UID NAME\n41 1000 system worker name\n42 10001 native worker name\n"
+        fake = FakeAdb([(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], output, 0)])
+        d = device.Device("PRIVATE_SERIAL", {}, fake)
+        self.assertEqual([(42, 10001, "native worker name")], d.processes(baseline, device.Budget(20)))
+        self.assertEqual(1, fake.closed)
+
+    def test_space_names_preserve_uid_checks_and_malformed_rows_fail_closed(self):
+        baseline = {self.package: {"uid": 10001}}
+        for row in (f"42 10002 {self.package}:worker name", "42 10001", "42 invalid worker name"):
+            with self.subTest(row=row):
+                output = ("PID UID NAME\n" + row + "\n").encode()
+                fake = FakeAdb([(["shell", "ps", "-A", "-n", "-o", "PID,UID,NAME"], output, 0)])
+                d = device.Device("PRIVATE_SERIAL", {}, fake)
+                with self.assertRaises(device.Failure): d.processes(baseline, device.Budget(20))
+                self.assertEqual(1, fake.closed)
+
     def test_wrong_uid_and_surviving_uid_process_fail_closed(self):
         baseline = {self.package: {"uid": 10001}}
         for uid, name in [(10002, self.package), (10001, "libllama-server.so")]:
