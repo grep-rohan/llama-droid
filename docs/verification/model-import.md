@@ -1,5 +1,33 @@
 # Model Import — Verification Evidence
 
+## Current status — event compatibility PASS; in-flight heap not yet tested — 2026-11-18
+
+The fresh `.cache/model-import/progress-events-compatible-probe/probe-result.json`
+now reports **listener_event_seen=true**, after reconciling the exact current
+PROGRESS fixture. The bounded five-second interval emitted one recognized event;
+expected observer exit124 / transport exit0. This verifies actual event-frame
+compatibility/listener delivery only, **not** target progress or in-flight heap.
+No raw event text retained, no new source/copy/input/settings/stop/test APK/S25.
+Postflight preserves fixture record/stat/prefix, APK/UID, PID/Activity, UI, rotation,
+owner40 hashes and all earlier ledgers. Old failed results were not rewritten.
+
+Added `scripts/model_import_live_heap.py` and nine synthetic host tests. The
+memory sample must be bracketed by the same strictly partial candidate, nonce
+prefix/inode/name, immutable prior payload/root/record and stable PID/UID/**process
+start ticks**. Reject completion, ownership/type/link changes, PID reuse, missing
+or invalid memory metadata. The caller still must collect before → memory → after
+in that order; pure validation is not Android evidence or peak-heap measurement.
+The initial fail-closed stub rejected both required valid cases, then **9 focused /
+177 full Python tests PASS**; logs `.cache/model-import/live-heap-host/`.
+
+A separate read-only **idle** prerequisite probe confirmed that target-UID
+`/proc/12572/stat` start ticks are readable and stable (1652174) around actual
+meminfo, with model/prefix/UI/process preserved. Explicitly **not in-flight**:
+`proc-epoch-probe.json`. No product/build inputs changed or unchanged Gradle rerun.
+Next: integrate these guards into the bounded live collector. A fresh source/copy
+requires a new recorded scope and current-model reconciliation; none was started.
+Numeric progress and heap-during->2GiB acceptance and full MI-21 remain incomplete.
+
 ## Observed event-header compatibility fix — host PASS — 2026-11-18
 
 Owner requested the next slice. Two bounded, observation-only schema captures
