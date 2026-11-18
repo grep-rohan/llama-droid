@@ -1,6 +1,56 @@
 # Model Import — Verification Evidence
 
-## Current status — emulator active-import leave/return PASS — 2026-11-18
+## Current status — restart harness blocker; safe same-case recovery PASS — 2026-11-18
+
+Owner requested continuing emulator-only **until a blocker**. Active-import
+leave/return passed below. The next, single MI-21 process-interruption case is
+**BLOCKED by an idle-only host record decoder**, not a demonstrated app failure.
+No later progress-series/heap/offline case or MI-22 matrix was started.
+
+Evidence `.cache/model-import/mi-21-emulator-restart-20261118T002103Z/`:
+
+- Fresh APK/UID, exact selected test-owned record/stat/64-byte prefix, current UI
+  and source/private-copy headroom verified. One exclusive 4 GiB synthetic source
+  selected once through SAF; no app-data clear or owner-model access.
+- Armed observer captured candidate **4,718,616 bytes**, then target-only
+  force-stop left that exact inode at **23,068,696 bytes**, strictly below 4 GiB.
+  Target process absent; original selection SHA unchanged. The next host call
+  rejected the expected leftover candidate because its historical `record()`
+  decoder requires an idle two-entry store. Planned launcher restart had not yet
+  run. Original `result.json`/`stage.json` remain **BLOCKED**, unmodified.
+- Read-only diagnosis verified exactly that candidate, original payload full
+  stat/prefix, record SHA/content and root identity. A record-only projection
+  excluded only the proven interrupted candidate for decoding; **no device file
+  was deleted**. Selection mtime legitimately changed during picker
+  reservation/consumption; requiring an identical mtime was also too strict.
+- Only the already-planned launcher recovery of this same case was then sent
+  from verified Home, not a new test/import/stop. App recovery removed its dead
+  candidate normally. New **PID 12572** versus **4851**, same **UID 10234**, Ready,
+  exact original active selection SHA/payload/stat/epoch/prefix, no pending route,
+  no candidate or automatic copy resume. This also observes cold-restart
+  preservation after that selected fixture's source was deleted in the preceding
+  slice; it is not URI-revocation, full-body validation or inference evidence.
+- Owned new external source removed only after safe idle recovery; selected
+  **previous synthetic 4 GiB private copy remains**. APK/UID/rotation unchanged;
+  parent ledger byte-preserved and owner41 matched before bookkeeping.
+  `cleanup-recovery-result.json` PASS and `batch-audit.json`
+  **BLOCKED_HARNESS_WITH_SAFE_RECOVERY_PASS** supersede historical cleanup-due
+  flags, without rewriting the original failed automation result.
+
+Host verification: nine meaningful RED restart assertions, then **16 restart
+helper guards PASS**; changed shared helper also passes its **15 leave guards**.
+Executed helper sources/test logs are retained in the ignored case directory.
+No product source/build inputs changed; unchanged Gradle tests were not rerun.
+No S25, basic Cancel retest, MI-22, new test APK or inference.
+
+**Next smallest action:** host-only regression/fix for decoding a stopped store
+with one exactly proven interrupted candidate, while rejecting all other extras
+and changed selection/payloads. Do not rerun the copy/force-stop merely to bypass
+old markers; preserve this blocked ledger and reconcile its recorded recovery.
+Full MI-21 remains incomplete: complete progress series, heap/offline, genuine
+keyguard and remaining source-revocation/platform/multi-Activity evidence.
+
+## Emulator active-import leave/return PASS — 2026-11-18
 
 Owner **“start next, don't stop until blocker”** continued emulator-only work.
 `.cache/model-import/mi-21-emulator-leave-20261118T001309Z/` verifies the unchanged
