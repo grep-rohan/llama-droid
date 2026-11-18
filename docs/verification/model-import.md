@@ -27,8 +27,22 @@ snapshot. Every file in the original failed/recovered case remained byte-identic
 This fixes the verifier contract, not the historical automated run: its BLOCKED
 result remains unchanged. No new import/force-stop, device access, app/build-input
 change, S25 or MI-22. Gradle was not rerun on unchanged app/build inputs.
-Next: integrate the scoped verifier into the emulator restart helper, then fresh
-read-only reconciliation before deciding whether any further case is safe.
+The ignored emulator restart helper now uses this verifier only at the stopped
+checkpoint, followed by the unchanged record decoder and exact active-state,
+process-absence and second-snapshot checks. **24/24 helper guards PASS**, including
+changes during decoding and rejection before contacting non-emulator targets.
+The idle-only adapter first failed the valid stopped-store and early-target guard
+cases; the earlier missing-function discovery failure is not counted as contract
+RED evidence. Revised helper/test sources and logs are saved alongside the audit.
+No old run markers were removed and no new restart/copy was run.
+
+Fresh **read-only emulator reconciliation PASS**: qemu=1, installed APK/UID match,
+exact previous selection/root/payload stats and selected LEAVE-fixture 64-byte
+ownership prefix match, Ready UI and original rotation. The other 40 owner-file
+hashes and every original failed/recovered ledger file remain unchanged; mixed
+`tasks/todo.md` is deliberately unstaged. Next is a separately recorded numeric
+progress/heap observation while replacing only that verified synthetic test copy,
+not another basic Cancel or force-stop, S25 test or MI-22 matrix.
 
 ## Current status — restart harness blocker; safe same-case recovery PASS — 2026-11-18
 
