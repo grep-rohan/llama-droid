@@ -9,7 +9,7 @@ Build a minimal FOSS Android wrapper around upstream llama.cpp `llama-server` an
 | Module id | Responsibility | Depends on | Specification |
 |---|---|---|---|
 | `native-runtime` | Build the APK, bundle CPU ARM64 `llama-server`, verify ELF dependencies and packaged launch | — | `SPEC-native-runtime.md` (complete and merged into `main` via `c8ea610`; host + S25 direct 25/25 verified, both audited APKs retained; Checkpoint C owner-approved) |
-| `model-import` | Import GGUF through SAF; handle cancellation, insufficient storage, and partial-file cleanup | — | Not drafted |
+| `model-import` | Import GGUF through SAF; handle cancellation, insufficient storage, and partial-file cleanup | — | Owner-approved [spec](SPEC-model-import.md), [plan](tasks/plan.md), and [tasks](tasks/todo.md#model-import-approved-task-list). Implemented through MI-19; bounded MI-20 device verification passed. [MI-21–MI-23 remain open](docs/verification/model-import.md). |
 | `server-lifecycle` | Start, readiness, failure reporting, Stop/restart, foreground-service cleanup | `native-runtime`, `model-import` | Not drafted |
 | `local-chat` | Open upstream WebUI in a restricted localhost WebView; verify actual generation | `server-lifecycle` | Not drafted |
 
@@ -36,6 +36,4 @@ Each module goes through separate Specify → Plan → Tasks → Implement appro
 
 ## Observed starting point
 
-The current checkout contains `README.md`, `AGENTS.md`, licensing, and intent/idea documents; it has no Android source or Gradle build files. References to existing scaffold code in `AGENTS.md` are not evidence that those files exist here.
-
-On 2026-07-19, `adb devices -l` returned no attached devices. Phone inspection and physical-device runtime checks are blocked until the phone is connected and authorized.
+At initial review on 2026-07-19, the checkout contained `README.md`, `AGENTS.md`, licensing, and intent/idea documents, but no Android source or Gradle build files. No device was attached at that review. These are historical observations, not current blockers.
