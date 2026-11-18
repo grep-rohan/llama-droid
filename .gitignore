@@ -5,11 +5,12 @@
 app/src/main/jniLibs/
 
 # Build outputs
+/app/.cxx/
 app/build/
 build/
 .gradle/
 .kotlin/
-__pycache__/
+__pycache__
 
 # Local SDK paths (host-specific)
 local.properties
@@ -29,8 +30,19 @@ Thumbs.db
 # Third-party license text is committed; do not ignore it
 # third_party/llama.cpp-LICENSE  ← committed
 
+# Local notes, except the shared project documents.
+docs/ideas/*
+!docs/ideas/reliable-single-model-wrapper.md
+docs/intent/*
+!docs/intent/minimal-wrapper.md
+
 # Keep reviewed verification documentation visible; ignore other local evidence.
 docs/verification/*
 !docs/verification/native-artifact.md
 !docs/verification/native-build.md
 !docs/verification/native-s25.md
+!docs/verification/model-import.md
+
+tasks/*
+!tasks/plan.md
+!tasks/todo.md
