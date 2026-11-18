@@ -140,6 +140,15 @@ class CallbacksTest(unittest.TestCase):
         self.assertEqual(self.device.call,self.call)
         self.assertTrue(any(args==['shell','safe-read'] for args,_ in self.calls))
 
+    def test_observed_crlf_uid_line_is_normalized_without_relaxing_identity(self):
+        def framed(args,budget,**kw):
+            raw=self.call(args,budget,**kw)
+            return raw.replace(b'\n',b'\r\n') if 'stat -c %u' in args[-1] else raw
+        self.device.call=framed
+        self.assertEqual(self.callback.snapshot(10)['process'],self.process)
+        self.assertEqual(self.callback.meminfo(10)['pid'],111)
+        self.assertEqual(self.device.call,framed)
+
     def test_qemu_refused_before_inventory(self):
         self.device.call=Mock(return_value=b'0\n');original=self.device.call
         with self.assertRaises(Failure):self.callback.snapshot(10)

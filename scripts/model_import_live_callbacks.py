@@ -147,6 +147,7 @@ class LiveCopyCallbacks:
         script=f'stat -c %u /proc/{pid}; head -c 4097 /proc/{pid}/stat'
         raw=self.device.call(['shell','run-as '+TARGET+' sh -c '+shlex.quote(script)],Budget(5),limit=8192)
         owner,sep,process=raw.strip().partition(b'\n')
+        owner=owner.removesuffix(b'\r')  # Observed Android shell CRLF framing.
         if not sep or not re.fullmatch(rb'[0-9]{1,10}',owner) or int(owner)!=self.process['uid']:
             raise Failure('expected process UID required')
         epoch=parse_process_epoch(process,pid,int(owner))
