@@ -104,6 +104,16 @@ class ProgressEventsTest(unittest.TestCase):
             self.parser.feed(event(text=text))
         self.assertEqual(self.parser.samples, [])
 
+    def test_pre_copy_feedback_is_excluded_before_sequence_checks(self):
+        parser = ProgressEvents(TOTAL, not_before_uptime_ms=2000)
+        parser.feed(event(TOTAL, 1000)+event(10, 2000)+event(100, 2001))
+        self.assertEqual([s['bytes'] for s in parser.samples], [100])
+
+    def test_invalid_event_cutoff_rejected(self):
+        for cutoff in [-1, True, 2**63, '2000']:
+            with self.subTest(cutoff=cutoff), self.assertRaises(Failure):
+                ProgressEvents(TOTAL, not_before_uptime_ms=cutoff)
+
     def test_duplicate_counts_are_not_extra_samples(self):
         self.parser.feed(event(10)+event(10, 2000))
         self.assertEqual(len(self.parser.samples), 1)

@@ -66,9 +66,12 @@ def event_schema(line):
 
 
 class ProgressEvents:
-    def __init__(self, total):
+    def __init__(self, total, *, not_before_uptime_ms=0):
         if type(total) is not int or not 24 <= total < 2**63:
             raise Failure('positive signed-Long model size required')
+        if type(not_before_uptime_ms) is not int or not 0 <= not_before_uptime_ms < 2**63:
+            raise Failure('valid event uptime cutoff required')
+        self._cutoff = not_before_uptime_ms
         self.total = total
         self.samples = []
         self.listener_event_seen = False
@@ -98,7 +101,7 @@ class ProgressEvents:
         if match is None:
             return
         tick, copied, total, percent = map(int, match.groups())
-        if (tick >= 2**63 or total != self.total or copied > total or
+        if (tick <= self._cutoff or tick >= 2**63 or total != self.total or copied > total or
                 percent != copied*100//total):
             return
         if tick < self._last_tick or (self.samples and copied < self.samples[-1]['bytes']):
