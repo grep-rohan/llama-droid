@@ -1,5 +1,35 @@
 # Model Import — Verification Evidence
 
+## Host stopped-store verifier fix — 2026-11-18
+
+Owner requested continuing emulator-only until a blocker. Added a reproducible,
+**host-only** verifier in `scripts/model_import_stopped_store.py` and its tests.
+It projects only the exactly captured interrupted candidate out of an in-memory
+inventory after proving process absence, root identity, record content SHA and
+unchanged active payload full stat. Unknown/duplicate entries, changed state,
+unsafe types/links, completed candidates and live/unknown process state reject.
+Checked record replacement may change selection inode/mtime, not content.
+The existing idle record decoder is not relaxed. No process launch or deletion
+is performed or authorized by this projection; callers must still decode the
+record and recheck store stability/process absence before an authorized recovery.
+
+Verification: the initial idle-only stub rejected both required valid cases;
+then **11/11 focused and 144/144 full Python tests PASS**. Commands:
+
+```bash
+PYTHONPATH=scripts python -m unittest discover -s scripts/tests -p 'test_model_import_stopped_store.py' -v
+PYTHONPATH=scripts python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+```
+
+Evidence `.cache/model-import/stopped-store-host-fix/` retains RED/GREEN/regression
+logs and a **historical host-only replay PASS** against the actual stopped-store
+snapshot. Every file in the original failed/recovered case remained byte-identical.
+This fixes the verifier contract, not the historical automated run: its BLOCKED
+result remains unchanged. No new import/force-stop, device access, app/build-input
+change, S25 or MI-22. Gradle was not rerun on unchanged app/build inputs.
+Next: integrate the scoped verifier into the emulator restart helper, then fresh
+read-only reconciliation before deciding whether any further case is safe.
+
 ## Current status — restart harness blocker; safe same-case recovery PASS — 2026-11-18
 
 Owner requested continuing emulator-only **until a blocker**. Active-import
