@@ -1,5 +1,57 @@
 # Model Import — Verification Evidence
 
+## Current status — real callbacks implemented; actual idle checks PASS — 2026-11-18
+
+Owner requested the next slice; **no new import**. Added
+`scripts/model_import_live_callbacks.py` and its tests (commit `4d499b5`):
+
+- Actual `/proc` process-owner/start-tick and meminfo parsing; each callback
+  checks PID/UID/start ticks before/after its reads. Snapshot reuses the supplied,
+  validated read-only inventory adapter on the **same fixed Emulator object**;
+  every underlying ADB command is clamped to the caller's absolute deadline.
+  No physical selector/workflow is invoked from the historical inventory module.
+- Snapshot checks inventory twice, preserving root/legacy state, old payload full
+  stat and selection SHA/content metadata. Legitimate selection inode/mtime and
+  directory mtime changes are not mistaken for payload changes. Unknown/extra
+  entries, links, unsafe types, incomplete/completed/replaced/rewound candidates,
+  changed records/roots/processes reject. Device method restoration is checked
+  on failures; these callbacks require serial use of that Emulator object.
+- Positive candidate binding requires a separately scoped fixture-prefix digest,
+  a unique exact generated candidate path matching inventory name digest, and a
+  bounded **64-byte** prefix read. This proves that prefix/metadata, not model-body
+  integrity or an atomic no-follow descriptor lease. No prefix supplied means
+  idle-only mode: an unexpected candidate rejects without prefix reading.
+- Host fixtures exercise positive snapshot → meminfo → snapshot against the
+  existing heap guard. They are explicitly synthetic, **not** an Android copy.
+  Initial fail-closed stubs rejected required valid paths; meaningful guard
+  assertions and runtime-framing regression are retained. Final **21 callback /
+  226 full Python tests PASS**, logs `.cache/model-import/live-callbacks-host/`.
+
+The first actual idle callback probe correctly blocked on `expected process UID
+required`. Same-case read-only diagnosis proved the first UID line had a trailing
+CR and matched the expected UID after framing removal; fixture/APK/UID/PID/UI/
+rotation remained intact. `7c042f2` removes exactly that observed trailing CR,
+without relaxing numeric UID/process identity. Original BLOCKED result and the
+postflight/diagnosis remain unchanged; the fresh compatibility probe is separate:
+
+`.cache/model-import/live-callbacks-compatible-probe/idle-probe-result.json`
+**PASS_ACTUAL_CALLBACKS_IDLE_ONLY**. A fresh observer armed, the real callback
+returned no candidate, and collection refused before sampling meminfo
+(**snapshot1 / memory0**), with observer exit124 and both objects closed. A
+**separate idle** meminfo callback then succeeded (0.293 s in this one observation),
+with process-incarnation checks. That timing is not a live-copy performance bound.
+Exact current PROGRESS fixture/stat/record/64-byte prefix, APK/UID, PID/Activity,
+UI and rotation preserved; prior ledgers/other40 owner hashes match. No source,
+fixture, app input/settings/stop/install, S25, Cancel or MI-22 action. No app/build
+changes, unchanged Gradle run, in-flight heap or full MI-21 acceptance claim.
+
+**Next:** committed-copy postflight wiring/tests, then a separately scoped fresh
+copy with these callbacks. Positive candidate reads are host-tested but have not
+run against an actual active copy; inventory latency under copying is unverified.
+Fresh watcher/readiness and after-arm device-uptime cutoff are required before
+any separately authorized source tap. Do not reuse the old idle probe readiness
+or repeat an old intent ledger. Current selected PROGRESS fixture is unchanged.
+
 ## Current status — collector host/idle integration PASS; positive copy pending — 2026-11-18
 
 Owner requested the next slice. Implemented the one-shot collector in
