@@ -1,5 +1,19 @@
 # Model Import — Verification Evidence
 
+## Emulator live-copy result
+
+**2026-11-18: 4 GiB SAF import and cleanup verified; live progress/heap series incomplete.** The owner approved one replacement of the synthetic fixture on `emulator-5554` (qemu=1). The runner checked the prior selection and its 64-byte ownership prefix, APK/UID, and free space (10,871,582,720 bytes available; 8,657,043,456 required). A fresh event listener armed before the single source tap.
+
+| Check | Observed result |
+|---|---|
+| Import and commit | The first bound candidate was **223,694,848 bytes** while the old payload was still selected. After observer teardown (expected exit 124), the new authoritative selection referenced that same inode and model ID at **4,294,967,296 bytes**. Source name, prefix, displayed size, store epoch and process incarnation matched. This verifies promotion, not full-body integrity or inference. |
+| Live progress and heap | **BLOCKED.** A later snapshot failed the strictly-partial size guard. The failing size and any intervening progress events or heap intervals were not saved; the first candidate stat is not a UI progress reading. There is no verified series across 2 GiB or heap bound from this run. This does not demonstrate an app failure. |
+| Cleanup | The app showed `IMPORTED` with one selected payload, no candidate or pending picker. Only the generated external source was deleted. The **new private synthetic fixture remains selected** (inode 1024002, replacing 1024047); APK/UID and rotation were unchanged. |
+
+Evidence: `.cache/model-import/mi-21-emulator-live-progress-20261118T031102Z/` — `live-progress/first-partial.json`, `live-progress/commit-proof.json`, `result.json`, `fixture-cleanup.json` and `batch-audit.json`. The postflight proof does not attest external cleanup; the cleanup receipt does. The overall result remains `BLOCKED`. The host audit matched all 45 parent evidence files and 41 owner-file hashes before tracker bookkeeping. The changed cached setup passed 15 leave, 15 progress and 24 restart guards; no app or build inputs changed.
+
+No second import, S25 access, Cancel retest or MI-22 test. Next: preserve each verified partial measurement and the size that triggered rejection, so a terminal snapshot cannot discard earlier evidence. Test that on the host before seeking another run. Full MI-21 remains open.
+
 ## Committed-copy postflight — host PASS, current selection read-only check PASS
 
 Added `scripts/model_import_postflight.py` and host tests in `d4f5615`, `316da59`,
