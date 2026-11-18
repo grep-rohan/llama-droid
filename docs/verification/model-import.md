@@ -1,5 +1,53 @@
 # Model Import — Verification Evidence
 
+## Current status — collector host/idle integration PASS; positive copy pending — 2026-11-18
+
+Owner requested the next slice. Implemented the one-shot collector in
+`scripts/model_import_live_collector.py` and fixed-emulator event transport in
+`scripts/model_import_event_reader.py`. Neither selects a source, sends app input,
+changes settings or starts/stops the app. Commits `01ca9b8`, `0a0c48e`, `d3b7b38`.
+
+- A fresh event from the same reader must arm the collector. Prior probe flags,
+  banners and elapsed time cannot arm it. Collection resets numeric feedback and
+  excludes events at/before an actual device-uptime copy-start cutoff **before**
+  monotonic checks, so prior-copy completion cannot poison the next sequence.
+- Each iteration is event-read → snapshot → meminfo → snapshot, with the existing
+  owned-partial-candidate/process-epoch guard. Across iterations, candidate bytes
+  cannot rewind. Three distinct partial numeric points and at least three heap
+  intervals must span 2 GiB; success is only `OBSERVED_PARTIAL_COPY_ONLY`, never a
+  committed-import/peak-heap/MI-21 pass. Missing candidate, completion mid-bracket,
+  stale/reordered feedback, EOF, overrun or insufficient samples reject.
+- Fixed byte/line/sample/poll bounds and one absolute deadline, plus two-second
+  teardown grace. Callback deadlines are a contract: overruns are rejected, not
+  claimed to magically interrupt arbitrary blocking Python. The actual idle
+  inventory wrapper clamps **every ADB command** to that deadline.
+- The reader rejects non-`emulator-5554` selectors and qemu!=1 before spawning;
+  a separate remote `timeout -s INT` lease bounds Android `uiautomator events`.
+  Complete bounded lines only; no readiness from an expired/dead session. Close
+  waits for expected remote exit124, not merely termination of the local ADB pipe.
+
+Host RED/GREEN logs `.cache/model-import/live-collector-host/`: cutoff regressions,
+**16 collector + 10 reader cases** after meaningful contract failures; the initial
+reader test-discovery naming error is not counted as RED evidence. Final full
+**205/205 Python tests PASS**, no app/build-input change or unchanged Gradle rerun.
+
+Actual `.cache/model-import/live-collector-host/idle-probe-result.json` is
+**PASS_IDLE_COLLECTOR_DEFENSIVE_INTEGRATION_ONLY**: fresh listener delivery,
+one real verified idle-store snapshot, **zero sampling meminfo callbacks**,
+expected refusal before memory, collector/reader closed and remote observer124.
+No synthetic candidate was supplied as an observation. Current PROGRESS fixture
+record/stat/64-byte prefix, APK/UID, PID/Activity, UI and rotation preserved;
+previous progress/leave/restart/compatibility ledgers and other40 owner hashes
+match. No new fixture/import/input/settings/stop/install, S25, Cancel or MI-22.
+Probe helpers are ignored evidence, not clean-checkout reproduction; tracked
+collector/parser/reader/guard unit tests are reproducible host coverage.
+
+**Remaining:** wire and verify real positive partial-snapshot/meminfo callbacks
+and final committed-copy postflight. A new copy requires a fresh recorded scope,
+owned-source/current PROGRESS-fixture reconciliation and its own intent ledger.
+No automatic import, live progress/heap acceptance or full MI-21 closure follows
+from this idle negative-path pass. All old failed results remain untouched.
+
 ## Current status — event compatibility PASS; in-flight heap not yet tested — 2026-11-18
 
 The fresh `.cache/model-import/progress-events-compatible-probe/probe-result.json`
