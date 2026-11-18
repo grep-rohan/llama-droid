@@ -2,7 +2,7 @@
 import unittest
 
 from model_import_device import Failure
-from model_import_progress_events import ProgressEvents
+from model_import_progress_events import ProgressEvents, event_schema
 
 TARGET = 'io.github.greprohan.llamadroid'
 TOTAL = 2**32
@@ -17,6 +17,24 @@ def event(count=3_000_000_000, tick=1000, package=TARGET, kind='TYPE_VIEW_TEXT_C
             'BeforeText: 1 of 4294967296 bytes (0%); AddedCount: 1; RemovedCount: 1 ]; recordCount: 0\r\n').encode()
 
 
+class SchemaTest(unittest.TestCase):
+    def test_only_allowlisted_keys_and_separator_not_values_are_retained(self):
+        raw = event(text='private-source-secret; EvilSecret: private-package-secret').rstrip(b'\r\n')
+        result = event_schema(raw)
+        self.assertIn('ClassName', result['field_order'])
+        self.assertEqual(result['footer_separator'], ' ]; recordCount: ')
+        self.assertNotIn('private', repr(result))
+        self.assertNotIn('EvilSecret', repr(result))
+
+    def test_compact_record_end_is_identified_without_text_retention(self):
+        result = event_schema(event().replace(b' ]; recordCount:', b']; recordCount:').rstrip(b'\r\n'))
+        self.assertEqual(result['footer_separator'], ']; recordCount: ')
+
+    def test_non_event_or_oversized_line_rejected(self):
+        for raw in [b'private source diagnostic', b'x'*16385]:
+            with self.subTest(raw_size=len(raw)), self.assertRaises(Failure): event_schema(raw)
+
+
 class ProgressEventsTest(unittest.TestCase):
     def setUp(self):
         self.parser = ProgressEvents(TOTAL)
@@ -25,6 +43,23 @@ class ProgressEventsTest(unittest.TestCase):
         self.parser.feed(event())
         self.assertEqual(self.parser.samples, [dict(event_uptime_ms=1000, bytes=3000000000,
                                                    total=TOTAL, percent=69)])
+
+    def test_observed_text_change_types_header_is_listener_compatible(self):
+        # Actual emulator schema adds this field; numeric values below are synthetic.
+        raw = event(package='other.app').replace(b'WindowChangeTypes: 0 [', b'WindowChangeTypes: 0; TextChangeTypes: 0 [')
+        self.parser.feed(raw)
+        self.assertTrue(self.parser.listener_event_seen)
+        self.assertEqual(self.parser.samples, [])
+
+    def test_observed_header_preserves_exact_target_progress_filter(self):
+        raw = event().replace(b'WindowChangeTypes: 0 [', b'WindowChangeTypes: 0; TextChangeTypes: TEXT_CHANGE_TYPE_UNDEFINED [')
+        self.parser.feed(raw)
+        self.assertEqual([s['bytes'] for s in self.parser.samples], [3000000000])
+
+    def test_unknown_extra_header_does_not_acknowledge_listener(self):
+        self.parser.feed(event().replace(b'WindowChangeTypes: 0 [', b'WindowChangeTypes: 0; OtherChangeTypes: 0 ['))
+        self.assertFalse(self.parser.listener_event_seen)
+        self.assertEqual(self.parser.samples, [])
 
     def test_real_event_is_listener_evidence_not_progress_evidence(self):
         self.parser.feed(event(package='com.android.systemui', kind='TYPE_WINDOW_CONTENT_CHANGED', text='private-clock-text'))

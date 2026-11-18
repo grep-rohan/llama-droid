@@ -16,6 +16,7 @@ _ACCESSIBILITY_EVENT = re.compile(
     rb'EventType: TYPE_[A-Z_]+; EventTime: [0-9]{1,19}; '
     rb'PackageName: [A-Za-z0-9_.]+; MovementGranularity: [0-9]+; Action: [0-9]+'
     rb'(?:; ContentChangeTypes: [^;\r\n]+; WindowChangeTypes: [^;\r\n]+)?'
+    rb'(?:; TextChangeTypes: [^;\r\n]+)?'
     rb' \[ ClassName: [A-Za-z0-9_.$]+;[^\r\n]* \]; (?:recordCount|RecordCount): [0-9]+'
 )
 
@@ -25,11 +26,43 @@ _EVENT = re.compile(
     rb'PackageName: io\.github\.greprohan\.llamadroid; '
     rb'MovementGranularity: [0-9]+; Action: [0-9]+'
     rb'(?:; ContentChangeTypes: [^;\r\n]+; WindowChangeTypes: [^;\r\n]+)?'
+    rb'(?:; TextChangeTypes: [^;\r\n]+)?'
     rb' \[ ClassName: android\.widget\.TextView; Text: '
     rb'\[([0-9]{1,19}) of ([0-9]{1,19}) bytes \(([0-9]{1,3})%\)\]; '
     rb'ContentDescription: null;[^\r\n]* \]; (?:recordCount|RecordCount): 0'
 )
 
+
+
+def event_schema(line):
+    """Return only allowlisted field names and structural separator metadata."""
+    if len(line) > 16384 or b' EventType: ' not in line:
+        raise Failure('bounded event line required for schema')
+    allowed = set(('EventType EventTime PackageName MovementGranularity Action '
+                   'ContentChangeTypes WindowChangeTypes TextChangeTypes ClassName Text ContentDescription '
+                   'ItemCount CurrentItemIndex IsEnabled IsPassword IsChecked IsFullScreen '
+                   'Scrollable Enabled Password Checked FullScreen BeforeText FromIndex ToIndex '
+                   'ScrollX ScrollY MaxScrollX MaxScrollY ScrollDeltaX ScrollDeltaY AddedCount '
+                   'RemovedCount ParcelableData DisplayId ConnectionId SourceWindowId '
+                   'SourceNodeId SourceDisplayId recordCount RecordCount').split())
+    keys = re.findall(rb'\b([A-Za-z][A-Za-z0-9_]*):', line)
+    if len(keys) > 128:
+        raise Failure('event schema field limit')
+    footer = re.search(rb'([ \t]*\];[ \t]*(?:recordCount|RecordCount):[ \t]*)[0-9]+$', line)
+    header = line.partition(b' [ ClassName:')[0]
+    signed = {}
+    for key in ['MovementGranularity', 'Action']:
+        match = re.search(key.encode()+rb': (-?[0-9]+)(?:;|$)', header)
+        signed[key] = ('negative' if match[1].startswith(b'-') else 'nonnegative') if match else 'unrecognized'
+    # Before ClassName, Android emits only event metadata fields (no Text,
+    # BeforeText or content descriptions). Retain bounded field labels, never values.
+    header_start = header.partition(b'EventType: ')[2]
+    header_keys = re.findall(rb'(?:^|; )([A-Za-z][A-Za-z0-9_]{0,47}): ', b'EventType: '+header_start)
+    return dict(header_field_order=[key.decode('ascii') for key in header_keys],
+                field_order=[key.decode('ascii') if key.decode('ascii') in allowed else 'UNKNOWN' for key in keys],
+                footer_separator=footer[1].decode('ascii') if footer else None,
+                timestamp_prefix=bool(re.match(rb'^[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} EventType:', line)),
+                header_integer_shapes=signed)
 
 
 class ProgressEvents:

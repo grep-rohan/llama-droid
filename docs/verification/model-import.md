@@ -1,5 +1,27 @@
 # Model Import — Verification Evidence
 
+## Observed event-header compatibility fix — host PASS — 2026-11-18
+
+Owner requested the next slice. Two bounded, observation-only schema captures
+reconciled/preserved the current PROGRESS fixture and previous ledgers. Retained
+only metadata field labels, numeric-sign categories, framing/separator shape;
+no source names, package values or event text. Evidence:
+`.cache/model-import/progress-events-{schema,header}-probe/`.
+The actual header adds **`TextChangeTypes`** after `WindowChangeTypes`, which
+explains the earlier strict parser rejection. Timestamp, one trailing CR and
+record-footer separator matched the existing format; these were not guessed.
+
+Added an optional, specifically named `TextChangeTypes` field to listener and
+progress recognition, without accepting arbitrary extra headers. Two meaningful
+compatibility RED assertions preceded the fix. Privacy/schema tests also cover
+unknown body keys and non-event/oversized diagnostics. **24 focused cases are
+included in 168/168 full Python tests PASS**; retained logs:
+`.cache/model-import/progress-events-schema/`. Synthetic numeric field values
+in regression tests are not actual in-flight feedback. App/build inputs unchanged;
+no unchanged Gradle run, import, fixture generation, settings/input/stop/test APK,
+S25 or MI-22 action. Next: a fresh, separately recorded observation-only probe to
+verify actual recognition; keep every prior blocked result unchanged.
+
 ## Current observer status — host PASS; event-frame readiness BLOCKED — 2026-11-18
 
 The next host slice adds an explicit listener-delivery flag: only a complete,
