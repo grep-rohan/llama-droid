@@ -26,6 +26,24 @@ class ProgressEventsTest(unittest.TestCase):
         self.assertEqual(self.parser.samples, [dict(event_uptime_ms=1000, bytes=3000000000,
                                                    total=TOTAL, percent=69)])
 
+    def test_real_event_is_listener_evidence_not_progress_evidence(self):
+        self.parser.feed(event(package='com.android.systemui', kind='TYPE_WINDOW_CONTENT_CHANGED', text='private-clock-text'))
+        self.assertTrue(getattr(self.parser, 'listener_event_seen', False))
+        self.assertEqual(self.parser.samples, [])
+
+    def test_partial_or_diagnostic_lines_are_not_listener_readiness(self):
+        for raw in [b'LD_ARMED\n', b'Reporting events\n', b'noise '+event(), event()[:-2]]:
+            parser = ProgressEvents(TOTAL)
+            parser.feed(raw)
+            self.assertFalse(getattr(parser, 'listener_event_seen', False))
+
+    def test_only_complete_event_can_acknowledge_listener(self):
+        raw = event()
+        self.parser.feed(raw[:-1])
+        self.assertFalse(getattr(self.parser, 'listener_event_seen', False))
+        self.parser.feed(raw[-1:])
+        self.assertTrue(getattr(self.parser, 'listener_event_seen', False))
+
     def test_fragmented_crlf_and_multiple_lines(self):
         raw = event(10, 1000) + event(2**31+1, 2000)
         for byte in raw: self.parser.feed(bytes([byte]))

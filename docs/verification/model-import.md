@@ -1,6 +1,41 @@
 # Model Import — Verification Evidence
 
-## Non-idle progress event parser — host PASS; runtime pending — 2026-11-18
+## Current observer status — host PASS; event-frame readiness BLOCKED — 2026-11-18
+
+The next host slice adds an explicit listener-delivery flag: only a complete,
+recognized accessibility event can acknowledge readiness. Arbitrary banners,
+sleep/timeouts, truncated lines and numeric data alone cannot. A non-target
+event may prove listener delivery but never target progress. Two meaningful RED
+assertions preceded this guard; **18 focused / 162 full Python tests PASS**.
+`progress-events-host/readiness-red.txt` and `readiness-regression.txt` retain logs.
+
+Two separately recorded **observation-only** probes used fixed `emulator-5554`
+and qemu=1, first reconciling the CURRENT PROGRESS fixture nonce/payload/stat,
+APK/UID, idle UI, PID and rotation. No import, fixture, app input, setting,
+force-stop, test APK, S25 or MI-22 action occurred. The actual launcher uses
+`exec app_process`; remote `timeout -s INT 5` bounded the Android observer.
+Both intervals ended with expected observer exit124 / transport exit0 and retained
+no raw event text. The first checked only bounded availability; it did not claim
+listener readiness. The second exercised the new recognition guard:
+
+- `.cache/model-import/progress-events-readiness-probe/probe-result.json` is
+  **BLOCKED_LISTENER_READINESS_NOT_OBSERVED**: 764 output bytes, one event-header,
+  one class-field and one lowercase record-count-footer occurrence, but **no
+  recognized complete event frame**. Actual event-format compatibility is
+  unresolved; do not broaden the parser by guessing or treat timeout as ready.
+- Zero numeric progress samples are expected in this idle probe and do not
+  validate live progress/heap. No new copy was used to test recognition.
+- Postflight confirms the exact current fixture/store, APK/UID, PID/Activity,
+  idle UI and rotation preserved. Historical progress/leave/restart ledgers are
+  byte-identical; other40 owner hashes match. Original 004307Z remains BLOCKED.
+
+**Stop point:** before another import, obtain a bounded, redacted actual event-frame
+schema/fixture and regression-test compatibility and readiness. Keep source names,
+event text and unrelated packages out of retained diagnostics. Then separately
+verify partial-candidate/PID/UID/memory observations before considering any fresh
+copy. No new source/copy retry is implicit in these host tests or probe results.
+
+## Non-idle progress event parser — initial host PASS — 2026-11-18
 
 Owner requested the next slice. Added `scripts/model_import_progress_events.py`
 and its reproducible host tests, without starting another copy. The parser uses

@@ -9,6 +9,16 @@ import re
 from model_import_device import Failure
 
 
+# Any complete real accessibility event proves delivery through the installed
+# listener. It does NOT prove target focus, progress, heap use or future liveness.
+_ACCESSIBILITY_EVENT = re.compile(
+    rb'[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} '
+    rb'EventType: TYPE_[A-Z_]+; EventTime: [0-9]{1,19}; '
+    rb'PackageName: [A-Za-z0-9_.]+; MovementGranularity: [0-9]+; Action: [0-9]+'
+    rb'(?:; ContentChangeTypes: [^;\r\n]+; WindowChangeTypes: [^;\r\n]+)?'
+    rb' \[ ClassName: [A-Za-z0-9_.$]+;[^\r\n]* \]; (?:recordCount|RecordCount): [0-9]+'
+)
+
 _EVENT = re.compile(
     rb'[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} '
     rb'EventType: TYPE_VIEW_TEXT_CHANGED; EventTime: ([0-9]{1,19}); '
@@ -28,6 +38,7 @@ class ProgressEvents:
             raise Failure('positive signed-Long model size required')
         self.total = total
         self.samples = []
+        self.listener_event_seen = False
         self._pending = bytearray()
         self._received = 0
         self._last_tick = -1
@@ -48,6 +59,8 @@ class ProgressEvents:
                 self._line(line)
 
     def _line(self, line):
+        if _ACCESSIBILITY_EVENT.fullmatch(line):
+            self.listener_event_seen = True
         match = _EVENT.fullmatch(line)
         if match is None:
             return
