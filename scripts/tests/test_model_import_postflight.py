@@ -3,9 +3,13 @@ import copy
 import hashlib
 import struct
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+from model_import_live_callbacks import LiveCopyCallbacks, TARGET
+from test_model_import_live_callbacks import proc
 from model_import_device import Failure
-from model_import_postflight import decode_active_selection, verify_committed
+from model_import_postflight import decode_active_selection, verify_committed, postflight_ui, read_committed
 
 
 def sha(value):
@@ -134,11 +138,129 @@ class CommitTest(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises(Failure):self.check()
             self.observed['ui'][key]=old
 
+    def test_unchanged_selection_cannot_pass_as_its_own_replacement(self):
+        raw=record(model=b'b'*32,name=b'old.gguf')
+        self.observed.update(store=copy.deepcopy(self.expected['before_store']),record_bytes=raw)
+        self.expected['candidate'].update(inode=10,name_sha256=sha(b'candidate-'+b'b'*32+b'.part'))
+        self.expected['source']['name_sha256']=sha(b'old.gguf')
+        self.observed['ui']['active_name_sha256']=sha(b'old.gguf')
+        with self.assertRaises(Failure):self.check()
+
+    def test_missing_or_empty_identity_candidate_and_scalar_aliases_rejected(self):
+        for section,value in [('identity',{}),('candidate',None),('process',{'pid':111,'uid':True,'start_ticks':42})]:
+            old=self.expected[section];self.expected[section]=value
+            with self.subTest(section=section),self.assertRaises(Failure):self.check()
+            self.expected[section]=old
+        self.observed['ui']['active_size']=True
+        with self.assertRaises(Failure):self.check()
+
     def test_ready_phase_and_legal_directory_record_stat_changes_accepted(self):
         self.observed['ui']['phase']='READY'
         self.observed['store']['models']['mtime']+=1
         self.observed['store']['entries'][0]['inode']+=1
         self.assertTrue(self.check()['same_candidate_promoted'])
+
+
+class UiTest(unittest.TestCase):
+    def setUp(self):
+        self.report=dict(target_focused=True,keyguard_indicators=False,controls={
+            'import_button':{'enabled':'true'},'active_model_name':{'text_sha256':sha(b'new.gguf')}})
+        self.nodes=[{'resource-id':TARGET+':id/active_model_size','text':'4294967296 bytes'}]
+
+    def test_exact_visible_size_and_controls_normalized(self):
+        result=postflight_ui(self.report,self.nodes,'READY')
+        self.assertEqual(result['active_size'],2**32)
+        self.assertFalse(result['pending_visible'])
+        self.assertTrue(result['replace_enabled'])
+
+    def test_duplicate_or_non_numeric_size_does_not_authorize_commit(self):
+        for nodes in [self.nodes*2,[dict(self.nodes[0],text='private source')]]:
+            with self.assertRaises(Failure):postflight_ui(self.report,nodes,'READY')
+
+
+class ReadTest(unittest.TestCase):
+    def setUp(self):
+        data=CommitTest();data.setUp();self.expected=data.expected;self.observed=data.observed
+        self.calls=[];self.final=False;self.inventory_count=0;self.change_second=False
+        self.device=SimpleNamespace(prefix=['adb','-s','emulator-5554'],call=self.call)
+        self.callback=LiveCopyCallbacks(self.device,self.inventory,self.expected['before_store'],
+            self.expected['process'],2**32,source_prefix_sha256=sha(self.observed['payload_prefix']),clock=lambda:0)
+        self.callback.snapshot(10)  # Real binding path, using explicitly synthetic I/O.
+        self.final=True;self.calls=[];self.inventory_count=0
+
+    def call(self,args,budget,**kw):
+        self.calls.append(args)
+        if args[:3]==['shell','getprop','ro.kernel.qemu']:return b'1\n'
+        if 'stat -c %u' in args[-1]:return b'10000\r\n'+proc()
+        if 'find no_backup/models' in args[-1]:
+            kind='candidate' if not self.final else 'model';suffix='.part' if not self.final else '.gguf'
+            return ('no_backup/models/'+kind+'-'+'c'*32+suffix+'\n').encode()
+        if args[0]=='exec-out':
+            return self.observed['record_bytes'] if args[-1].endswith('/selection') else self.observed['payload_prefix']
+        raise Failure('unexpected test transport read')
+
+    def inventory(self,device):
+        self.calls.append(['inventory']);self.inventory_count+=1
+        if self.final:
+            result=copy.deepcopy(self.observed['store'])
+            if self.change_second and self.inventory_count>1:result['models']['mtime']+=1
+            return result
+        result=copy.deepcopy(self.expected['before_store'])
+        result['entries'].append(dict(mode=0o100600,links=1,inode=20,bytes=100,mtime=10,kind='candidate',
+                                      name_sha256=self.expected['candidate']['name_sha256']))
+        return result
+
+    def read(self,**kw):
+        return read_committed(self.callback,self.expected,lambda d:self.observed['identity'],
+                              lambda d:self.observed['ui'],10,observer_exit=kw.get('observer_exit',124))
+
+    def test_bounded_actual_callback_ports_read_commit_not_source_cleanup(self):
+        result=self.read()
+        self.assertEqual(result['status'],'COMMITTED_COPY_METADATA_VERIFIED')
+        self.assertFalse(result['external_source_cleanup_verified'])
+        self.assertEqual(self.inventory_count,2)
+        self.assertEqual(self.device.call,self.call)
+        self.assertTrue(any(args[0]=='exec-out' and args[-1].endswith('/selection') for args in self.calls))
+
+    def test_no_captured_binding_or_live_observer_refused_before_io(self):
+        for value in [None,0,True]:
+            with self.subTest(exit=value),self.assertRaises(Failure):self.read(observer_exit=value)
+        self.assertEqual(self.calls,[])
+        unbound=LiveCopyCallbacks(self.device,self.inventory,self.expected['before_store'],self.expected['process'],2**32)
+        with self.assertRaises(Failure):read_committed(unbound,self.expected,lambda d:{},lambda d:{},10,observer_exit=124)
+        self.assertEqual(self.calls,[])
+
+    def test_record_change_between_read_and_inventory_rejected(self):
+        self.change_second=True
+        with self.assertRaises(Failure):self.read()
+        self.assertEqual(self.device.call,self.call)
+
+    def test_wrong_payload_path_refused_before_prefix_read(self):
+        original=self.call
+        def changed(args,budget,**kw):
+            if 'find no_backup/models' in args[-1]:return b'no_backup/models/model-owner-path.gguf\n'
+            return original(args,budget,**kw)
+        self.device.call=changed
+        with self.assertRaises(Failure):self.read()
+        self.assertEqual(self.device.call,changed)
+        self.assertFalse(any(args[0]=='exec-out' and not args[-1].endswith('/selection') for args in self.calls))
+
+    def test_identity_overrun_prevents_even_calling_ui_reader(self):
+        now=[0];self.callback.clock=lambda:now[0];ui=Mock(return_value=self.observed['ui'])
+        def late_identity(device):
+            now[0]=11
+            return self.observed['identity']
+        with self.assertRaises(Failure):
+            read_committed(self.callback,self.expected,late_identity,ui,10,observer_exit=124)
+        ui.assert_not_called()
+        self.assertEqual(self.device.call,self.call)
+
+    def test_ui_callback_error_is_redacted_and_method_restored(self):
+        with self.assertRaises(Failure) as error:
+            read_committed(self.callback,self.expected,lambda d:self.observed['identity'],
+                           lambda d:(_ for _ in ()).throw(RuntimeError('private filename')),10,observer_exit=124)
+        self.assertNotIn('private',str(error.exception))
+        self.assertEqual(self.device.call,self.call)
 
 
 if __name__=='__main__':unittest.main()

@@ -4,9 +4,11 @@ import hashlib
 import re
 import stat
 import struct
+import shlex
 import unicodedata
 
-from model_import_device import Failure
+from model_import_device import Budget, Failure
+from model_import_live_callbacks import TARGET
 
 
 def decode_active_selection(raw):
@@ -120,3 +122,56 @@ def verify_committed(expected, observed):
                     body_integrity_proven=False,inflight_progress_or_heap_proven=False,external_source_cleanup_verified=False)
     except (KeyError,TypeError,ValueError,AttributeError,StopIteration):
         raise Failure('incomplete committed-copy evidence') from None
+
+
+def postflight_ui(report, nodes, phase):
+    """Normalize current English size text and redacted visible control metadata."""
+    try:
+        _require(len(nodes)<=4096)
+        sizes=[n.get('text','') for n in nodes if n.get('resource-id')==TARGET+':id/active_model_size']
+        _require(len(sizes)==1)
+        match=re.fullmatch(r'([0-9]{1,19}) bytes',sizes[0]);_require(match is not None)
+        size=int(match[1]);_require(24<=size<2**63)
+        c=report['controls'];name=c['active_model_name']['text_sha256'];_require(_digest(name))
+        return dict(target_focused=report['target_focused'],keyguard=report['keyguard_indicators'],phase=phase,
+                    replace_enabled=c['import_button']['enabled']=='true',pending_visible='import_pending' in c,
+                    cancel_visible='import_cancel' in c,reset_visible='import_reset' in c,
+                    active_name_sha256=name,active_size=size)
+    except (KeyError,TypeError,AttributeError):raise Failure('incomplete committed UI observation') from None
+
+
+def read_committed(callbacks, expected, read_identity, read_ui, deadline, *, observer_exit):
+    """Read final evidence only after verified observer termination; no mutations."""
+    try:
+        _require(type(observer_exit) is int and observer_exit==124)
+        bound=callbacks.expected;_require(bound is not None)
+        _require(callable(read_identity) and callable(read_ui))
+        old_record,old_payload=_selected(expected['before_store'])
+        _require(callbacks.baseline==expected['before_store'] and callbacks.process==expected['process'])
+        _require(bound['root_identity']==_root(expected['before_store']) and bound['payload']==old_payload)
+        _require(bound['process']==expected['process'] and bound['record_sha256']==old_record['sha256'])
+        _require(bound['candidate']==expected['candidate'] and callbacks.prefix==expected['source']['prefix_sha256'])
+        _require(callbacks.total==expected['source']['size'])
+        def capture():
+            d=callbacks.device;process=callbacks._epoch();first=callbacks.inventory(d)
+            _require(callbacks.clock()<deadline)
+            rec,_=_selected(first)
+            raw=d.call(['exec-out','run-as',TARGET,'head','-c','2049','no_backup/models/selection'],Budget(10),limit=2049)
+            active=decode_active_selection(raw)
+            _require(rec['bytes']==len(raw) and rec['sha256']==hashlib.sha256(raw).hexdigest())
+            script='find no_backup/models -mindepth 1 -maxdepth 1 -type f -name "model-*.gguf"'
+            paths=d.call(['shell','run-as '+TARGET+' sh -c '+shlex.quote(script)],Budget(5),limit=8192).splitlines()
+            _require(len(paths)==1 and re.fullmatch(rb'no_backup/models/model-[0-9a-f]{32}\.gguf',paths[0]) is not None)
+            _require(hashlib.sha256(paths[0].rsplit(b'/',1)[-1]).hexdigest()==active['payload_name_sha256'])
+            prefix=d.call(['exec-out','run-as',TARGET,'head','-c','64',paths[0].decode('ascii')],Budget(5),limit=64)
+            identity=read_identity(d);_require(callbacks.clock()<deadline)
+            ui=read_ui(d);_require(callbacks.clock()<deadline)
+            second=callbacks.inventory(d);_require(callbacks.clock()<deadline)
+            _require(first==second and callbacks._epoch()==process)
+            return verify_committed(expected,dict(store=second,record_bytes=raw,payload_prefix=prefix,
+                                    process=process,identity=identity,ui=ui))
+        return callbacks._bound(deadline,capture)
+    except Failure:
+        raise
+    except Exception:
+        raise Failure('committed postflight callback failed; details suppressed') from None
