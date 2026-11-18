@@ -1,6 +1,33 @@
 # Model Import — Verification Evidence
 
-## Current status — observer blockers resolved; emulator active-import rotation PASS
+## Current status — emulator active-import leave/return PASS — 2026-11-18
+
+Owner **“start next, don't stop until blocker”** continued emulator-only work.
+`.cache/model-import/mi-21-emulator-leave-20261118T001309Z/` verifies the unchanged
+APK/UID and exact retained test-owned selection/prefix before replacement. One new
+exclusive 4 GiB source was selected through real SAF; no owner model was replaced.
+
+The armed observer saw the **same candidate inode** at **6,815,768 bytes** before
+Home, **74,973,208 bytes** while the resolved launcher was actually focused, and
+**116,916,248 bytes** after MAIN/LAUNCHER return focused the app. All are strictly
+partial. That inode subsequently committed as the new **4,294,967,296-byte**
+payload, same PID/UID/epoch, nonce clear, one payload/no candidates. The actual
+return screenshot visibly shows **123207704 of 4294967296 bytes (2%)**, copying
+status, distinct active/pending names, disabled replacement and visible Cancel.
+This is one numeric UI snapshot, not a monotonic progress series; the launcher
+transition is still visible behind it. No Cancel tap occurred.
+
+`result.json`, `leave/result.json`, `leave/armed-leave-proof.json`,
+`visual-progress-review.json` and `batch-audit.json` PASS. Twelve meaningful RED
+host assertions preceded implementation; all **15 final helper guards pass**.
+Owned external source removed, selected synthetic private copy retained, rotation
+settings/APK/UID unchanged, prior ledger byte-preserved and owner41 hashes matched
+before bookkeeping. Product source/build inputs unchanged; no unchanged Gradle
+rerun, S25, MI-22 or inference. Next slice is active-copy process interruption;
+full MI-21 still lacks restart, complete numeric progress, heap/offline, genuine
+keyguard and remaining source-revocation/platform evidence.
+
+## Previous status — observer blockers resolved; emulator active-import rotation PASS
 
 Owner **“address blocker”** authorized a fresh emulator-only attempt. The CRLF
 handshake now works on the actual emulator. Diagnosis also exposed shell built-in
