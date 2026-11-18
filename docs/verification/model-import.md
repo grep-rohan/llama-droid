@@ -1,5 +1,54 @@
 # Model Import — Verification Evidence
 
+## Current status — progress/heap observer BLOCKED; completed copy safely cleaned — 2026-11-18
+
+After the host fix and fresh read-only reconciliation below, the owner’s
+continue-until-blocker instruction continued with **one emulator-only progress /
+sampled-heap case**, not another Cancel or force-stop. Evidence:
+`.cache/model-import/mi-21-emulator-progress-20261118T004307Z/`.
+
+- Exact selected test-copy record/stat and LEAVE-source ownership prefix,
+  installed APK/UID, Ready UI, rotation and source-plus-private-copy headroom
+  were checked before generating one exclusive synthetic 4 GiB source.
+  Real SAF selected only that generated source once.
+- The UI observer missed the active interval: one busy hierarchy-dump miss,
+  then **zero numeric in-flight samples**. The verifier correctly rejected
+  `three numeric samples required`; `result.json` remains **BLOCKED**. This is
+  an observation/timing blocker, not evidence of a broken progress display.
+  No automatic repeat or later offline/keyguard test followed.
+- The app nevertheless completed the replacement as **4,294,967,296 bytes**.
+  Safe idle postflight verified the new selected fixture's 64-byte nonce prefix,
+  exact payload stat/record, same **PID12572 / UID10234 / store epoch**, no
+  pending route or candidates, and one selection/one payload. Normal app cleanup
+  removed the preceding private test payload. Only the generated external source
+  was removed; the **new selected private synthetic test copy remains**.
+- Heap samples exist only **before and idle after**, not during >2 GiB copying:
+  Java heap size 2,921 → 4,477 KiB; native heap size 24,076 → 24,332 KiB;
+  total PSS 52,803 → 54,894 KiB. These are not a peak or an in-flight bounded-heap
+  pass. Numeric progress and >2 GiB heap acceptance remain unverified.
+- APK/UID/rotation match; previous leave/restart ledgers are byte-preserved;
+  owner41 hashes matched before tracker bookkeeping. `fixture-cleanup.json` and
+  `batch-audit.json` confirm safe completed-copy cleanup despite the blocked test.
+  No S25, basic Cancel, force-stop, settings change, MI-22, inference or app/build
+  change occurred.
+
+Host preparation: numeric/memory/series negative cases first produced **18
+assertion failures plus one stub-result error**, followed by GREEN; explicit
+progress-kind guards then had **two meaningful RED assertions** before enabling
+only that bounded case. Final **15 progress + 15 changed shared leave + 24
+changed shared restart guards PASS**. Executed helpers/tests/logs are retained
+inside the ignored case directory; these UI helpers are not clean-checkout
+reproducible. The separate tracked verifier remains reproducible and Python144
+PASS applies to unchanged tracked Python inputs. No unchanged Gradle rerun.
+
+**Stop point / next smallest action:** host-only design/test of a bounded observer
+that does not wait out a continuously changing UI and can record live progress
+and memory in the same copy interval. Do not reset this ledger or automatically
+create another source/repeat the copy. Before any future mutation, reconcile the
+**current PROGRESS-case** selected fixture and its nonce prefix, not the now-deleted
+LEAVE-case payload. Full MI-21 remains incomplete; emulator results do not satisfy
+S25/OEM/genuine-keyguard acceptance and no MI-22 scope is inferred.
+
 ## Host stopped-store verifier fix — 2026-11-18
 
 Owner requested continuing emulator-only until a blocker. Added a reproducible,
