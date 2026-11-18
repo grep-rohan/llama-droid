@@ -1,5 +1,32 @@
 # Model Import — Verification Evidence
 
+## Non-idle progress event parser — host PASS; runtime pending — 2026-11-18
+
+Owner requested the next slice. Added `scripts/model_import_progress_events.py`
+and its reproducible host tests, without starting another copy. The parser uses
+live `uiautomator events` feedback rather than an idle-waiting hierarchy dump.
+It accepts only the exact production package/TextView/text-changed event and
+numeric current `Text` field; it never treats `BeforeText`, another package,
+notification or source name as progress. Only numeric summaries are retained.
+Fragmented LF/CRLF streams, signed-Long sizes, monotonic event time/counters and
+fixed 16 KiB line / 4 MiB transport / 512-sample bounds are tested.
+
+Meaningful RED: **16 assertion failures** against the initial no-op parser.
+GREEN: **15 focused / 159 full Python tests PASS**; logs in
+`.cache/model-import/progress-events-host/`. Tests use explicitly synthetic event
+records, not fabricated Android observations. App/APK/build inputs unchanged;
+no unchanged Gradle rerun. A parser is **not** proof of observer readiness,
+process/candidate identity, live progress or in-flight heap use. The original
+004307Z blocked result remains unchanged.
+
+Design checked against upstream [EventsCommand.java](https://android.googlesource.com/platform/frameworks/uiautomator/+/refs/heads/main/cmds/uiautomator/src/com/android/commands/uiautomator/EventsCommand.java)
+and [AccessibilityEvent.toString](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/master/core/java/android/view/accessibility/AccessibilityEvent.java):
+the event listener prints directly without waiting for idle, but the command has
+**no listener-ready acknowledgement**. Before another import, a bounded emulator
+probe must establish actual availability/format, a defensible readiness guard,
+and independent partial-candidate/PID/UID/heap observations. No new fixture,
+force-stop, Cancel, settings, test APK, S25 or MI-22 action is authorized by parsing.
+
 ## Current status — progress/heap observer BLOCKED; completed copy safely cleaned — 2026-11-18
 
 After the host fix and fresh read-only reconciliation below, the owner’s
