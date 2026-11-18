@@ -1,6 +1,31 @@
 # Model Import — Verification Evidence
 
-## Current status — real callbacks implemented; actual idle checks PASS — 2026-11-18
+## Committed-copy postflight — host PASS, current selection read-only check PASS
+
+Added `scripts/model_import_postflight.py` and host tests in `d4f5615`, `316da59`,
+and `dcca715`. The postflight reads only after observer exit124 and a captured
+candidate binding. It requires the same candidate inode and model ID in the new
+selection, exact scoped source name/size/64-byte prefix, unchanged root, epoch,
+APK/UID and process incarnation, one selected payload with no pending nonce or
+extra entries, stable inventory across the reads, and matching idle UI name/size.
+It makes no claim about model-body integrity, external source cleanup, or live
+progress/heap. It does not authorize any mutation.
+
+**24 focused / 250 full Python tests PASS**. Synthetic positive and negative
+cases cover record bounds, candidate identity, cleanup state, UI, and callback
+deadline overruns. Logs: `.cache/model-import/committed-postflight-host/`.
+App/build inputs unchanged; Gradle not rerun.
+
+A separate read-only `emulator-5554` (qemu=1) probe decoded the actual existing
+144-byte selection and matched its visible name and 4,294,967,296-byte size.
+`record-probe-result.json` is **PASS_CURRENT_RECORD_AND_UI_DECODE_ONLY**. The
+selected PROGRESS fixture, APK/UID, process/Activity, rotation and prior ledgers
+were preserved. No import, source generation, reset, app input, S25 access or
+MI-22 action. No active-copy promotion or in-flight progress/heap result was
+produced. The next runtime step requires separate scope and fresh reconciliation
+before replacing the emulator's selected synthetic fixture.
+
+## Previous status — real callbacks implemented; actual idle checks PASS — 2026-11-18
 
 Owner requested the next slice; **no new import**. Added
 `scripts/model_import_live_callbacks.py` and its tests (commit `4d499b5`):
